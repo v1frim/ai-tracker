@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 
 const SKILLS = [
   { id: "llm", name: "LLM / Чат-боти", emoji: "🧠", color: "#00ff88", tools: ["ChatGPT", "Claude", "Gemini", "Grok", "Mistral", "DeepSeek"] },
@@ -24,6 +24,9 @@ const ACHIEVEMENTS = [
   { id: "first_dollar", name: "Перший долар", desc: "Зароби перші $1 з AI", xp: 200, icon: "💵", check: (t, i) => i >= 1 },
   { id: "hundred_dollar", name: "Перша сотня", desc: "Зароби $100 з AI", xp: 500, icon: "💯", check: (t, i) => i >= 100 },
   { id: "thousand_dollar", name: "Перша тисяча", desc: "Зароби $1000 з AI", xp: 1000, icon: "🏆", check: (t, i) => i >= 1000 },
+  { id: "streak_7", name: "Тижневий стрік", desc: "7 днів поспіль з AI", xp: 250, icon: "🔥", check: (t, i, p, sd, streak) => streak >= 7 },
+  { id: "streak_30", name: "Місячний стрік", desc: "30 днів поспіль з AI", xp: 800, icon: "⚡", check: (t, i, p, sd, streak) => streak >= 30 },
+  { id: "sessions_50", name: "50 сесій", desc: "Проведи 50 AI-сесій", xp: 500, icon: "💪", check: (t, i, p, sd, streak, totalSess) => totalSess >= 50 },
   { id: "all_categories", name: "Поліглот ШІ", desc: "Вивчи хоча б 1 інструмент у кожній категорії", xp: 500, icon: "🌐",
     check: (t, i, p, skillData) => SKILLS.every(s => skillData[s.id]?.unlockedTools?.length > 0) },
   { id: "oxford_dev", name: "Oxford Dev", desc: "Запущено! (Oxford_1000 вже є 🎉)", xp: 300, icon: "📚", check: () => true },
@@ -31,7 +34,34 @@ const ACHIEVEMENTS = [
 
 const DEFAULT_SKILL_DATA = Object.fromEntries(SKILLS.map(s => [s.id, { unlockedTools: [] }]));
 const DEFAULT_PROJECTS = [{ name: "Oxford_1000 — додаток для англійської", date: "2026" }];
+const DEFAULT_SESSIONS = { dates: [], monthlyTarget: 50 };
 const STORAGE_KEY = "ai_tracker_v1";
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function calcStreak(dates) {
+  if (!dates.length) return 0;
+  const set = new Set(dates);
+  let streak = 0;
+  const today = new Date();
+  for (let i = 0; i < 365; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const s = d.toISOString().slice(0, 10);
+    if (set.has(s)) streak++;
+    else if (i > 0) break; // gap found (skip today if not done yet)
+  }
+  // If today not done, streak counts from yesterday
+  if (!set.has(todayStr()) && streak > 0) return streak;
+  return streak;
+}
+
+function sessionsThisMonth(dates) {
+  const ym = new Date().toISOString().slice(0, 7);
+  return dates.filter(d => d.startsWith(ym)).length;
+}
 
 function loadState() {
   try {
@@ -46,6 +76,17 @@ function loadState() {
 function calcLevel(xp) { return Math.floor(Math.sqrt(xp / 80)) + 1; }
 function xpForLevel(lvl) { return (lvl - 1) * (lvl - 1) * 80; }
 
+// Last N days as array of date strings (oldest first)
+function lastNDays(n) {
+  const days = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    days.push(d.toISOString().slice(0, 10));
+  }
+  return days;
+}
+
 export default function AITracker() {
   const saved = loadState();
 
@@ -55,16 +96,16 @@ export default function AITracker() {
   const [incomeInput, setIncomeInput] = useState("");
   const [projects, setProjects] = useState(saved?.projects ?? DEFAULT_PROJECTS);
   const [projectInput, setProjectInput] = useState("");
+  const [sessions, setSessions] = useState(saved?.sessions ?? DEFAULT_SESSIONS);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [selectedSkill, setSelectedSkill] = useState(null);
   const [notification, setNotification] = useState(null);
   const [unlockedAchievements, setUnlockedAchievements] = useState(saved?.unlockedAchievements ?? ["oxford_dev"]);
 
-  // Persist all state to localStorage on every relevant change
   useEffect(() => {
-    const state = { skillData, totalXP, income, projects, unlockedAchievements };
+    const state = { skillData, totalXP, income, projects, unlockedAchievements, sessions };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [skillData, totalXP, income, projects, unlockedAchievements]);
+  }, [skillData, totalXP, income, projects, unlockedAchievements, sessions]);
 
   const totalLevel = calcLevel(totalXP);
   const curLevelXP = xpForLevel(totalLevel);
@@ -72,23 +113,27 @@ export default function AITracker() {
   const xpProgress = ((totalXP - curLevelXP) / (nextLevelXP - curLevelXP)) * 100;
   const totalTools = Object.values(skillData).flatMap(s => s.unlockedTools).length;
 
+  const streak = useMemo(() => calcStreak(sessions.dates), [sessions.dates]);
+  const monthSessions = useMemo(() => sessionsThisMonth(sessions.dates), [sessions.dates]);
+  const doneToday = sessions.dates.includes(todayStr());
+  const heatmapDays = useMemo(() => lastNDays(56), []);
+  const sessionSet = useMemo(() => new Set(sessions.dates), [sessions.dates]);
+
   const showNotif = useCallback((msg, type = "xp") => {
     setNotification({ msg, type, id: Date.now() });
     setTimeout(() => setNotification(null), 2800);
   }, []);
 
-  const checkAchievements = useCallback((tools, inc, proj, sd, currentUnlocked) => {
+  const checkAchievements = useCallback((tools, inc, proj, sd, currentUnlocked, currentStreak, totalSessions) => {
     const newlyUnlocked = [];
     let bonusXP = 0;
-
     ACHIEVEMENTS.forEach(a => {
       if (currentUnlocked.includes(a.id)) return;
-      if (a.check(tools, inc, proj, sd)) {
+      if (a.check(tools, inc, proj, sd, currentStreak, totalSessions)) {
         newlyUnlocked.push(a.id);
         bonusXP += a.xp;
       }
     });
-
     if (newlyUnlocked.length > 0) {
       setUnlockedAchievements(prev => [...prev, ...newlyUnlocked]);
       setTotalXP(prev => prev + bonusXP);
@@ -112,12 +157,12 @@ export default function AITracker() {
       const newTotal = Object.values(updated).flatMap(s => s.unlockedTools).length;
       gainXP(100, `(${tool})`);
       setUnlockedAchievements(ua => {
-        checkAchievements(newTotal, income, projects.length, updated, ua);
+        checkAchievements(newTotal, income, projects.length, updated, ua, streak, sessions.dates.length);
         return ua;
       });
       return updated;
     });
-  }, [gainXP, checkAchievements, income, projects]);
+  }, [gainXP, checkAchievements, income, projects, streak, sessions.dates.length]);
 
   const addIncome = useCallback(() => {
     const amt = parseFloat(incomeInput);
@@ -127,10 +172,10 @@ export default function AITracker() {
     gainXP(Math.ceil(amt * 3), `(+$${amt})`);
     setIncomeInput("");
     setUnlockedAchievements(ua => {
-      checkAchievements(totalTools, newIncome, projects.length, skillData, ua);
+      checkAchievements(totalTools, newIncome, projects.length, skillData, ua, streak, sessions.dates.length);
       return ua;
     });
-  }, [incomeInput, income, gainXP, checkAchievements, totalTools, projects, skillData]);
+  }, [incomeInput, income, gainXP, checkAchievements, totalTools, projects, skillData, streak, sessions.dates.length]);
 
   const addProject = useCallback(() => {
     if (!projectInput.trim()) return;
@@ -139,18 +184,47 @@ export default function AITracker() {
     gainXP(200, `(${projectInput.trim()})`);
     setProjectInput("");
     setUnlockedAchievements(ua => {
-      checkAchievements(totalTools, income, newProjects.length, skillData, ua);
+      checkAchievements(totalTools, income, newProjects.length, skillData, ua, streak, sessions.dates.length);
       return ua;
     });
-  }, [projectInput, projects, gainXP, checkAchievements, totalTools, income, skillData]);
+  }, [projectInput, projects, gainXP, checkAchievements, totalTools, income, skillData, streak, sessions.dates.length]);
+
+  const logSession = useCallback(() => {
+    if (doneToday) return;
+    const today = todayStr();
+    const newDates = [...sessions.dates, today];
+    const newStreak = calcStreak(newDates);
+    const newSessions = { ...sessions, dates: newDates };
+    setSessions(newSessions);
+    gainXP(50, "(AI-сесія)");
+    setUnlockedAchievements(ua => {
+      checkAchievements(totalTools, income, projects.length, skillData, ua, newStreak, newDates.length);
+      return ua;
+    });
+  }, [doneToday, sessions, gainXP, checkAchievements, totalTools, income, projects, skillData]);
+
+  const updateMonthlyTarget = useCallback((val) => {
+    const t = parseInt(val);
+    if (t > 0 && t <= 31) setSessions(prev => ({ ...prev, monthlyTarget: t }));
+  }, []);
 
   const tabs = [
     { id: "dashboard", label: "📊 Дашборд" },
+    { id: "sessions", label: "🔥 Сесії" },
     { id: "skills", label: "🧩 Навички" },
     { id: "achievements", label: "🏆 Досягнення" },
     { id: "income", label: "💰 Дохід" },
     { id: "projects", label: "🚀 Проекти" },
   ];
+
+  // Heatmap: group days into weeks
+  const heatmapWeeks = useMemo(() => {
+    const weeks = [];
+    for (let i = 0; i < heatmapDays.length; i += 7) {
+      weeks.push(heatmapDays.slice(i, i + 7));
+    }
+    return weeks;
+  }, [heatmapDays]);
 
   return (
     <div style={{ fontFamily: "'Courier New', monospace", background: "#080a12", minHeight: "100vh", color: "#e2e8f0" }}>
@@ -164,15 +238,16 @@ export default function AITracker() {
         .tool-chip:hover:not(:disabled) { transform: scale(1.06); }
         .act-btn { transition: all 0.15s; }
         .act-btn:hover { transform: translateY(-1px); opacity: 0.9; }
+        .checkin-btn { transition: all 0.2s; }
+        .checkin-btn:not(:disabled):hover { transform: scale(1.03); box-shadow: 0 0 40px rgba(0,255,136,0.5) !important; }
         @keyframes slideIn { from { transform: translateX(120px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
         input::placeholder { color: #475569; }
         input:focus { outline: none; border-color: rgba(0,255,136,0.4) !important; }
       `}</style>
 
-      {/* Grid background */}
       <div style={{ position: "fixed", inset: 0, zIndex: 0, backgroundImage: "linear-gradient(rgba(0,255,136,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,136,0.025) 1px,transparent 1px)", backgroundSize: "44px 44px", pointerEvents: "none" }} />
 
-      {/* Notification */}
       {notification && (
         <div key={notification.id} style={{ position: "fixed", top: 16, right: 16, zIndex: 9999, background: notification.type === "achievement" ? "linear-gradient(135deg,#f59e0b,#d97706)" : "linear-gradient(135deg,#00ff88,#00bb66)", color: "#000", padding: "11px 20px", borderRadius: 12, fontWeight: 700, fontSize: 13, boxShadow: `0 0 28px ${notification.type === "achievement" ? "rgba(245,158,11,0.6)" : "rgba(0,255,136,0.5)"}`, animation: "slideIn 0.3s ease", fontFamily: "'Space Mono',monospace" }}>{notification.msg}</div>
       )}
@@ -188,6 +263,9 @@ export default function AITracker() {
                 <span style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 20, fontWeight: 800, color: "#fff" }}>Вова</span>
                 <span style={{ background: "rgba(0,255,136,0.12)", border: "1px solid #00ff88", color: "#00ff88", padding: "2px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700 }}>LVL {totalLevel}</span>
                 <span style={{ fontSize: 11, color: "#64748b" }}>{totalXP} XP</span>
+                {streak > 0 && (
+                  <span style={{ background: "rgba(245,158,11,0.12)", border: "1px solid #f59e0b", color: "#f59e0b", padding: "2px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700 }}>🔥 {streak} дн.</span>
+                )}
               </div>
               <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
                 <div style={{ flex: 1, height: 7, background: "rgba(255,255,255,0.08)", borderRadius: 4, overflow: "hidden" }}>
@@ -201,6 +279,7 @@ export default function AITracker() {
                 { label: "Дохід", val: `$${income.toFixed(0)}`, color: "#f59e0b" },
                 { label: "Проекти", val: projects.length, color: "#6366f1" },
                 { label: "Інструменти", val: `${totalTools}/${TOTAL_TOOLS}`, color: "#00ff88" },
+                { label: "Сесій/міс", val: `${monthSessions}/${sessions.monthlyTarget}`, color: "#f43f5e" },
               ].map(s => (
                 <div key={s.label} style={{ textAlign: "center", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 12, padding: "8px 13px" }}>
                   <div style={{ fontSize: 17, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif" }}>{s.val}</div>
@@ -236,6 +315,22 @@ export default function AITracker() {
                 );
               })}
             </div>
+
+            {/* Quick session check-in on dashboard */}
+            <div style={{ background: doneToday ? "rgba(0,255,136,0.05)" : "rgba(244,63,94,0.05)", border: `1px solid ${doneToday ? "rgba(0,255,136,0.2)" : "rgba(244,63,94,0.2)"}`, borderRadius: 14, padding: 16, marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: doneToday ? "#00ff88" : "#f43f5e", fontFamily: "'Exo 2',sans-serif" }}>
+                  {doneToday ? "✓ AI-сесія сьогодні виконана" : "⚡ Чи працював сьогодні з AI?"}
+                </div>
+                <div style={{ fontSize: 11, color: "#475569", marginTop: 3 }}>
+                  Стрік: {streak} дн. · {monthSessions}/{sessions.monthlyTarget} цього місяця · всього {sessions.dates.length} сесій
+                </div>
+              </div>
+              {!doneToday && (
+                <button className="checkin-btn" onClick={logSession} style={{ background: "linear-gradient(135deg,#00ff88,#00cc6a)", color: "#000", border: "none", padding: "10px 20px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'Space Mono',monospace", boxShadow: "0 0 20px rgba(0,255,136,0.3)", whiteSpace: "nowrap" }}>+ Так (+50 XP)</button>
+              )}
+            </div>
+
             <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 18 }}>
               <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 14 }}>🎯 Швидкі дії</div>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -250,6 +345,100 @@ export default function AITracker() {
               <div style={{ marginTop: 16, padding: "12px 14px", background: "rgba(0,255,136,0.05)", border: "1px solid rgba(0,255,136,0.15)", borderRadius: 10 }}>
                 <span style={{ fontSize: 12, color: "#64748b" }}>🏅 Розблоковано досягнень: </span>
                 <span style={{ fontSize: 13, color: "#00ff88", fontWeight: 700 }}>{unlockedAchievements.length} / {ACHIEVEMENTS.length}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Sessions Tab */}
+        {activeTab === "sessions" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+            {/* Big check-in button */}
+            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 24, textAlign: "center" }}>
+              <div style={{ fontSize: 13, color: "#64748b", marginBottom: 6, fontFamily: "'Space Mono',monospace" }}>
+                {new Date().toLocaleDateString("uk-UA", { weekday: "long", day: "numeric", month: "long" })}
+              </div>
+              {doneToday ? (
+                <div>
+                  <div style={{ fontSize: 48, marginBottom: 10 }}>✅</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: "#00ff88", fontFamily: "'Exo 2',sans-serif" }}>Сесія виконана!</div>
+                  <div style={{ fontSize: 12, color: "#475569", marginTop: 6 }}>Повернись завтра для нового +50 XP</div>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: "#fff", fontFamily: "'Exo 2',sans-serif", marginBottom: 16 }}>Ти сьогодні працював з AI?</div>
+                  <button className="checkin-btn" onClick={logSession} style={{ background: "linear-gradient(135deg,#00ff88,#00cc6a)", color: "#000", border: "none", padding: "16px 40px", borderRadius: 14, fontWeight: 800, cursor: "pointer", fontSize: 16, fontFamily: "'Exo 2',sans-serif", boxShadow: "0 0 30px rgba(0,255,136,0.4)", letterSpacing: 0.5 }}>⚡ Так, працював! (+50 XP)</button>
+                </div>
+              )}
+            </div>
+
+            {/* Stats row */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))", gap: 12 }}>
+              {[
+                { label: "Стрік", val: `${streak} дн.`, icon: "🔥", color: "#f59e0b", sub: streak >= 7 ? "Топ!" : "Тримай!" },
+                { label: "Цього місяця", val: `${monthSessions}/${sessions.monthlyTarget}`, icon: "📅", color: "#00ff88", sub: `${Math.round(monthSessions / sessions.monthlyTarget * 100)}%` },
+                { label: "Всього сесій", val: sessions.dates.length, icon: "⚡", color: "#6366f1", sub: `+50 XP кожна` },
+                { label: "Найдовший стрік", val: `${Math.max(streak, 0)} дн.`, icon: "🏅", color: "#ec4899", sub: "личний рекорд" },
+              ].map(s => (
+                <div key={s.label} style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${s.color}22`, borderRadius: 14, padding: "14px 16px", textAlign: "center" }}>
+                  <div style={{ fontSize: 22, marginBottom: 6 }}>{s.icon}</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif" }}>{s.val}</div>
+                  <div style={{ fontSize: 10, color: "#475569", marginTop: 3, textTransform: "uppercase", letterSpacing: 1 }}>{s.label}</div>
+                  <div style={{ fontSize: 10, color: s.color, marginTop: 2 }}>{s.sub}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Monthly progress bar */}
+            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 18 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+                <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 14, fontWeight: 700, color: "#fff" }}>
+                  📅 Ціль місяця
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 11, color: "#64748b" }}>Ціль:</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max="31"
+                    value={sessions.monthlyTarget}
+                    onChange={e => updateMonthlyTarget(e.target.value)}
+                    style={{ width: 56, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "4px 8px", color: "#00ff88", fontSize: 13, fontFamily: "'Space Mono',monospace", textAlign: "center" }}
+                  />
+                  <span style={{ fontSize: 11, color: "#64748b" }}>сесій</span>
+                </div>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 8 }}>
+                <span style={{ color: "#94a3b8" }}>{monthSessions} виконано</span>
+                <span style={{ color: "#00ff88", fontWeight: 700 }}>{Math.min(100, Math.round(monthSessions / sessions.monthlyTarget * 100))}%</span>
+              </div>
+              <div style={{ height: 10, background: "rgba(255,255,255,0.07)", borderRadius: 5, overflow: "hidden" }}>
+                <div style={{ width: `${Math.min(100, (monthSessions / sessions.monthlyTarget) * 100)}%`, height: "100%", background: monthSessions >= sessions.monthlyTarget ? "#00ff88" : "linear-gradient(90deg,#f43f5e,#f59e0b)", borderRadius: 5, transition: "width 0.5s" }} />
+              </div>
+            </div>
+
+            {/* Heatmap */}
+            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 18 }}>
+              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 14 }}>🗓 Активність (останні 56 днів)</div>
+              <div style={{ display: "flex", gap: 4, flexWrap: "nowrap", overflowX: "auto", paddingBottom: 4 }}>
+                {heatmapWeeks.map((week, wi) => (
+                  <div key={wi} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {week.map(day => {
+                      const done = sessionSet.has(day);
+                      const isToday = day === todayStr();
+                      return (
+                        <div key={day} title={day} style={{ width: 14, height: 14, borderRadius: 3, background: done ? "#00ff88" : "rgba(255,255,255,0.06)", border: isToday ? "1px solid #00ff88" : "none", transition: "background 0.2s" }} />
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 10 }}>
+                <div style={{ width: 12, height: 12, borderRadius: 2, background: "rgba(255,255,255,0.06)" }} />
+                <span style={{ fontSize: 10, color: "#475569" }}>Пропущено</span>
+                <div style={{ width: 12, height: 12, borderRadius: 2, background: "#00ff88" }} />
+                <span style={{ fontSize: 10, color: "#475569" }}>Є сесія</span>
               </div>
             </div>
           </div>
