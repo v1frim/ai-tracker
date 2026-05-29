@@ -73,8 +73,22 @@ function loadState() {
   }
 }
 
-function calcLevel(xp) { return Math.floor(Math.sqrt(xp / 80)) + 1; }
-function xpForLevel(lvl) { return (lvl - 1) * (lvl - 1) * 80; }
+// Level model (Ulives-style): LVL 1-3 base 400+100/lvl, LVL 4-100 base 700+200/lvl
+// Cumulative XP at LVL 100 = exactly 1,000,000
+function xpForLevel(lvl) {
+  if (lvl <= 1) return 0;
+  if (lvl === 2) return 400;
+  if (lvl === 3) return 900;
+  const n = lvl - 3; // levels above 3
+  return 900 + n * 700 + 100 * (n - 1) * n;
+}
+
+function calcLevel(xp) {
+  if (xp < 400) return 1;
+  if (xp < 900) return 2;
+  const n = Math.floor((-600 + Math.sqrt(360000 + 400 * (xp - 900))) / 200);
+  return Math.min(100, n + 3);
+}
 
 // Last N days as array of date strings (oldest first)
 function lastNDays(n) {
