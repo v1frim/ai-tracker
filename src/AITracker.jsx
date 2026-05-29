@@ -270,23 +270,17 @@ export default function AITracker() {
 
         {/* Header */}
         <div style={{ marginBottom: 22, paddingBottom: 20, borderBottom: "1px solid rgba(0,255,136,0.15)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-            <div style={{ width: 60, height: 60, borderRadius: "50%", flexShrink: 0, background: "linear-gradient(135deg,#00ff88,#00aa55)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, fontWeight: 800, color: "#000", boxShadow: "0 0 22px rgba(0,255,136,0.45)", fontFamily: "'Exo 2',sans-serif" }}>В</div>
-            <div style={{ flex: 1, minWidth: 180 }}>
+          {/* Top row: avatar + name + stats */}
+          <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginBottom: 14 }}>
+            <div style={{ width: 60, height: 60, borderRadius: "50%", flexShrink: 0, background: "linear-gradient(135deg,#00ff88,#00aa55)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 800, color: "#000", boxShadow: "0 0 22px rgba(0,255,136,0.45)", fontFamily: "'Exo 2',sans-serif", letterSpacing: -1 }}>Vi</div>
+            <div style={{ flex: 1, minWidth: 160 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                <span style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 20, fontWeight: 800, color: "#fff" }}>Вова</span>
-                <span style={{ background: "rgba(0,255,136,0.12)", border: "1px solid #00ff88", color: "#00ff88", padding: "2px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700 }}>LVL {totalLevel}</span>
-                <span style={{ fontSize: 11, color: "#64748b" }}>{totalXP} XP</span>
+                <span style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 20, fontWeight: 800, color: "#fff" }}>ViFrim</span>
                 {streak > 0 && (
                   <span style={{ background: "rgba(245,158,11,0.12)", border: "1px solid #f59e0b", color: "#f59e0b", padding: "2px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700 }}>🔥 {streak} дн.</span>
                 )}
               </div>
-              <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ flex: 1, height: 7, background: "rgba(255,255,255,0.08)", borderRadius: 4, overflow: "hidden" }}>
-                  <div style={{ width: `${Math.min(100, xpProgress)}%`, height: "100%", background: "linear-gradient(90deg,#00ff88,#00cc6a)", borderRadius: 4, transition: "width 0.6s ease" }} />
-                </div>
-                <span style={{ fontSize: 10, color: "#00ff88", whiteSpace: "nowrap" }}>→ LVL {totalLevel + 1}</span>
-              </div>
+              <div style={{ fontSize: 11, color: "#475569", marginTop: 3 }}>AI Progress Tracker</div>
             </div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               {[
@@ -300,6 +294,50 @@ export default function AITracker() {
                   <div style={{ fontSize: 9, color: "#475569", textTransform: "uppercase", letterSpacing: 1 }}>{s.label}</div>
                 </div>
               ))}
+            </div>
+          </div>
+
+          {/* XP Bar — Aion style */}
+          <div style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(0,255,136,0.12)", borderRadius: 12, padding: "10px 14px" }}>
+            {/* Level labels + XP numbers */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ background: "linear-gradient(135deg,#00ff88,#00aa55)", color: "#000", padding: "2px 10px", borderRadius: 6, fontSize: 12, fontWeight: 800, fontFamily: "'Exo 2',sans-serif" }}>LVL {totalLevel}</span>
+                <span style={{ fontSize: 12, color: "#00ff88", fontFamily: "'Space Mono',monospace", fontWeight: 700 }}>{totalXP.toLocaleString()} XP</span>
+              </div>
+              <div style={{ fontSize: 11, color: "#475569", fontFamily: "'Space Mono',monospace" }}>
+                ще <span style={{ color: "#94a3b8", fontWeight: 700 }}>{(nextLevelXP - totalXP).toLocaleString()}</span> XP
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 12, color: "#475569", fontFamily: "'Space Mono',monospace" }}>{nextLevelXP.toLocaleString()} XP</span>
+                <span style={{ background: "rgba(0,255,136,0.08)", border: "1px solid rgba(0,255,136,0.3)", color: "#00ff88", padding: "2px 10px", borderRadius: 6, fontSize: 12, fontWeight: 800, fontFamily: "'Exo 2',sans-serif" }}>LVL {totalLevel + 1}</span>
+              </div>
+            </div>
+
+            {/* Bar track */}
+            <div style={{ position: "relative", height: 14, background: "rgba(255,255,255,0.06)", borderRadius: 7, overflow: "hidden", border: "1px solid rgba(0,255,136,0.08)" }}>
+              {/* Filled portion */}
+              <div style={{
+                width: `${Math.min(100, xpProgress)}%`,
+                height: "100%",
+                background: "linear-gradient(90deg, #006633 0%, #00cc66 60%, #00ff88 85%, #aaffd4 100%)",
+                borderRadius: 7,
+                transition: "width 0.7s ease",
+                boxShadow: "0 0 10px rgba(0,255,136,0.6), inset 0 1px 0 rgba(255,255,255,0.2)",
+                position: "relative",
+              }}>
+                {/* Shimmer line */}
+                <div style={{ position: "absolute", top: 2, left: 0, right: 0, height: 2, background: "rgba(255,255,255,0.3)", borderRadius: 2 }} />
+              </div>
+              {/* Segment notches */}
+              {[10,20,30,40,50,60,70,80,90].map(p => (
+                <div key={p} style={{ position: "absolute", top: 0, left: `${p}%`, width: 1, height: "100%", background: "rgba(0,0,0,0.35)", pointerEvents: "none" }} />
+              ))}
+            </div>
+
+            {/* Progress percent */}
+            <div style={{ textAlign: "center", marginTop: 5, fontSize: 10, color: "#475569", fontFamily: "'Space Mono',monospace" }}>
+              {Math.round(xpProgress)}% до наступного рівня
             </div>
           </div>
         </div>
