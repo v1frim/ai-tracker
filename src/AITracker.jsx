@@ -157,6 +157,35 @@ function LeagueBadge({ level, size = 36 }) {
   );
 }
 
+const DEFAULT_INCOME_CATS = [
+  { id: "affiliate",  name: "Affiliate",        color: "#10b981", icon: "🤝" },
+  { id: "products",   name: "Digital Products",  color: "#6366f1", icon: "📦" },
+  { id: "services",   name: "Послуги",           color: "#f59e0b", icon: "🛠️" },
+  { id: "content",    name: "Контент",           color: "#ec4899", icon: "📱" },
+  { id: "inc_other",  name: "Інше",             color: "#9a8a60", icon: "💰" },
+];
+
+const DEFAULT_EXPENSE_CATS = [
+  { id: "claude_sub",  name: "Claude",   color: "#c9a84c", icon: "🤖" },
+  { id: "chatgpt_sub", name: "ChatGPT",  color: "#10b981", icon: "💬" },
+  { id: "syntx_sub",   name: "Syntx",    color: "#6366f1", icon: "💻" },
+  { id: "gemini_sub",  name: "Gemini",   color: "#4a9fd4", icon: "✨" },
+  { id: "exp_other",   name: "Інше",     color: "#9a8a60", icon: "💸" },
+];
+
+function monthLabel(ym) {
+  const m = parseInt(ym.split("-")[1]) - 1;
+  return ["Січ","Лют","Бер","Кві","Тра","Чер","Лип","Сер","Вер","Жов","Лис","Гру"][m];
+}
+
+function getLastMonths(n) {
+  return Array.from({ length: n }, (_, i) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - (n - 1 - i));
+    return d.toISOString().slice(0, 7);
+  });
+}
+
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -336,10 +365,27 @@ export default function AITracker() {
 
   const [skillData, setSkillData] = useState(saved?.skillData ?? DEFAULT_SKILL_DATA);
   const [totalXP, setTotalXP] = useState(saved?.totalXP ?? 300);
-  const [income, setIncome] = useState(saved?.income ?? 0);
-  const [incomeInput, setIncomeInput] = useState("");
-  const [expenses, setExpenses] = useState(saved?.expenses ?? 0);
-  const [expenseInput, setExpenseInput] = useState("");
+  // Finance v2 — entries + categories
+  const [incomeEntries, setIncomeEntries] = useState(() => {
+    if (saved?.incomeEntries) return saved.incomeEntries;
+    // migrate legacy income number
+    if (saved?.income > 0) return [{ id: "legacy_inc", catId: "inc_other", amount: saved.income, currency: "USD", date: new Date().toISOString().slice(0,10), note: "Перенесено" }];
+    return [];
+  });
+  const [expenseEntries, setExpenseEntries] = useState(() => {
+    if (saved?.expenseEntries) return saved.expenseEntries;
+    if (saved?.expenses > 0) return [{ id: "legacy_exp", catId: "exp_other", amount: saved.expenses, currency: "USD", date: new Date().toISOString().slice(0,10), note: "Перенесено", recurring: false }];
+    return [];
+  });
+  const [incomeCats, setIncomeCats] = useState(saved?.incomeCats ?? DEFAULT_INCOME_CATS);
+  const [expenseCats, setExpenseCats] = useState(saved?.expenseCats ?? DEFAULT_EXPENSE_CATS);
+  const [uahRate, setUahRate] = useState(saved?.uahRate ?? 44.29);
+  const [uahRateUpdatedAt, setUahRateUpdatedAt] = useState(saved?.uahRateUpdatedAt ?? null);
+  const [rateFetching, setRateFetching] = useState(false);
+  const [incForm, setIncForm] = useState({ amount: "", currency: "USD", catId: "inc_other", note: "" });
+  const [expForm, setExpForm] = useState({ amount: "", currency: "USD", catId: "exp_other", note: "", recurring: false });
+  const [newCatName, setNewCatName] = useState("");
+  const [addingCat, setAddingCat] = useState(null); // "income" | "expense" | null
   const [projects, setProjects] = useState(saved?.projects ?? DEFAULT_PROJECTS);
   const [projectInput, setProjectInput] = useState("");
   const [sessions, setSessions] = useState(saved?.sessions ?? DEFAULT_SESSIONS);
@@ -357,9 +403,36 @@ export default function AITracker() {
   const TAB_IDS = ["dashboard", "sessions", "skills", "achievements", "goals", "plan", "finances", "projects"];
 
   useEffect(() => {
-    const state = { skillData, totalXP, income, expenses, projects, unlockedAchievements, sessions, goals, plan };
+    const state = { skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, projects, unlockedAchievements, sessions, goals, plan };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [skillData, totalXP, income, expenses, projects, unlockedAchievements, sessions, goals, plan]);
+  }, [skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, projects, unlockedAchievements, sessions, goals, plan]);
+
+  // Computed totals in USD
+  const toUSD = useCallback((amount, currency) => currency === "UAH" ? amount / uahRate : amount, [uahRate]);
+  const totalIncome = useMemo(() => incomeEntries.reduce((s, e) => s + toUSD(e.amount, e.currency), 0), [incomeEntries, toUSD]);
+  const totalExpenses = useMemo(() => expenseEntries.reduce((s, e) => s + toUSD(e.amount, e.currency), 0), [expenseEntries, toUSD]);
+
+  // Auto-fetch UAH rate from PrivatBank when opening Finances tab (if stale > 1h)
+  const fetchRate = useCallback(async () => {
+    setRateFetching(true);
+    try {
+      const res = await fetch("https://api.privatbank.ua/p24api/pubinfo?json&exchange&coursid=5");
+      const data = await res.json();
+      const usd = data.find(x => x.ccy === "USD");
+      if (usd) {
+        const rate = +((parseFloat(usd.buy) + parseFloat(usd.sale)) / 2).toFixed(2);
+        setUahRate(rate);
+        setUahRateUpdatedAt(new Date().toISOString());
+      }
+    } catch (_) { /* silent fail */ }
+    setRateFetching(false);
+  }, []);
+
+  useEffect(() => {
+    if (activeTab !== "finances") return;
+    const isStale = !uahRateUpdatedAt || (Date.now() - new Date(uahRateUpdatedAt).getTime()) > 60 * 60 * 1000;
+    if (isStale) fetchRate();
+  }, [activeTab]); // eslint-disable-line
 
   // Tab key cycles through navigation tabs
   useEffect(() => {
@@ -428,32 +501,38 @@ export default function AITracker() {
       const newTotal = Object.values(updated).flatMap(s => s.unlockedTools).length;
       gainXP(100, `(${tool})`);
       setUnlockedAchievements(ua => {
-        checkAchievements(newTotal, income, projects.length, updated, ua, streak, sessions.dates.length);
+        checkAchievements(newTotal, totalIncome, projects.length, updated, ua, streak, sessions.dates.length);
         return ua;
       });
       return updated;
     });
-  }, [gainXP, checkAchievements, income, projects, streak, sessions.dates.length]);
+  }, [gainXP, checkAchievements, totalIncome, projects, streak, sessions.dates.length]);
 
-  const addIncome = useCallback(() => {
-    const amt = parseFloat(incomeInput);
+  const addIncomeEntry = useCallback(() => {
+    const amt = parseFloat(incForm.amount);
     if (!amt || amt <= 0) return;
-    const newIncome = income + amt;
-    setIncome(newIncome);
-    gainXP(Math.ceil(amt * 3), `(+$${amt})`);
-    setIncomeInput("");
-    setUnlockedAchievements(ua => {
-      checkAchievements(totalTools, newIncome, projects.length, skillData, ua, streak, sessions.dates.length);
-      return ua;
+    const amtUSD = incForm.currency === "UAH" ? amt / uahRate : amt;
+    const entry = { id: `inc_${Date.now()}`, catId: incForm.catId, amount: amt, currency: incForm.currency, date: new Date().toISOString().slice(0,10), note: incForm.note };
+    setIncomeEntries(prev => {
+      const next = [...prev, entry];
+      const newTotal = next.reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
+      gainXP(Math.ceil(amtUSD * 3), `(+$${amtUSD.toFixed(2)})`);
+      setUnlockedAchievements(ua => {
+        checkAchievements(totalTools, newTotal, projects.length, skillData, ua, streak, sessions.dates.length);
+        return ua;
+      });
+      return next;
     });
-  }, [incomeInput, income, gainXP, checkAchievements, totalTools, projects, skillData, streak, sessions.dates.length]);
+    setIncForm(f => ({ ...f, amount: "", note: "" }));
+  }, [incForm, uahRate, toUSD, gainXP, checkAchievements, totalTools, projects, skillData, streak, sessions.dates.length]);
 
-  const addExpense = useCallback(() => {
-    const amt = parseFloat(expenseInput);
+  const addExpenseEntry = useCallback(() => {
+    const amt = parseFloat(expForm.amount);
     if (!amt || amt <= 0) return;
-    setExpenses(prev => prev + amt);
-    setExpenseInput("");
-  }, [expenseInput]);
+    const entry = { id: `exp_${Date.now()}`, catId: expForm.catId, amount: amt, currency: expForm.currency, date: new Date().toISOString().slice(0,10), note: expForm.note, recurring: expForm.recurring };
+    setExpenseEntries(prev => [...prev, entry]);
+    setExpForm(f => ({ ...f, amount: "", note: "" }));
+  }, [expForm]);
 
   const addProject = useCallback(() => {
     if (!projectInput.trim()) return;
@@ -462,10 +541,10 @@ export default function AITracker() {
     gainXP(200, `(${projectInput.trim()})`);
     setProjectInput("");
     setUnlockedAchievements(ua => {
-      checkAchievements(totalTools, income, newProjects.length, skillData, ua, streak, sessions.dates.length);
+      checkAchievements(totalTools, totalIncome, newProjects.length, skillData, ua, streak, sessions.dates.length);
       return ua;
     });
-  }, [projectInput, projects, gainXP, checkAchievements, totalTools, income, skillData, streak, sessions.dates.length]);
+  }, [projectInput, projects, gainXP, checkAchievements, totalTools, totalIncome, skillData, streak, sessions.dates.length]);
 
   const logSession = useCallback(() => {
     if (doneToday) return;
@@ -476,10 +555,10 @@ export default function AITracker() {
     setSessions(newSessions);
     gainXP(50, "(AI-сесія)");
     setUnlockedAchievements(ua => {
-      checkAchievements(totalTools, income, projects.length, skillData, ua, newStreak, newDates.length);
+      checkAchievements(totalTools, totalIncome, projects.length, skillData, ua, newStreak, newDates.length);
       return ua;
     });
-  }, [doneToday, sessions, gainXP, checkAchievements, totalTools, income, projects, skillData]);
+  }, [doneToday, sessions, gainXP, checkAchievements, totalTools, totalIncome, projects, skillData]);
 
   const updateMonthlyTarget = useCallback((val) => {
     const t = parseInt(val);
@@ -621,7 +700,7 @@ export default function AITracker() {
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {[
-                { label: "Дохід", val: `$${income.toFixed(0)}`, color: "#c9a84c" },
+                { label: "Дохід", val: `$${totalIncome.toFixed(0)}`, color: "#c9a84c" },
                 { label: "Проекти", val: projects.length, color: "#c9a84c" },
                 { label: "Інструменти", val: `${totalTools}/${TOTAL_TOOLS}`, color: "#00ff88" },
                 { label: "Сесій/міс", val: `${monthSessions}/${sessions.monthlyTarget}`, color: "#c9a84c" },
@@ -929,7 +1008,7 @@ export default function AITracker() {
             {/* Summary */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))", gap: 12 }}>
               {[
-                { label: "Загальний дохід", val: `$${income.toFixed(0)}`, icon: "💰", color: "#f59e0b" },
+                { label: "Загальний дохід", val: `$${totalIncome.toFixed(0)}`, icon: "💰", color: "#f59e0b" },
                 { label: "Інструментів", val: `${totalTools}/${TOTAL_TOOLS}`, icon: "🧠", color: "#00ff88" },
                 { label: "Проектів", val: projects.length, icon: "🚀", color: "#6366f1" },
                 { label: "AI-сесій", val: sessions.dates.length, icon: "⚡", color: "#f43f5e" },
