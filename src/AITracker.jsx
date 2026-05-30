@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 
 const SKILLS = [
   { id: "llm", name: "LLM / Чат-боти", emoji: "🧠", color: "#00ff88", tools: ["ChatGPT", "Claude", "Gemini", "Grok", "Mistral", "DeepSeek"] },
@@ -41,7 +41,7 @@ const GOAL_CATEGORIES = [
   { id: "income", label: "Дохід", color: "#f59e0b", icon: "💰" },
   { id: "skills", label: "Навички", color: "#00ff88", icon: "🧠" },
   { id: "project", label: "Проект", color: "#6366f1", icon: "🚀" },
-  { id: "other", label: "Інше", color: "#94a3b8", icon: "🎯" },
+  { id: "other", label: "Інше", color: "#a8b8cc", icon: "🎯" },
 ];
 
 const PLAN_PRIORITIES = [
@@ -132,6 +132,116 @@ function lastNDays(n) {
   }
   return days;
 }
+
+// ── Floating 3D background ──────────────────────────────────────────────────
+const BG_SHAPES = [
+  { id:  1, type: "cube",    left:  7, top: 11, size: 72, depth: 0.22, phase: 0.0, blur: 0, op: 0.72 },
+  { id:  2, type: "ring",    left: 80, top:  7, size: 60, depth: 0.42, phase: 2.1, blur: 0, op: 0.58 },
+  { id:  3, type: "tri",     left: 56, top: 58, size: 52, depth: 0.33, phase: 1.0, blur: 0, op: 0.52 },
+  { id:  4, type: "diamond", left: 88, top: 72, size: 56, depth: 0.38, phase: 3.2, blur: 0, op: 0.62 },
+  { id:  5, type: "cube",    left: 70, top: 27, size: 48, depth: 0.50, phase: 4.1, blur: 5, op: 0.35 },
+  { id:  6, type: "ring",    left: 17, top: 68, size: 44, depth: 0.28, phase: 0.7, blur: 0, op: 0.52 },
+  { id:  7, type: "tri",     left: 35, top: 20, size: 40, depth: 0.45, phase: 1.8, blur: 0, op: 0.55 },
+  { id:  8, type: "cube",    left:  2, top: 42, size: 46, depth: 0.18, phase: 2.5, blur: 0, op: 0.48 },
+  { id:  9, type: "ring",    left: 63, top: 84, size: 32, depth: 0.55, phase: 3.8, blur: 4, op: 0.38 },
+  { id: 10, type: "diamond", left: 25, top: 33, size: 30, depth: 0.30, phase: 0.4, blur: 0, op: 0.48 },
+  { id: 11, type: "tri",     left: 84, top: 52, size: 36, depth: 0.25, phase: 1.5, blur: 0, op: 0.52 },
+  { id: 12, type: "ring",    left: 44, top: 88, size: 26, depth: 0.60, phase: 2.9, blur: 6, op: 0.28 },
+  { id: 13, type: "cube",    left: 48, top: 37, size: 38, depth: 0.36, phase: 5.0, blur: 3, op: 0.33 },
+  { id: 14, type: "diamond", left: 92, top: 37, size: 42, depth: 0.20, phase: 1.2, blur: 0, op: 0.58 },
+  { id: 15, type: "tri",     left: 62, top: 12, size: 28, depth: 0.48, phase: 3.6, blur: 0, op: 0.42 },
+];
+
+function CubeSvg({ s }) {
+  const h = s * 0.5;
+  const top   = `0,${-h} ${h},${-h*0.5} 0,0 ${-h},${-h*0.5}`;
+  const right  = `${h},${-h*0.5} 0,0 0,${h} ${h},${h*0.5}`;
+  const left   = `${-h},${-h*0.5} 0,0 0,${h} ${-h},${h*0.5}`;
+  const W = h * 2 + 4; const H = h * 1.5 + 4;
+  return (
+    <svg width={W} height={H} viewBox={`${-h-2} ${-h-2} ${W} ${H}`} style={{ display: "block" }}>
+      <polygon points={top}   fill="#7099ff" fillOpacity="0.82" stroke="#9ab8ff" strokeWidth="0.7" strokeOpacity="0.55" />
+      <polygon points={right} fill="#3d5ec9" fillOpacity="0.82" stroke="#5070dd" strokeWidth="0.7" strokeOpacity="0.55" />
+      <polygon points={left}  fill="#1d3696" fillOpacity="0.82" stroke="#2f4cbb" strokeWidth="0.7" strokeOpacity="0.55" />
+    </svg>
+  );
+}
+function RingSvg({ s }) {
+  const r = s / 2;
+  return (
+    <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`} style={{ display: "block" }}>
+      <circle cx={r} cy={r} r={r-2}    fill="none" stroke="#7090ee" strokeWidth="2.8" strokeOpacity="0.78" />
+      <circle cx={r} cy={r} r={r*0.55} fill="none" stroke="#4f6ccc" strokeWidth="1.2" strokeOpacity="0.42" />
+    </svg>
+  );
+}
+function TriSvg({ s }) {
+  const h = s * 0.866;
+  return (
+    <svg width={s} height={h} viewBox={`0 0 ${s} ${h}`} style={{ display: "block" }}>
+      <polygon points={`${s/2},2 ${s-2},${h-2} 2,${h-2}`} fill="none" stroke="#7090ee" strokeWidth="2.2" strokeOpacity="0.78" />
+    </svg>
+  );
+}
+function DiamondSvg({ s }) {
+  const m = s / 2;
+  return (
+    <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`} style={{ display: "block" }}>
+      <polygon points={`${m},2 ${s-2},${m} ${m},${s-2} 2,${m}`} fill="none" stroke="#7090ee" strokeWidth="2.2" strokeOpacity="0.78" />
+      <polygon points={`${m},${s*0.22} ${s*0.78},${m} ${m},${s*0.78} ${s*0.22},${m}`} fill="#4560cc" fillOpacity="0.13" />
+    </svg>
+  );
+}
+
+function FloatingBg() {
+  const wrapRef  = useRef(null);
+  const tgtRef   = useRef({ x: 0, y: 0 });
+  const curRef   = useRef({ x: 0, y: 0 });
+  const rafRef   = useRef(null);
+
+  useEffect(() => {
+    const onMove = (e) => {
+      tgtRef.current.x = (e.clientX / window.innerWidth  - 0.5) * 2;
+      tgtRef.current.y = (e.clientY / window.innerHeight - 0.5) * 2;
+    };
+    const tick = () => {
+      curRef.current.x += (tgtRef.current.x - curRef.current.x) * 0.038;
+      curRef.current.y += (tgtRef.current.y - curRef.current.y) * 0.038;
+      const t = Date.now() / 1000;
+      wrapRef.current?.querySelectorAll("[data-bg]").forEach(el => {
+        const depth = +el.dataset.depth;
+        const phase = +el.dataset.phase;
+        const tx = curRef.current.x * depth * -26;
+        const ty = curRef.current.y * depth * -26;
+        const fy = Math.sin(t * 0.44 + phase) * 9;
+        const fx = Math.cos(t * 0.33 + phase) * 4;
+        const rot = Math.sin(t * 0.17 + phase) * 5;
+        el.style.transform = `translate(${tx+fx}px,${ty+fy}px) rotate(${rot}deg)`;
+      });
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    window.addEventListener("mousemove", onMove, { passive: true });
+    tick();
+    return () => { window.removeEventListener("mousemove", onMove); cancelAnimationFrame(rafRef.current); };
+  }, []);
+
+  return (
+    <div ref={wrapRef} style={{ position: "fixed", inset: 0, overflow: "hidden", pointerEvents: "none", zIndex: 0 }}>
+      {BG_SHAPES.map(s => (
+        <div key={s.id} data-bg data-depth={s.depth} data-phase={s.phase}
+          style={{ position: "absolute", left: `${s.left}%`, top: `${s.top}%`,
+                   filter: s.blur ? `blur(${s.blur}px)` : undefined,
+                   opacity: s.op, willChange: "transform" }}>
+          {s.type === "cube"    && <CubeSvg    s={s.size} />}
+          {s.type === "ring"    && <RingSvg    s={s.size} />}
+          {s.type === "tri"     && <TriSvg     s={s.size} />}
+          {s.type === "diamond" && <DiamondSvg s={s.size} />}
+        </div>
+      ))}
+    </div>
+  );
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function AITracker() {
   const saved = loadState();
@@ -312,7 +422,7 @@ export default function AITracker() {
     <div style={{ fontFamily: "'Courier New', monospace", background: "transparent", minHeight: "100vh", color: "#e2e8f0" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;800&family=Space+Mono:wght@400;700&display=swap');
-        .tab-btn { transition: all 0.18s; }
+        .tab-btn { transition: all 0.18s; letter-spacing: 0.3px; }
         .tab-btn:hover { transform: translateY(-2px); }
         .skill-card { transition: all 0.18s; }
         .skill-card:hover { transform: translateY(-3px); }
@@ -324,11 +434,14 @@ export default function AITracker() {
         .checkin-btn:not(:disabled):hover { transform: scale(1.03); box-shadow: 0 0 40px rgba(0,255,136,0.5) !important; }
         @keyframes slideIn { from { transform: translateX(120px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
-        input::placeholder { color: #475569; }
+        input::placeholder { color: #4d6070; }
         input:focus { outline: none; border-color: rgba(0,255,136,0.4) !important; }
+        select option { background: #0e1a3a; color: #e2e8f0; }
+        .sec-title { font-family: 'Exo 2',sans-serif; font-size: 11px; font-weight: 700;
+                     color: #c9a84c; text-transform: uppercase; letter-spacing: 3px; }
       `}</style>
 
-      <div style={{ position: "fixed", inset: 0, zIndex: 0, backgroundImage: "linear-gradient(rgba(0,255,136,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,136,0.025) 1px,transparent 1px)", backgroundSize: "44px 44px", pointerEvents: "none" }} />
+      <FloatingBg />
 
       {notification && (
         <div key={notification.id} style={{ position: "fixed", top: 16, right: 16, zIndex: 9999, background: notification.type === "achievement" ? "linear-gradient(135deg,#f59e0b,#d97706)" : "linear-gradient(135deg,#00ff88,#00bb66)", color: "#000", padding: "11px 20px", borderRadius: 12, fontWeight: 700, fontSize: 13, boxShadow: `0 0 28px ${notification.type === "achievement" ? "rgba(245,158,11,0.6)" : "rgba(0,255,136,0.5)"}`, animation: "slideIn 0.3s ease", fontFamily: "'Space Mono',monospace" }}>{notification.msg}</div>
@@ -348,7 +461,7 @@ export default function AITracker() {
                   <span style={{ background: "rgba(245,158,11,0.12)", border: "1px solid #f59e0b", color: "#f59e0b", padding: "2px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700 }}>🔥 {streak} дн.</span>
                 )}
               </div>
-              <div style={{ fontSize: 11, color: "#475569", marginTop: 3 }}>AI Progress Tracker</div>
+              <div style={{ fontSize: 11, color: "#7a8fa6", marginTop: 3 }}>AI Progress Tracker</div>
             </div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               {[
@@ -358,8 +471,8 @@ export default function AITracker() {
                 { label: "Сесій/міс", val: `${monthSessions}/${sessions.monthlyTarget}`, color: "#f43f5e" },
               ].map(s => (
                 <div key={s.label} style={{ textAlign: "center", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 12, padding: "8px 13px" }}>
-                  <div style={{ fontSize: 17, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif" }}>{s.val}</div>
-                  <div style={{ fontSize: 9, color: "#475569", textTransform: "uppercase", letterSpacing: 1 }}>{s.label}</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif" }}>{s.val}</div>
+                  <div style={{ fontSize: 11, color: "#7a8fa6", textTransform: "uppercase", letterSpacing: 2 }}>{s.label}</div>
                 </div>
               ))}
             </div>
@@ -373,11 +486,11 @@ export default function AITracker() {
                 <span style={{ background: "linear-gradient(135deg,#00ff88,#00aa55)", color: "#000", padding: "2px 10px", borderRadius: 6, fontSize: 12, fontWeight: 800, fontFamily: "'Exo 2',sans-serif" }}>LVL {totalLevel}</span>
                 <span style={{ fontSize: 12, color: "#00ff88", fontFamily: "'Space Mono',monospace", fontWeight: 700 }}>{totalXP.toLocaleString()} XP</span>
               </div>
-              <div style={{ fontSize: 11, color: "#475569", fontFamily: "'Space Mono',monospace" }}>
-                ще <span style={{ color: "#94a3b8", fontWeight: 700 }}>{(nextLevelXP - totalXP).toLocaleString()}</span> XP
+              <div style={{ fontSize: 11, color: "#7a8fa6", fontFamily: "'Space Mono',monospace" }}>
+                ще <span style={{ color: "#a8b8cc", fontWeight: 700 }}>{(nextLevelXP - totalXP).toLocaleString()}</span> XP
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 12, color: "#475569", fontFamily: "'Space Mono',monospace" }}>{nextLevelXP.toLocaleString()} XP</span>
+                <span style={{ fontSize: 12, color: "#7a8fa6", fontFamily: "'Space Mono',monospace" }}>{nextLevelXP.toLocaleString()} XP</span>
                 <span style={{ background: "rgba(0,255,136,0.08)", border: "1px solid rgba(0,255,136,0.3)", color: "#00ff88", padding: "2px 10px", borderRadius: 6, fontSize: 12, fontWeight: 800, fontFamily: "'Exo 2',sans-serif" }}>LVL {totalLevel + 1}</span>
               </div>
             </div>
@@ -404,7 +517,7 @@ export default function AITracker() {
             </div>
 
             {/* Progress percent */}
-            <div style={{ textAlign: "center", marginTop: 5, fontSize: 10, color: "#475569", fontFamily: "'Space Mono',monospace" }}>
+            <div style={{ textAlign: "center", marginTop: 5, fontSize: 12, color: "#7a8fa6", fontFamily: "'Space Mono',monospace" }}>
               {Math.round(xpProgress)}% до наступного рівня
             </div>
           </div>
@@ -413,7 +526,7 @@ export default function AITracker() {
         {/* Tabs */}
         <div style={{ display: "flex", gap: 7, marginBottom: 22, flexWrap: "wrap" }}>
           {tabs.map(t => (
-            <button key={t.id} className="tab-btn" onClick={() => setActiveTab(t.id)} style={{ padding: "8px 15px", borderRadius: 10, fontSize: 12, cursor: "pointer", background: activeTab === t.id ? "#00ff88" : "rgba(255,255,255,0.04)", color: activeTab === t.id ? "#000" : "#94a3b8", border: activeTab === t.id ? "none" : "1px solid rgba(255,255,255,0.09)", fontWeight: activeTab === t.id ? 700 : 400, fontFamily: "'Space Mono',monospace" }}>{t.label}</button>
+            <button key={t.id} className="tab-btn" onClick={() => setActiveTab(t.id)} style={{ padding: "9px 16px", borderRadius: 10, fontSize: 13, cursor: "pointer", background: activeTab === t.id ? "#00ff88" : "rgba(255,255,255,0.05)", color: activeTab === t.id ? "#000" : "#c0cfe0", border: activeTab === t.id ? "none" : "1px solid rgba(255,255,255,0.12)", fontWeight: activeTab === t.id ? 800 : 500, fontFamily: "'Exo 2',sans-serif" }}>{t.label}</button>
           ))}
         </div>
 
@@ -426,8 +539,8 @@ export default function AITracker() {
                 return (
                   <div key={sk.id} onClick={() => { setSelectedSkill(sk); setActiveTab("skills"); }} className="skill-card" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${unlocked.length > 0 ? sk.color + "33" : "rgba(255,255,255,0.07)"}`, borderRadius: 14, padding: 14, cursor: "pointer" }}>
                     <div style={{ fontSize: 22, marginBottom: 6 }}>{sk.emoji}</div>
-                    <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 5 }}>{sk.name}</div>
-                    <div style={{ fontSize: 10, color: sk.color, marginBottom: 6 }}>{unlocked.length}/{sk.tools.length} інстр.</div>
+                    <div style={{ fontSize: 11, color: "#a8b8cc", marginBottom: 5 }}>{sk.name}</div>
+                    <div style={{ fontSize: 12, color: sk.color, marginBottom: 6 }}>{unlocked.length}/{sk.tools.length} інстр.</div>
                     <div style={{ height: 4, background: "rgba(255,255,255,0.08)", borderRadius: 2 }}>
                       <div style={{ width: `${(unlocked.length / sk.tools.length) * 100}%`, height: "100%", background: sk.color, borderRadius: 2, transition: "width 0.5s" }} />
                     </div>
@@ -442,7 +555,7 @@ export default function AITracker() {
                 <div style={{ fontSize: 13, fontWeight: 700, color: doneToday ? "#00ff88" : "#f43f5e", fontFamily: "'Exo 2',sans-serif" }}>
                   {doneToday ? "✓ AI-сесія сьогодні виконана" : "⚡ Чи працював сьогодні з AI?"}
                 </div>
-                <div style={{ fontSize: 11, color: "#475569", marginTop: 3 }}>
+                <div style={{ fontSize: 11, color: "#7a8fa6", marginTop: 3 }}>
                   Стрік: {streak} дн. · {monthSessions}/{sessions.monthlyTarget} цього місяця · всього {sessions.dates.length} сесій
                 </div>
               </div>
@@ -452,7 +565,7 @@ export default function AITracker() {
             </div>
 
             <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 18 }}>
-              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 14 }}>🎯 Швидкі дії</div>
+              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 14 }}>🎯 Швидкі дії</div>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 {[
                   { label: "+ Вивчити інструмент", color: "#00ff88", rgb: "0,255,136", tab: "skills" },
@@ -463,7 +576,7 @@ export default function AITracker() {
                 ))}
               </div>
               <div style={{ marginTop: 16, padding: "12px 14px", background: "rgba(0,255,136,0.05)", border: "1px solid rgba(0,255,136,0.15)", borderRadius: 10 }}>
-                <span style={{ fontSize: 12, color: "#64748b" }}>🏅 Розблоковано досягнень: </span>
+                <span style={{ fontSize: 12, color: "#8090a8" }}>🏅 Розблоковано досягнень: </span>
                 <span style={{ fontSize: 13, color: "#00ff88", fontWeight: 700 }}>{unlockedAchievements.length} / {ACHIEVEMENTS.length}</span>
               </div>
             </div>
@@ -476,14 +589,14 @@ export default function AITracker() {
 
             {/* Big check-in button */}
             <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 24, textAlign: "center" }}>
-              <div style={{ fontSize: 13, color: "#64748b", marginBottom: 6, fontFamily: "'Space Mono',monospace" }}>
+              <div style={{ fontSize: 13, color: "#8090a8", marginBottom: 6, fontFamily: "'Space Mono',monospace" }}>
                 {new Date().toLocaleDateString("uk-UA", { weekday: "long", day: "numeric", month: "long" })}
               </div>
               {doneToday ? (
                 <div>
                   <div style={{ fontSize: 48, marginBottom: 10 }}>✅</div>
                   <div style={{ fontSize: 18, fontWeight: 800, color: "#00ff88", fontFamily: "'Exo 2',sans-serif" }}>Сесія виконана!</div>
-                  <div style={{ fontSize: 12, color: "#475569", marginTop: 6 }}>Повернись завтра для нового +50 XP</div>
+                  <div style={{ fontSize: 12, color: "#7a8fa6", marginTop: 6 }}>Повернись завтра для нового +50 XP</div>
                 </div>
               ) : (
                 <div>
@@ -503,9 +616,9 @@ export default function AITracker() {
               ].map(s => (
                 <div key={s.label} style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${s.color}22`, borderRadius: 14, padding: "14px 16px", textAlign: "center" }}>
                   <div style={{ fontSize: 22, marginBottom: 6 }}>{s.icon}</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif" }}>{s.val}</div>
-                  <div style={{ fontSize: 10, color: "#475569", marginTop: 3, textTransform: "uppercase", letterSpacing: 1 }}>{s.label}</div>
-                  <div style={{ fontSize: 10, color: s.color, marginTop: 2 }}>{s.sub}</div>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif" }}>{s.val}</div>
+                  <div style={{ fontSize: 12, color: "#7a8fa6", marginTop: 3, textTransform: "uppercase", letterSpacing: 1 }}>{s.label}</div>
+                  <div style={{ fontSize: 12, color: s.color, marginTop: 2 }}>{s.sub}</div>
                 </div>
               ))}
             </div>
@@ -517,7 +630,7 @@ export default function AITracker() {
                   📅 Ціль місяця
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 11, color: "#64748b" }}>Ціль:</span>
+                  <span style={{ fontSize: 11, color: "#8090a8" }}>Ціль:</span>
                   <input
                     type="number"
                     min="1"
@@ -526,11 +639,11 @@ export default function AITracker() {
                     onChange={e => updateMonthlyTarget(e.target.value)}
                     style={{ width: 56, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "4px 8px", color: "#00ff88", fontSize: 13, fontFamily: "'Space Mono',monospace", textAlign: "center" }}
                   />
-                  <span style={{ fontSize: 11, color: "#64748b" }}>сесій</span>
+                  <span style={{ fontSize: 11, color: "#8090a8" }}>сесій</span>
                 </div>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 8 }}>
-                <span style={{ color: "#94a3b8" }}>{monthSessions} виконано</span>
+                <span style={{ color: "#a8b8cc" }}>{monthSessions} виконано</span>
                 <span style={{ color: "#00ff88", fontWeight: 700 }}>{Math.min(100, Math.round(monthSessions / sessions.monthlyTarget * 100))}%</span>
               </div>
               <div style={{ height: 10, background: "rgba(255,255,255,0.07)", borderRadius: 5, overflow: "hidden" }}>
@@ -540,7 +653,7 @@ export default function AITracker() {
 
             {/* Heatmap */}
             <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 18 }}>
-              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 14 }}>🗓 Активність (останні 56 днів)</div>
+              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 14 }}>🗓 Активність (останні 56 днів)</div>
               <div style={{ display: "flex", gap: 4, flexWrap: "nowrap", overflowX: "auto", paddingBottom: 4 }}>
                 {heatmapWeeks.map((week, wi) => (
                   <div key={wi} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -556,9 +669,9 @@ export default function AITracker() {
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 10 }}>
                 <div style={{ width: 12, height: 12, borderRadius: 2, background: "rgba(255,255,255,0.06)" }} />
-                <span style={{ fontSize: 10, color: "#475569" }}>Пропущено</span>
+                <span style={{ fontSize: 12, color: "#7a8fa6" }}>Пропущено</span>
                 <div style={{ width: 12, height: 12, borderRadius: 2, background: "#00ff88" }} />
-                <span style={{ fontSize: 10, color: "#475569" }}>Є сесія</span>
+                <span style={{ fontSize: 12, color: "#7a8fa6" }}>Є сесія</span>
               </div>
             </div>
           </div>
@@ -576,13 +689,13 @@ export default function AITracker() {
                     <span style={{ fontSize: 20 }}>{sk.emoji}</span>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{sk.name}</div>
-                      <div style={{ fontSize: 10, color: sk.color, marginTop: 2 }}>{unlocked.length}/{sk.tools.length} вивчено · +100 XP за інструмент</div>
+                      <div style={{ fontSize: 12, color: sk.color, marginTop: 2 }}>{unlocked.length}/{sk.tools.length} вивчено · +100 XP за інструмент</div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <div style={{ width: 80, height: 5, background: "rgba(255,255,255,0.08)", borderRadius: 3 }}>
                         <div style={{ width: `${(unlocked.length / sk.tools.length) * 100}%`, height: "100%", background: sk.color, borderRadius: 3 }} />
                       </div>
-                      <span style={{ color: "#475569", fontSize: 14 }}>{isOpen ? "▲" : "▼"}</span>
+                      <span style={{ color: "#7a8fa6", fontSize: 14 }}>{isOpen ? "▲" : "▼"}</span>
                     </div>
                   </div>
                   {isOpen && (
@@ -590,7 +703,7 @@ export default function AITracker() {
                       {sk.tools.map(tool => {
                         const done = unlocked.includes(tool);
                         return (
-                          <button key={tool} className="tool-chip" disabled={done} onClick={() => learnTool(sk.id, tool)} style={{ padding: "6px 13px", borderRadius: 8, fontSize: 11, cursor: done ? "default" : "pointer", background: done ? `${sk.color}20` : "rgba(255,255,255,0.04)", border: `1px solid ${done ? sk.color : "rgba(255,255,255,0.1)"}`, color: done ? sk.color : "#94a3b8", fontFamily: "'Space Mono',monospace", textDecoration: done ? "line-through" : "none" }}>
+                          <button key={tool} className="tool-chip" disabled={done} onClick={() => learnTool(sk.id, tool)} style={{ padding: "6px 13px", borderRadius: 8, fontSize: 11, cursor: done ? "default" : "pointer", background: done ? `${sk.color}20` : "rgba(255,255,255,0.04)", border: `1px solid ${done ? sk.color : "rgba(255,255,255,0.1)"}`, color: done ? sk.color : "#a8b8cc", fontFamily: "'Space Mono',monospace", textDecoration: done ? "line-through" : "none" }}>
                             {done ? "✓ " : ""}{tool}
                           </button>
                         );
@@ -612,7 +725,7 @@ export default function AITracker() {
                 <div key={a.id} style={{ background: done ? "rgba(245,158,11,0.07)" : "rgba(255,255,255,0.03)", border: `1px solid ${done ? "#f59e0b44" : "rgba(255,255,255,0.07)"}`, borderRadius: 14, padding: 16, opacity: done ? 1 : 0.55, filter: done ? "none" : "grayscale(0.6)" }}>
                   <div style={{ fontSize: 30, marginBottom: 8 }}>{a.icon}</div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: done ? "#f59e0b" : "#fff", marginBottom: 4, fontFamily: "'Exo 2',sans-serif" }}>{a.name}</div>
-                  <div style={{ fontSize: 11, color: "#64748b", marginBottom: 8 }}>{a.desc}</div>
+                  <div style={{ fontSize: 11, color: "#8090a8", marginBottom: 8 }}>{a.desc}</div>
                   <div style={{ fontSize: 11, color: "#00ff88" }}>+{a.xp} XP {done ? "✓" : ""}</div>
                 </div>
               );
@@ -633,15 +746,15 @@ export default function AITracker() {
               ].map(s => (
                 <div key={s.label} style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${s.color}22`, borderRadius: 12, padding: "14px 16px", textAlign: "center" }}>
                   <div style={{ fontSize: 22, marginBottom: 4 }}>{s.icon}</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif" }}>{s.val}</div>
-                  <div style={{ fontSize: 10, color: "#475569", marginTop: 2, textTransform: "uppercase", letterSpacing: 1 }}>{s.label}</div>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif" }}>{s.val}</div>
+                  <div style={{ fontSize: 12, color: "#7a8fa6", marginTop: 2, textTransform: "uppercase", letterSpacing: 1 }}>{s.label}</div>
                 </div>
               ))}
             </div>
 
             {/* Add goal */}
             <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 16 }}>
-              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 12 }}>+ Нова ціль</div>
+              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 12 }}>+ Нова ціль</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <input
                   value={goalInput}
@@ -658,7 +771,7 @@ export default function AITracker() {
                 <select
                   value={goalCategory}
                   onChange={e => setGoalCategory(e.target.value)}
-                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "9px 12px", color: "#94a3b8", fontSize: 12, cursor: "pointer" }}
+                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "9px 12px", color: "#a8b8cc", fontSize: 12, cursor: "pointer" }}
                 >
                   {GOAL_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
                 </select>
@@ -691,12 +804,12 @@ export default function AITracker() {
                           style={{ width: 22, height: 22, borderRadius: "50%", border: `2px solid ${g.done ? "#00ff88" : "rgba(255,255,255,0.2)"}`, background: g.done ? "#00ff88" : "transparent", cursor: "pointer", flexShrink: 0, fontSize: 11, color: "#000", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
                           {g.done ? "✓" : ""}
                         </button>
-                        <span style={{ flex: 1, color: g.done ? "#475569" : "#e2e8f0", fontSize: 13, textDecoration: g.done ? "line-through" : "none" }}>{g.text}</span>
+                        <span style={{ flex: 1, color: g.done ? "#7a8fa6" : "#e2e8f0", fontSize: 13, textDecoration: g.done ? "line-through" : "none" }}>{g.text}</span>
                         {!g.done && !g.xpAwarded && (
-                          <span style={{ fontSize: 10, color: "#00ff88", background: "rgba(0,255,136,0.1)", border: "1px solid rgba(0,255,136,0.2)", padding: "2px 7px", borderRadius: 20, whiteSpace: "nowrap" }}>+100 XP</span>
+                          <span style={{ fontSize: 12, color: "#00ff88", background: "rgba(0,255,136,0.1)", border: "1px solid rgba(0,255,136,0.2)", padding: "2px 7px", borderRadius: 20, whiteSpace: "nowrap" }}>+100 XP</span>
                         )}
                         <button onClick={() => setGoals(prev => prev.filter(x => x.id !== g.id))}
-                          style={{ background: "none", border: "none", color: "#334155", cursor: "pointer", fontSize: 16, padding: "0 4px" }}>×</button>
+                          style={{ background: "none", border: "none", color: "#4d6070", cursor: "pointer", fontSize: 16, padding: "0 4px" }}>×</button>
                       </div>
                     ))}
                   </div>
@@ -715,7 +828,7 @@ export default function AITracker() {
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {/* Add task */}
             <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 16 }}>
-              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 12 }}>+ Нова задача</div>
+              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 12 }}>+ Нова задача</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <input
                   value={planInput}
@@ -732,7 +845,7 @@ export default function AITracker() {
                 <select
                   value={planPriority}
                   onChange={e => setPlanPriority(e.target.value)}
-                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "9px 12px", color: "#94a3b8", fontSize: 12, cursor: "pointer" }}
+                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "9px 12px", color: "#a8b8cc", fontSize: 12, cursor: "pointer" }}
                 >
                   {PLAN_PRIORITIES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
                 </select>
@@ -753,7 +866,7 @@ export default function AITracker() {
                 <div key={pr.id}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                     <span style={{ background: pr.bg, border: `1px solid ${pr.color}44`, color: pr.color, padding: "3px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>{pr.label}</span>
-                    <span style={{ fontSize: 11, color: "#334155" }}>{items.length} активних{done.length > 0 ? ` · ${done.length} виконано` : ""}</span>
+                    <span style={{ fontSize: 11, color: "#4d6070" }}>{items.length} активних{done.length > 0 ? ` · ${done.length} виконано` : ""}</span>
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
                     {[...items, ...done].map(item => (
@@ -766,24 +879,24 @@ export default function AITracker() {
                           }
                           return { ...x, done: !x.done };
                         }))}
-                          style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${item.done ? "#475569" : pr.color}`, background: item.done ? "#475569" : "transparent", cursor: "pointer", flexShrink: 0, fontSize: 10, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
+                          style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${item.done ? "#7a8fa6" : pr.color}`, background: item.done ? "#7a8fa6" : "transparent", cursor: "pointer", flexShrink: 0, fontSize: 12, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
                           {item.done ? "✓" : ""}
                         </button>
-                        <span style={{ flex: 1, color: item.done ? "#334155" : "#cbd5e1", fontSize: 12, textDecoration: item.done ? "line-through" : "none" }}>{item.text}</span>
+                        <span style={{ flex: 1, color: item.done ? "#4d6070" : "#cbd5e1", fontSize: 12, textDecoration: item.done ? "line-through" : "none" }}>{item.text}</span>
                         {!item.done && !item.xpAwarded && (
-                          <span style={{ fontSize: 10, color: pr.color, background: pr.bg, border: `1px solid ${pr.color}33`, padding: "2px 7px", borderRadius: 20, whiteSpace: "nowrap" }}>+75 XP</span>
+                          <span style={{ fontSize: 12, color: pr.color, background: pr.bg, border: `1px solid ${pr.color}33`, padding: "2px 7px", borderRadius: 20, whiteSpace: "nowrap" }}>+75 XP</span>
                         )}
                         {!item.done && (
                           <select
                             value={item.priority}
                             onChange={e => setPlan(prev => prev.map(x => x.id === item.id ? { ...x, priority: e.target.value } : x))}
-                            style={{ background: "rgba(0,0,0,0.3)", border: "none", borderRadius: 6, padding: "2px 6px", color: pr.color, fontSize: 10, cursor: "pointer" }}
+                            style={{ background: "rgba(0,0,0,0.3)", border: "none", borderRadius: 6, padding: "2px 6px", color: pr.color, fontSize: 12, cursor: "pointer" }}
                           >
                             {PLAN_PRIORITIES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
                           </select>
                         )}
                         <button onClick={() => setPlan(prev => prev.filter(x => x.id !== item.id))}
-                          style={{ background: "none", border: "none", color: "#334155", cursor: "pointer", fontSize: 16, padding: "0 4px" }}>×</button>
+                          style={{ background: "none", border: "none", color: "#4d6070", cursor: "pointer", fontSize: 16, padding: "0 4px" }}>×</button>
                       </div>
                     ))}
                   </div>
@@ -807,9 +920,9 @@ export default function AITracker() {
                 { label: "Баланс", val: `${netPositive ? "+" : ""}$${net.toFixed(2)}`, color: netPositive ? "#00ff88" : "#f43f5e", icon: netPositive ? "💚" : "🔴" },
               ].map(s => (
                 <div key={s.label} style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${s.color}22`, borderRadius: 14, padding: "18px 16px", textAlign: "center" }}>
-                  <div style={{ fontSize: 22, marginBottom: 6 }}>{s.icon}</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif" }}>{s.val}</div>
-                  <div style={{ fontSize: 10, color: "#475569", marginTop: 4, textTransform: "uppercase", letterSpacing: 1 }}>{s.label}</div>
+                  <div style={{ fontSize: 24, marginBottom: 6 }}>{s.icon}</div>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif" }}>{s.val}</div>
+                  <div style={{ fontSize: 11, color: "#7a8fa6", marginTop: 6, textTransform: "uppercase", letterSpacing: 2 }}>{s.label}</div>
                 </div>
               ))}
             </div>
@@ -817,7 +930,7 @@ export default function AITracker() {
             {/* Net balance bar */}
             {(income > 0 || expenses > 0) && (
               <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "14px 16px" }}>
-                <div style={{ fontSize: 11, color: "#64748b", marginBottom: 8 }}>Дохід vs Витрати</div>
+                <div style={{ fontSize: 11, color: "#8090a8", marginBottom: 8 }}>Дохід vs Витрати</div>
                 <div style={{ height: 10, background: "rgba(255,255,255,0.07)", borderRadius: 5, overflow: "hidden", display: "flex" }}>
                   {income > 0 && (
                     <div style={{ width: `${Math.min(100, (income / Math.max(income, expenses)) * 100)}%`, height: "100%", background: "linear-gradient(90deg,#059669,#10b981)", borderRadius: "5px 0 0 5px", transition: "width 0.5s" }} />
@@ -829,9 +942,9 @@ export default function AITracker() {
                   )}
                 </div>
                 <div style={{ display: "flex", gap: 16, marginTop: 8 }}>
-                  <span style={{ fontSize: 10, color: "#10b981" }}>■ Дохід</span>
-                  <span style={{ fontSize: 10, color: "#f43f5e" }}>■ Витрати</span>
-                  {!netPositive && <span style={{ fontSize: 10, color: "#f43f5e", marginLeft: "auto" }}>мінус ${Math.abs(net).toFixed(2)}</span>}
+                  <span style={{ fontSize: 12, color: "#10b981" }}>■ Дохід</span>
+                  <span style={{ fontSize: 12, color: "#f43f5e" }}>■ Витрати</span>
+                  {!netPositive && <span style={{ fontSize: 12, color: "#f43f5e", marginLeft: "auto" }}>мінус ${Math.abs(net).toFixed(2)}</span>}
                 </div>
               </div>
             )}
@@ -850,7 +963,7 @@ export default function AITracker() {
                   style={{ width: 160, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "9px 14px", color: "#fff", fontSize: 15, fontFamily: "'Space Mono',monospace" }}
                 />
                 <button className="act-btn" onClick={addIncome} style={{ background: "#10b981", color: "#000", border: "none", padding: "9px 18px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>+ Записати</button>
-                <span style={{ fontSize: 11, color: "#475569" }}>+3× XP від суми</span>
+                <span style={{ fontSize: 11, color: "#7a8fa6" }}>+3× XP від суми</span>
               </div>
             </div>
 
@@ -873,7 +986,7 @@ export default function AITracker() {
 
             {/* Milestone bars (based on income) */}
             <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 18 }}>
-              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 14 }}>🏁 Дохідні цілі</div>
+              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 14 }}>🏁 Дохідні цілі</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {[
                   { label: "До $100", max: 100, color: "#10b981" },
@@ -915,7 +1028,7 @@ export default function AITracker() {
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, background: "rgba(99,102,241,0.07)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 12, padding: "13px 16px" }}>
                   <span style={{ fontSize: 20 }}>🚀</span>
                   <span style={{ flex: 1, color: "#fff", fontSize: 13 }}>{p.name}</span>
-                  <span style={{ color: "#475569", fontSize: 11 }}>{p.date}</span>
+                  <span style={{ color: "#7a8fa6", fontSize: 11 }}>{p.date}</span>
                 </div>
               ))}
             </div>
