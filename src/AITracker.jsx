@@ -1314,7 +1314,7 @@ export default function AITracker() {
                       const thisMonth = new Date().toISOString().slice(0,7);
                       const today = new Date().toISOString().slice(0,10);
                       subPrompt.items.filter(s => s.checked).forEach(s => {
-                        const entry = { id: `exp_${Date.now()}_${s.id}`, catId: s.catId, amount: s.amount, currency: s.currency, date: today, note: s.name, recurring: true };
+                        const entry = { id: `exp_${Date.now()}_${s.id}`, catId: s.catId, amount: s.amount, currency: s.currency, date: today, note: s.name, recurring: true, subId: s.id };
                         setExpenseEntries(prev => [...prev, entry]);
                       });
                       setSubCheckedMonth(thisMonth);
@@ -1585,14 +1585,35 @@ export default function AITracker() {
                   {subscriptions.map(sub => {
                     const amtUSD = sub.currency === "UAH" ? sub.amount / uahRate : sub.amount;
                     const isActive = sub.active !== false;
+                    const cat = expenseCats.find(c => c.id === sub.catId);
+                    const lastEntry = [...expenseEntries]
+                      .filter(e => e.subId === sub.id || (e.recurring && e.note === sub.name))
+                      .sort((a, b) => b.date.localeCompare(a.date))[0];
+                    const lastDate = lastEntry
+                      ? new Date(lastEntry.date).toLocaleDateString("uk-UA", { day: "numeric", month: "short" })
+                      : null;
                     return (
                       <div key={sub.id} style={{ display: "flex", alignItems: "center", gap: 10, background: isActive ? "rgba(8,5,2,0.55)" : "rgba(20,15,5,0.4)", border: `1px solid ${isActive ? "rgba(201,168,76,0.22)" : "rgba(201,168,76,0.08)"}`, borderRadius: 4, padding: "9px 12px", opacity: isActive ? 1 : 0.55 }}>
-                        <span style={{ flex: 1, color: isActive ? "#e0d8c0" : "#9a8a60", fontFamily: "'Exo 2',sans-serif", fontWeight: 600, fontSize: 13 }}>{sub.name}</span>
-                        <span style={{ color: "#f43f5e", fontFamily: "'Space Mono',monospace", fontSize: 12, fontWeight: 700 }}>
+                        {cat && <span style={{ fontSize: 14 }}>{cat.icon}</span>}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ color: isActive ? "#e0d8c0" : "#9a8a60", fontFamily: "'Exo 2',sans-serif", fontWeight: 600, fontSize: 13 }}>{sub.name}</div>
+                          <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 2 }}>
+                            {cat && <span style={{ fontSize: 10, color: "#5a4a30" }}>{cat.name}</span>}
+                            {lastDate && (
+                              <span style={{ fontSize: 10, color: "#6a5a40", fontFamily: "'Space Mono',monospace" }}>
+                                📅 списано {lastDate}
+                              </span>
+                            )}
+                            {!lastDate && (
+                              <span style={{ fontSize: 10, color: "#4a3a25", fontFamily: "'Space Mono',monospace" }}>📅 ще не списувалось</span>
+                            )}
+                          </div>
+                        </div>
+                        <span style={{ color: "#f43f5e", fontFamily: "'Space Mono',monospace", fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>
                           {sub.currency === "UAH" ? `${sub.amount} грн` : `$${sub.amount}`}
                           {sub.currency === "UAH" && <span style={{ color: "#5a4a30", fontSize: 10, marginLeft: 4 }}>(~${amtUSD.toFixed(1)})</span>}
                         </span>
-                        <span style={{ fontSize: 10, color: isActive ? "#10b981" : "#f59e0b", background: isActive ? "rgba(16,185,129,0.12)" : "rgba(245,158,11,0.12)", border: `1px solid ${isActive ? "rgba(16,185,129,0.3)" : "rgba(245,158,11,0.3)"}`, borderRadius: 10, padding: "2px 8px", fontFamily: "'Space Mono',monospace", minWidth: 54, textAlign: "center" }}>
+                        <span style={{ fontSize: 10, color: isActive ? "#10b981" : "#f59e0b", background: isActive ? "rgba(16,185,129,0.12)" : "rgba(245,158,11,0.12)", border: `1px solid ${isActive ? "rgba(16,185,129,0.3)" : "rgba(245,158,11,0.3)"}`, borderRadius: 10, padding: "2px 8px", fontFamily: "'Space Mono',monospace", whiteSpace: "nowrap" }}>
                           {isActive ? "🟢 активна" : "⏸ пауза"}
                         </span>
                         <button onClick={() => setSubscriptions(prev => prev.map(s => s.id === sub.id ? { ...s, active: !isActive } : s))} style={{ background: isActive ? "rgba(245,158,11,0.1)" : "rgba(16,185,129,0.1)", border: `1px solid ${isActive ? "rgba(245,158,11,0.35)" : "rgba(16,185,129,0.35)"}`, color: isActive ? "#f59e0b" : "#10b981", padding: "5px 10px", borderRadius: 3, cursor: "pointer", fontSize: 11, fontWeight: 700 }}>
