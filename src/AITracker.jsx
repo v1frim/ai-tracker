@@ -37,6 +37,38 @@ const DEFAULT_PROJECTS = [{ name: "Oxford_1000 — додаток для анг�
 const DEFAULT_SESSIONS = { dates: [], monthlyTarget: 50 };
 const STORAGE_KEY = "ai_tracker_v1";
 
+const GOAL_CATEGORIES = [
+  { id: "income", label: "Дохід", color: "#f59e0b", icon: "💰" },
+  { id: "skills", label: "Навички", color: "#00ff88", icon: "🧠" },
+  { id: "project", label: "Проект", color: "#6366f1", icon: "🚀" },
+  { id: "other", label: "Інше", color: "#94a3b8", icon: "🎯" },
+];
+
+const PLAN_PRIORITIES = [
+  { id: "now", label: "Зараз", color: "#00ff88", bg: "rgba(0,255,136,0.08)" },
+  { id: "soon", label: "Скоро", color: "#f59e0b", bg: "rgba(245,158,11,0.08)" },
+  { id: "later", label: "Потім", color: "#6366f1", bg: "rgba(99,102,241,0.08)" },
+  { id: "scale", label: "Масштаб", color: "#a855f7", bg: "rgba(168,85,247,0.08)" },
+];
+
+const DEFAULT_GOALS = [
+  { id: "dg1", text: "Заробити $14,000 цього року", category: "income", done: false },
+  { id: "dg2", text: "Вивчити 20 AI-інструментів", category: "skills", done: false },
+  { id: "dg3", text: "Запустити перший digital product", category: "project", done: false },
+];
+
+const DEFAULT_PLAN = [
+  { id: "dp1", text: "Affiliate — партнерські комісії за продаж AI-сервісів", priority: "now", done: false },
+  { id: "dp2", text: "Digital Products — шаблони, пресети, гайди, паки", priority: "now", done: false },
+  { id: "dp3", text: "Послуги — AI-послуги клієнтам (картки, контент, боти)", priority: "now", done: false },
+  { id: "dp4", text: "Контент — монетизація соц. мереж (YouTube, TikTok, Telegram)", priority: "soon", done: false },
+  { id: "dp5", text: "Навчання — AI-курси, гайди, консультації", priority: "soon", done: false },
+  { id: "dp6", text: "SaaS / Боти — програмні сервіси за підпискою", priority: "later", done: false },
+  { id: "dp7", text: "Ком'юніті — закриті спільноти і підписки", priority: "later", done: false },
+  { id: "dp8", text: "Контент-фабрика — B2B виробництво контенту для інших", priority: "scale", done: false },
+  { id: "dp9", text: "Автоматизація — продаж AI-пайплайнів для бізнесу", priority: "scale", done: false },
+];
+
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -111,15 +143,40 @@ export default function AITracker() {
   const [projects, setProjects] = useState(saved?.projects ?? DEFAULT_PROJECTS);
   const [projectInput, setProjectInput] = useState("");
   const [sessions, setSessions] = useState(saved?.sessions ?? DEFAULT_SESSIONS);
+  const [goals, setGoals] = useState(saved?.goals ?? DEFAULT_GOALS);
+  const [plan, setPlan] = useState(saved?.plan ?? DEFAULT_PLAN);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [selectedSkill, setSelectedSkill] = useState(null);
   const [notification, setNotification] = useState(null);
   const [unlockedAchievements, setUnlockedAchievements] = useState(saved?.unlockedAchievements ?? ["oxford_dev"]);
+  const [goalInput, setGoalInput] = useState("");
+  const [goalCategory, setGoalCategory] = useState("income");
+  const [planInput, setPlanInput] = useState("");
+  const [planPriority, setPlanPriority] = useState("now");
+
+  const TAB_IDS = ["dashboard", "sessions", "skills", "achievements", "goals", "plan", "finances", "projects"];
 
   useEffect(() => {
-    const state = { skillData, totalXP, income, projects, unlockedAchievements, sessions };
+    const state = { skillData, totalXP, income, projects, unlockedAchievements, sessions, goals, plan };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [skillData, totalXP, income, projects, unlockedAchievements, sessions]);
+  }, [skillData, totalXP, income, projects, unlockedAchievements, sessions, goals, plan]);
+
+  // Tab key cycles through navigation tabs
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key !== "Tab" || e.target.matches("input, textarea, button")) return;
+      e.preventDefault();
+      setActiveTab(prev => {
+        const idx = TAB_IDS.indexOf(prev);
+        const next = e.shiftKey
+          ? (idx - 1 + TAB_IDS.length) % TAB_IDS.length
+          : (idx + 1) % TAB_IDS.length;
+        return TAB_IDS[next];
+      });
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const totalLevel = calcLevel(totalXP);
   const curLevelXP = xpForLevel(totalLevel);
@@ -223,11 +280,13 @@ export default function AITracker() {
   }, []);
 
   const tabs = [
-    { id: "dashboard", label: "📊 Дашборд" },
+    { id: "dashboard", label: "🏠 Головна" },
     { id: "sessions", label: "🔥 Сесії" },
     { id: "skills", label: "🧩 Навички" },
     { id: "achievements", label: "🏆 Досягнення" },
-    { id: "income", label: "💰 Дохід" },
+    { id: "goals", label: "🎯 Цілі" },
+    { id: "plan", label: "📋 План дій" },
+    { id: "finances", label: "💸 Фінанси" },
     { id: "projects", label: "🚀 Проекти" },
   ];
 
@@ -241,7 +300,7 @@ export default function AITracker() {
   }, [heatmapDays]);
 
   return (
-    <div style={{ fontFamily: "'Courier New', monospace", background: "#080a12", minHeight: "100vh", color: "#e2e8f0" }}>
+    <div style={{ fontFamily: "'Courier New', monospace", background: "#0d1117", minHeight: "100vh", color: "#e2e8f0" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;800&family=Space+Mono:wght@400;700&display=swap');
         .tab-btn { transition: all 0.18s; }
@@ -388,7 +447,7 @@ export default function AITracker() {
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 {[
                   { label: "+ Вивчити інструмент", color: "#00ff88", rgb: "0,255,136", tab: "skills" },
-                  { label: "+ Записати дохід", color: "#f59e0b", rgb: "245,158,11", tab: "income" },
+                  { label: "+ Записати дохід", color: "#f59e0b", rgb: "245,158,11", tab: "finances" },
                   { label: "+ Новий проект", color: "#6366f1", rgb: "99,102,241", tab: "projects" },
                 ].map(btn => (
                   <button key={btn.tab} className="act-btn" onClick={() => setActiveTab(btn.tab)} style={{ background: `rgba(${btn.rgb},0.1)`, border: `1px solid ${btn.color}`, color: btn.color, padding: "10px 16px", borderRadius: 10, cursor: "pointer", fontSize: 12, fontFamily: "'Space Mono',monospace", fontWeight: 700 }}>{btn.label}</button>
@@ -552,8 +611,162 @@ export default function AITracker() {
           </div>
         )}
 
-        {/* Income */}
-        {activeTab === "income" && (
+        {/* Goals */}
+        {activeTab === "goals" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {/* Summary */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))", gap: 12 }}>
+              {[
+                { label: "Загальний дохід", val: `$${income.toFixed(0)}`, icon: "💰", color: "#f59e0b" },
+                { label: "Інструментів", val: `${totalTools}/${TOTAL_TOOLS}`, icon: "🧠", color: "#00ff88" },
+                { label: "Проектів", val: projects.length, icon: "🚀", color: "#6366f1" },
+                { label: "AI-сесій", val: sessions.dates.length, icon: "⚡", color: "#f43f5e" },
+              ].map(s => (
+                <div key={s.label} style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${s.color}22`, borderRadius: 12, padding: "14px 16px", textAlign: "center" }}>
+                  <div style={{ fontSize: 22, marginBottom: 4 }}>{s.icon}</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif" }}>{s.val}</div>
+                  <div style={{ fontSize: 10, color: "#475569", marginTop: 2, textTransform: "uppercase", letterSpacing: 1 }}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Add goal */}
+            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 16 }}>
+              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 12 }}>+ Нова ціль</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <input
+                  value={goalInput}
+                  onChange={e => setGoalInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === "Enter" && goalInput.trim()) {
+                      setGoals(prev => [...prev, { id: `g${Date.now()}`, text: goalInput.trim(), category: goalCategory, done: false }]);
+                      setGoalInput("");
+                    }
+                  }}
+                  placeholder="Опиши ціль..."
+                  style={{ flex: 1, minWidth: 180, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "9px 14px", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace" }}
+                />
+                <select
+                  value={goalCategory}
+                  onChange={e => setGoalCategory(e.target.value)}
+                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "9px 12px", color: "#94a3b8", fontSize: 12, cursor: "pointer" }}
+                >
+                  {GOAL_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
+                </select>
+                <button className="act-btn" onClick={() => {
+                  if (!goalInput.trim()) return;
+                  setGoals(prev => [...prev, { id: `g${Date.now()}`, text: goalInput.trim(), category: goalCategory, done: false }]);
+                  setGoalInput("");
+                }} style={{ background: "#00ff88", color: "#000", border: "none", padding: "9px 16px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 12 }}>Додати</button>
+              </div>
+            </div>
+
+            {/* Goals list by category */}
+            {GOAL_CATEGORIES.map(cat => {
+              const catGoals = goals.filter(g => g.category === cat.id);
+              if (!catGoals.length) return null;
+              return (
+                <div key={cat.id}>
+                  <div style={{ fontSize: 12, color: cat.color, fontWeight: 700, marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>{cat.icon} {cat.label}</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {catGoals.map(g => (
+                      <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 12, background: g.done ? "rgba(0,255,136,0.05)" : "rgba(255,255,255,0.03)", border: `1px solid ${g.done ? "rgba(0,255,136,0.2)" : "rgba(255,255,255,0.08)"}`, borderRadius: 12, padding: "12px 16px" }}>
+                        <button onClick={() => setGoals(prev => prev.map(x => x.id === g.id ? { ...x, done: !x.done } : x))}
+                          style={{ width: 22, height: 22, borderRadius: "50%", border: `2px solid ${g.done ? "#00ff88" : "rgba(255,255,255,0.2)"}`, background: g.done ? "#00ff88" : "transparent", cursor: "pointer", flexShrink: 0, fontSize: 11, color: "#000", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
+                          {g.done ? "✓" : ""}
+                        </button>
+                        <span style={{ flex: 1, color: g.done ? "#475569" : "#e2e8f0", fontSize: 13, textDecoration: g.done ? "line-through" : "none" }}>{g.text}</span>
+                        <button onClick={() => setGoals(prev => prev.filter(x => x.id !== g.id))}
+                          style={{ background: "none", border: "none", color: "#334155", cursor: "pointer", fontSize: 16, padding: "0 4px" }}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+
+            {goals.filter(g => g.done).length > 0 && goals.filter(g => !g.done).length === 0 && (
+              <div style={{ textAlign: "center", padding: 24, color: "#00ff88", fontSize: 13 }}>🎉 Всі цілі виконано!</div>
+            )}
+          </div>
+        )}
+
+        {/* Plan */}
+        {activeTab === "plan" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {/* Add task */}
+            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 16 }}>
+              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 12 }}>+ Нова задача</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <input
+                  value={planInput}
+                  onChange={e => setPlanInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === "Enter" && planInput.trim()) {
+                      setPlan(prev => [...prev, { id: `p${Date.now()}`, text: planInput.trim(), priority: planPriority, done: false }]);
+                      setPlanInput("");
+                    }
+                  }}
+                  placeholder="Задача або стратегія..."
+                  style={{ flex: 1, minWidth: 180, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "9px 14px", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace" }}
+                />
+                <select
+                  value={planPriority}
+                  onChange={e => setPlanPriority(e.target.value)}
+                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "9px 12px", color: "#94a3b8", fontSize: 12, cursor: "pointer" }}
+                >
+                  {PLAN_PRIORITIES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                </select>
+                <button className="act-btn" onClick={() => {
+                  if (!planInput.trim()) return;
+                  setPlan(prev => [...prev, { id: `p${Date.now()}`, text: planInput.trim(), priority: planPriority, done: false }]);
+                  setPlanInput("");
+                }} style={{ background: "#6366f1", color: "#fff", border: "none", padding: "9px 16px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 12 }}>Додати</button>
+              </div>
+            </div>
+
+            {/* Priority groups */}
+            {PLAN_PRIORITIES.map(pr => {
+              const items = plan.filter(p => p.priority === pr.id && !p.done);
+              const done = plan.filter(p => p.priority === pr.id && p.done);
+              if (!items.length && !done.length) return null;
+              return (
+                <div key={pr.id}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                    <span style={{ background: pr.bg, border: `1px solid ${pr.color}44`, color: pr.color, padding: "3px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>{pr.label}</span>
+                    <span style={{ fontSize: 11, color: "#334155" }}>{items.length} активних{done.length > 0 ? ` · ${done.length} виконано` : ""}</span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                    {[...items, ...done].map(item => (
+                      <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 10, background: item.done ? "rgba(255,255,255,0.02)" : pr.bg, border: `1px solid ${item.done ? "rgba(255,255,255,0.05)" : pr.color + "22"}`, borderRadius: 11, padding: "11px 14px" }}>
+                        <button onClick={() => setPlan(prev => prev.map(x => x.id === item.id ? { ...x, done: !x.done } : x))}
+                          style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${item.done ? "#475569" : pr.color}`, background: item.done ? "#475569" : "transparent", cursor: "pointer", flexShrink: 0, fontSize: 10, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
+                          {item.done ? "✓" : ""}
+                        </button>
+                        <span style={{ flex: 1, color: item.done ? "#334155" : "#cbd5e1", fontSize: 12, textDecoration: item.done ? "line-through" : "none" }}>{item.text}</span>
+                        {/* Move priority */}
+                        {!item.done && (
+                          <select
+                            value={item.priority}
+                            onChange={e => setPlan(prev => prev.map(x => x.id === item.id ? { ...x, priority: e.target.value } : x))}
+                            style={{ background: "rgba(0,0,0,0.3)", border: "none", borderRadius: 6, padding: "2px 6px", color: pr.color, fontSize: 10, cursor: "pointer" }}
+                          >
+                            {PLAN_PRIORITIES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                          </select>
+                        )}
+                        <button onClick={() => setPlan(prev => prev.filter(x => x.id !== item.id))}
+                          style={{ background: "none", border: "none", color: "#334155", cursor: "pointer", fontSize: 16, padding: "0 4px" }}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Finances (was Income) */}
+        {activeTab === "finances" && (
           <div>
             <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 22, marginBottom: 16 }}>
               <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 14, color: "#64748b", marginBottom: 6 }}>Загальний дохід з AI</div>
