@@ -15,21 +15,61 @@ const SKILLS = [
 
 const TOTAL_TOOLS = SKILLS.reduce((a, s) => a + s.tools.length, 0);
 
+// Рівні складності (рідкісність як у Warframe-модів)
+const TIERS = {
+  common:    { label: "Common",    color: "#b0703a", glow: "rgba(176,112,58,0.45)" },
+  uncommon:  { label: "Uncommon",  color: "#a8b6c4", glow: "rgba(168,182,196,0.45)" },
+  rare:      { label: "Rare",      color: "#c9a84c", glow: "rgba(201,168,76,0.5)" },
+  legendary: { label: "Legendary", color: "#22d3ee", glow: "rgba(34,211,238,0.55)" },
+};
+
+// Групи досягнень (для рендеру з заголовками)
+const ACH_GROUPS = [
+  { id: "tools",    label: "🧠 Інструменти" },
+  { id: "income",   label: "💰 Дохід" },
+  { id: "projects", label: "🚀 Проекти" },
+  { id: "streak",   label: "🔥 Стріки" },
+  { id: "sessions", label: "⚡ Сесії" },
+  { id: "special",  label: "🏅 Особливі" },
+];
+
 const ACHIEVEMENTS = [
-  { id: "first_tool", name: "Перший крок", desc: "Вивчи будь-який AI-інструмент", xp: 50, icon: "🔧", check: (t) => t >= 1 },
-  { id: "five_tools", name: "Дослідник", desc: "Вивчи 5 AI-інструментів", xp: 150, icon: "🔍", check: (t) => t >= 5 },
-  { id: "ten_tools", name: "Колекціонер", desc: "Вивчи 10 AI-інструментів", xp: 300, icon: "🗂️", check: (t) => t >= 10 },
-  { id: "first_project", name: "Будівничий", desc: "Заверши перший AI-проект", xp: 200, icon: "🚀", check: (t, i, p) => p >= 1 },
-  { id: "three_projects", name: "Серійний творець", desc: "Заверши 3 проекти", xp: 400, icon: "🏗️", check: (t, i, p) => p >= 3 },
-  { id: "first_dollar", name: "Перший долар", desc: "Зароби перші $1 з AI", xp: 200, icon: "💵", check: (t, i) => i >= 1 },
-  { id: "hundred_dollar", name: "Перша сотня", desc: "Зароби $100 з AI", xp: 500, icon: "💯", check: (t, i) => i >= 100 },
-  { id: "thousand_dollar", name: "Перша тисяча", desc: "Зароби $1000 з AI", xp: 1000, icon: "🏆", check: (t, i) => i >= 1000 },
-  { id: "streak_7", name: "Тижневий стрік", desc: "7 днів поспіль з AI", xp: 250, icon: "🔥", check: (t, i, p, sd, streak) => streak >= 7 },
-  { id: "streak_30", name: "Місячний стрік", desc: "30 днів поспіль з AI", xp: 800, icon: "⚡", check: (t, i, p, sd, streak) => streak >= 30 },
-  { id: "sessions_50", name: "50 сесій", desc: "Проведи 50 AI-сесій", xp: 500, icon: "💪", check: (t, i, p, sd, streak, totalSess) => totalSess >= 50 },
-  { id: "all_categories", name: "Поліглот ШІ", desc: "Вивчи хоча б 1 інструмент у кожній категорії", xp: 500, icon: "🌐",
+  // ── Інструменти ──
+  { id: "first_tool",    group: "tools", tier: "common",    name: "Перший крок",          desc: "Вивчи 1 AI-інструмент",                xp: 50,   icon: "🔧", check: (t) => t >= 1 },
+  { id: "five_tools",    group: "tools", tier: "common",    name: "Дослідник",            desc: "Вивчи 5 AI-інструментів",              xp: 150,  icon: "🔍", check: (t) => t >= 5 },
+  { id: "ten_tools",     group: "tools", tier: "uncommon",  name: "Колекціонер",          desc: "Вивчи 10 AI-інструментів",             xp: 300,  icon: "🗂️", check: (t) => t >= 10 },
+  { id: "twenty_tools",  group: "tools", tier: "rare",      name: "Майстер інструментів", desc: "Вивчи 20 AI-інструментів",             xp: 600,  icon: "🧰", check: (t) => t >= 20 },
+  { id: "all_tools",     group: "tools", tier: "legendary", name: "Арсенал",              desc: `Вивчи всі ${TOTAL_TOOLS} інструментів`, xp: 1500, icon: "🌟", check: (t) => t >= TOTAL_TOOLS },
+  { id: "all_categories",group: "tools", tier: "rare",      name: "Поліглот ШІ",          desc: "По 1 інструменту в кожній категорії",  xp: 500,  icon: "🌐",
     check: (t, i, p, skillData) => SKILLS.every(s => skillData[s.id]?.unlockedTools?.length > 0) },
-  { id: "oxford_dev", name: "Oxford Dev", desc: "Запущено! (Oxford_1000 вже є 🎉)", xp: 300, icon: "📚", check: () => true },
+
+  // ── Дохід ──
+  { id: "first_dollar",   group: "income", tier: "common",    name: "Перший долар",  desc: "Зароби перший $1 з AI",  xp: 100,  icon: "💵", check: (t, i) => i >= 1 },
+  { id: "hundred_dollar", group: "income", tier: "uncommon",  name: "Перша сотня",   desc: "Зароби $100 з AI",       xp: 300,  icon: "💯", check: (t, i) => i >= 100 },
+  { id: "thousand_dollar",group: "income", tier: "rare",      name: "Перша тисяча",  desc: "Зароби $1,000 з AI",     xp: 700,  icon: "🏆", check: (t, i) => i >= 1000 },
+  { id: "tenk_dollar",    group: "income", tier: "legendary", name: "П'ять нулів",   desc: "Зароби $10,000 з AI",    xp: 1500, icon: "💎", check: (t, i) => i >= 10000 },
+  { id: "hundredk_dollar",group: "income", tier: "legendary", name: "Шестизначний",  desc: "Зароби $100,000 з AI",   xp: 5000, icon: "👑", check: (t, i) => i >= 100000 },
+
+  // ── Проекти ──
+  { id: "first_project",  group: "projects", tier: "common",    name: "Будівничий",       desc: "Заверши перший AI-проект", xp: 200,  icon: "🚀", check: (t, i, p) => p >= 1 },
+  { id: "three_projects", group: "projects", tier: "uncommon",  name: "Серійний творець", desc: "Заверши 3 проекти",        xp: 400,  icon: "🏗️", check: (t, i, p) => p >= 3 },
+  { id: "five_projects",  group: "projects", tier: "rare",      name: "Продуктолог",      desc: "Заверши 5 проектів",       xp: 800,  icon: "🏭", check: (t, i, p) => p >= 5 },
+  { id: "ten_projects",   group: "projects", tier: "legendary", name: "Імперія",          desc: "Заверши 10 проектів",      xp: 1500, icon: "🏛️", check: (t, i, p) => p >= 10 },
+
+  // ── Стріки ──
+  { id: "streak_3",   group: "streak", tier: "common",    name: "Розгін",         desc: "3 дні поспіль з AI",    xp: 100,  icon: "✨", check: (t, i, p, sd, streak) => streak >= 3 },
+  { id: "streak_7",   group: "streak", tier: "uncommon",  name: "Тижневий стрік", desc: "7 днів поспіль з AI",   xp: 250,  icon: "🔥", check: (t, i, p, sd, streak) => streak >= 7 },
+  { id: "streak_30",  group: "streak", tier: "rare",      name: "Місячний стрік", desc: "30 днів поспіль з AI",  xp: 800,  icon: "⚡", check: (t, i, p, sd, streak) => streak >= 30 },
+  { id: "streak_100", group: "streak", tier: "legendary", name: "Незламний",      desc: "100 днів поспіль з AI", xp: 2500, icon: "🌋", check: (t, i, p, sd, streak) => streak >= 100 },
+
+  // ── Сесії ──
+  { id: "sessions_10",  group: "sessions", tier: "common",    name: "Звичка",      desc: "Проведи 10 AI-сесій",  xp: 150,  icon: "🌱", check: (t, i, p, sd, streak, totalSess) => totalSess >= 10 },
+  { id: "sessions_50",  group: "sessions", tier: "uncommon",  name: "50 сесій",    desc: "Проведи 50 AI-сесій",  xp: 500,  icon: "💪", check: (t, i, p, sd, streak, totalSess) => totalSess >= 50 },
+  { id: "sessions_100", group: "sessions", tier: "rare",      name: "Сотня сесій", desc: "Проведи 100 AI-сесій", xp: 1000, icon: "🦾", check: (t, i, p, sd, streak, totalSess) => totalSess >= 100 },
+  { id: "sessions_365", group: "sessions", tier: "legendary", name: "Рік з AI",    desc: "Проведи 365 AI-сесій", xp: 3000, icon: "🏵️", check: (t, i, p, sd, streak, totalSess) => totalSess >= 365 },
+
+  // ── Особливі ──
+  { id: "oxford_dev", group: "special", tier: "rare", name: "Oxford Dev", desc: "Запущено! (Oxford_1000 вже є 🎉)", xp: 300, icon: "📚", check: () => true },
 ];
 
 const DEFAULT_SKILL_DATA = Object.fromEntries(SKILLS.map(s => [s.id, { unlockedTools: [] }]));
@@ -781,15 +821,34 @@ export default function AITracker() {
 
         {/* Achievements */}
         {activeTab === "achievements" && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))", gap: 13 }}>
-            {ACHIEVEMENTS.map(a => {
-              const done = unlockedAchievements.includes(a.id);
+          <div style={{ display: "flex", flexDirection: "column", gap: 26 }}>
+            {ACH_GROUPS.map(g => {
+              const items = ACHIEVEMENTS.filter(a => a.group === g.id);
+              if (!items.length) return null;
+              const doneCount = items.filter(a => unlockedAchievements.includes(a.id)).length;
               return (
-                <div key={a.id} className={done ? "wf-card" : ""} style={{ background: done ? "linear-gradient(160deg,rgba(60,40,5,0.95),rgba(20,14,3,0.95))" : "rgba(5,3,1,0.80)", border: `1px solid ${done ? "#c9a84c44" : "rgba(201,168,76,0.12)"}`, borderTop: done ? "2px solid #c9a84c" : "2px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 16, opacity: done ? 1 : 0.50, filter: done ? "none" : "grayscale(0.8)" }}>
-                  <div style={{ fontSize: 28, marginBottom: 10 }}>{a.icon}</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: done ? "#c9a84c" : "#8a7850", marginBottom: 6, fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>{a.name}</div>
-                  <div style={{ fontSize: 11, color: "#6a5a38", marginBottom: 10, lineHeight: 1.5 }}>{a.desc}</div>
-                  <div style={{ fontSize: 11, color: done ? "#c9a84c" : "#5a4a30", fontFamily: "'Space Mono',monospace", letterSpacing: 1 }}>+{a.xp} XP {done ? "✓" : ""}</div>
+                <div key={g.id}>
+                  <div className="wf-sec" style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                    <span>{g.label}</span>
+                    <span style={{ color: doneCount === items.length ? "#c9a84c" : "#9a8a60", fontFamily: "'Space Mono',monospace", letterSpacing: 1 }}>{doneCount}/{items.length}</span>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))", gap: 13 }}>
+                    {items.map(a => {
+                      const done = unlockedAchievements.includes(a.id);
+                      const tier = TIERS[a.tier];
+                      return (
+                        <div key={a.id} className={done ? "wf-card" : ""} style={{ background: done ? `linear-gradient(160deg, ${tier.color}26, rgba(10,7,2,0.95))` : "rgba(5,3,1,0.80)", border: `1px solid ${done ? tier.color + "55" : "rgba(201,168,76,0.10)"}`, borderTop: `2px solid ${done ? tier.color : "rgba(201,168,76,0.18)"}`, borderRadius: 4, padding: 16, opacity: done ? 1 : 0.5, filter: done ? "none" : "grayscale(0.8)", boxShadow: done ? `0 0 18px ${tier.glow}` : "none" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                            <div style={{ fontSize: 28 }}>{a.icon}</div>
+                            <span style={{ fontSize: 9, fontWeight: 800, color: done ? tier.color : "#5a4a30", border: `1px solid ${done ? tier.color + "66" : "rgba(201,168,76,0.15)"}`, borderRadius: 2, padding: "2px 7px", textTransform: "uppercase", letterSpacing: 1.5, fontFamily: "'Exo 2',sans-serif", whiteSpace: "nowrap" }}>{tier.label}</span>
+                          </div>
+                          <div style={{ fontSize: 14, fontWeight: 800, color: done ? tier.color : "#8a7850", marginBottom: 6, fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>{a.name}</div>
+                          <div style={{ fontSize: 12, color: "#6a5a38", marginBottom: 10, lineHeight: 1.5 }}>{a.desc}</div>
+                          <div style={{ fontSize: 12, color: done ? tier.color : "#5a4a30", fontFamily: "'Space Mono',monospace", letterSpacing: 1 }}>+{a.xp} XP {done ? "✓" : ""}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               );
             })}
