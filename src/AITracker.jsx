@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 
 const SKILLS = [
   { id: "llm", name: "LLM / Чат-боти", emoji: "🧠", color: "#00ff88", tools: ["ChatGPT", "Claude", "Gemini", "Grok", "Mistral", "DeepSeek"] },
@@ -386,6 +386,9 @@ export default function AITracker() {
   const [expForm, setExpForm] = useState({ amount: "", currency: "USD", catId: "exp_other", note: "", recurring: false });
   const [newCatName, setNewCatName] = useState("");
   const [addingCat, setAddingCat] = useState(null); // "income" | "expense" | null
+  const [pendingDelete, setPendingDelete] = useState(null); // { id, type, entry, xpPaid, timerId }
+  const [expandedCatRows, setExpandedCatRows] = useState({});
+  const [analyticsYear, setAnalyticsYear] = useState(new Date().getFullYear());
   const [projects, setProjects] = useState(saved?.projects ?? DEFAULT_PROJECTS);
   const [projectInput, setProjectInput] = useState("");
   const [sessions, setSessions] = useState(saved?.sessions ?? DEFAULT_SESSIONS);
@@ -512,11 +515,12 @@ export default function AITracker() {
     const amt = parseFloat(incForm.amount);
     if (!amt || amt <= 0) return;
     const amtUSD = incForm.currency === "UAH" ? amt / uahRate : amt;
-    const entry = { id: `inc_${Date.now()}`, catId: incForm.catId, amount: amt, currency: incForm.currency, date: new Date().toISOString().slice(0,10), note: incForm.note };
+    const xpPaid = Math.ceil(amtUSD * 3);
+    const entry = { id: `inc_${Date.now()}`, catId: incForm.catId, amount: amt, currency: incForm.currency, date: new Date().toISOString().slice(0,10), note: incForm.note, xpPaid };
     setIncomeEntries(prev => {
       const next = [...prev, entry];
       const newTotal = next.reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
-      gainXP(Math.ceil(amtUSD * 3), `(+$${amtUSD.toFixed(2)})`);
+      gainXP(xpPaid, `(+$${amtUSD.toFixed(2)})`);
       setUnlockedAchievements(ua => {
         checkAchievements(totalTools, newTotal, projects.length, skillData, ua, streak, sessions.dates.length);
         return ua;
@@ -525,6 +529,52 @@ export default function AITracker() {
     });
     setIncForm(f => ({ ...f, amount: "", note: "" }));
   }, [incForm, uahRate, toUSD, gainXP, checkAchievements, totalTools, projects, skillData, streak, sessions.dates.length]);
+
+  // Delete entry with 5s undo window
+  const startDelete = useCallback((id, type) => {
+    const entries = type === "income" ? incomeEntries : expenseEntries;
+    const entry = entries.find(e => e.id === id);
+    if (!entry) return;
+    if (type === "income") setIncomeEntries(prev => prev.filter(e => e.id !== id));
+    else setExpenseEntries(prev => prev.filter(e => e.id !== id));
+    setPendingDelete(prev => {
+      if (prev?.timerId) clearTimeout(prev.timerId);
+      const timerId = setTimeout(() => setPendingDelete(null), 5000);
+      return { id, type, entry, xpPaid: 0, timerId };
+    });
+  }, [incomeEntries, expenseEntries]);
+
+  // Refund income entry: remove it + deduct XP
+  const refundIncomeEntry = useCallback((id) => {
+    const entry = incomeEntries.find(e => e.id === id);
+    if (!entry) return;
+    setIncomeEntries(prev => prev.filter(e => e.id !== id));
+    const xp = entry.xpPaid ?? 0;
+    if (xp > 0) {
+      setTotalXP(prev => Math.max(0, prev - xp));
+      showNotif(`↩ Повернуто −${xp} XP`, "xp");
+    }
+    setPendingDelete(prev => {
+      if (prev?.timerId) clearTimeout(prev.timerId);
+      const timerId = setTimeout(() => setPendingDelete(null), 5000);
+      return { id, type: "income", entry, xpPaid: xp, refund: true, timerId };
+    });
+  }, [incomeEntries, showNotif]);
+
+  const undoDelete = useCallback(() => {
+    if (!pendingDelete) return;
+    if (pendingDelete.timerId) clearTimeout(pendingDelete.timerId);
+    if (pendingDelete.type === "income") {
+      setIncomeEntries(prev => [...prev, pendingDelete.entry]);
+      if (pendingDelete.refund && pendingDelete.xpPaid > 0) {
+        setTotalXP(prev => prev + pendingDelete.xpPaid);
+        showNotif(`✓ Скасовано — +${pendingDelete.xpPaid} XP повернено`, "xp");
+      }
+    } else {
+      setExpenseEntries(prev => [...prev, pendingDelete.entry]);
+    }
+    setPendingDelete(null);
+  }, [pendingDelete, showNotif]);
 
   const addExpenseEntry = useCallback(() => {
     const amt = parseFloat(expForm.amount);
@@ -1179,91 +1229,137 @@ export default function AITracker() {
         {activeTab === "finances" && (() => {
           const net = totalIncome - totalExpenses;
           const months = getLastMonths(4);
+          const MONTH_NAMES = ["Січ","Лют","Бер","Кві","Тра","Чер","Лип","Сер","Вер","Жов","Лис","Гру"];
 
-          // Rate staleness indicator
-          function RateAge() {
-            if (!uahRateUpdatedAt) return <span style={{ color: "#f43f5e", fontSize: 11 }}>не встановлено</span>;
-            const mins = Math.round((Date.now() - new Date(uahRateUpdatedAt)) / 60000);
-            if (mins < 60) return <span style={{ color: "#10b981", fontSize: 11 }}>🟢 {mins} хв. тому</span>;
-            const hrs = Math.round(mins / 60);
-            if (hrs < 24) return <span style={{ color: "#10b981", fontSize: 11 }}>🟢 {hrs} год. тому</span>;
-            const days = Math.round(hrs / 24);
-            return <span style={{ color: days > 3 ? "#f43f5e" : "#f59e0b", fontSize: 11 }}>{days > 3 ? "🔴" : "🟡"} {days} дн. тому</span>;
-          }
+          const rateColor = !uahRateUpdatedAt ? "#f43f5e"
+            : (Date.now() - new Date(uahRateUpdatedAt)) < 86400000 ? "#10b981"
+            : (Date.now() - new Date(uahRateUpdatedAt)) < 259200000 ? "#f59e0b" : "#f43f5e";
+          const rateLabel = rateFetching ? "⏳ оновлення..."
+            : !uahRateUpdatedAt ? "🔴 ще не отримано"
+            : (() => {
+                const mins = Math.round((Date.now() - new Date(uahRateUpdatedAt)) / 60000);
+                if (mins < 2) return "🟢 щойно";
+                if (mins < 60) return `🟢 ${mins} хв. тому`;
+                const hrs = Math.round(mins / 60);
+                if (hrs < 24) return `🟢 ${hrs} год. тому`;
+                const days = Math.round(hrs / 24);
+                return `${days > 3 ? "🔴" : "🟡"} ${days} дн. тому`;
+              })();
 
           const inpStyle = { background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "8px 12px", color: "#e0d8c0", fontSize: 13, fontFamily: "'Space Mono',monospace" };
           const selStyle = { ...inpStyle, cursor: "pointer", color: "#9a8a60" };
 
+          const thStyle = (color) => ({ textAlign: "right", color: color ?? "#9a8a60", padding: "6px 8px", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, fontSize: 10 });
+
+          // SVG monthly chart for analytics
+          const chartYear = analyticsYear;
+          const chartMonths = Array.from({ length: 12 }, (_, i) => `${chartYear}-${String(i+1).padStart(2,"0")}`);
+          const chartInc = chartMonths.map(m => incomeEntries.filter(e => e.date.startsWith(m)).reduce((s, e) => s + toUSD(e.amount, e.currency), 0));
+          const chartExp = chartMonths.map(m => expenseEntries.filter(e => e.date.startsWith(m)).reduce((s, e) => s + toUSD(e.amount, e.currency), 0));
+          const maxVal = Math.max(...chartInc, ...chartExp, 1);
+          const W = 580, H = 130, PL = 46, PR = 8, PT = 10, PB = 22;
+          const cW = W - PL - PR, cH = H - PT - PB;
+          const px = (i) => PL + (i / 11) * cW;
+          const py = (v) => PT + cH - (v / maxVal) * cH;
+          const linePath = (data) => data.map((v, i) => `${i === 0 ? "M" : "L"}${px(i).toFixed(1)},${py(v).toFixed(1)}`).join(" ");
+          const areaPath = (data) => `${linePath(data)} L${px(11).toFixed(1)},${(PT+cH).toFixed(1)} L${PL},${(PT+cH).toFixed(1)} Z`;
+
+          const yearInc = chartInc.reduce((s, v) => s + v, 0);
+          const yearExp = chartExp.reduce((s, v) => s + v, 0);
+          const yearNet = yearInc - yearExp;
+
           return (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+
+            {/* Undo toast */}
+            {pendingDelete && (
+              <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", zIndex: 9998, background: "linear-gradient(135deg,rgba(30,20,4,0.98),rgba(14,10,2,0.98))", border: "1px solid rgba(201,168,76,0.5)", borderTop: "2px solid #c9a84c", borderRadius: 4, padding: "12px 20px", display: "flex", alignItems: "center", gap: 14, boxShadow: "0 8px 32px rgba(0,0,0,0.7)", fontFamily: "'Exo 2',sans-serif" }}>
+                <span style={{ fontSize: 12, color: "#e0d8c0" }}>{pendingDelete.refund ? "📤 Повернення скасовано" : "🗑 Запис видалено"}</span>
+                <button onClick={undoDelete} style={{ background: "#c9a84c", border: "none", color: "#000", padding: "6px 14px", borderRadius: 3, fontWeight: 800, cursor: "pointer", fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>↩ Скасувати</button>
+              </div>
+            )}
 
             {/* Rate bar */}
             <div className="wf-panel" style={{ padding: "10px 16px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
               <span style={{ fontSize: 11, color: "#9a8a60", textTransform: "uppercase", letterSpacing: 1 }}>Курс USD/UAH:</span>
               <span style={{ fontSize: 16, fontWeight: 800, color: "#c9a84c", fontFamily: "'Exo 2',sans-serif" }}>1$ = {uahRate} грн</span>
-              <RateAge />
+              <span style={{ fontSize: 11, color: rateColor }}>{rateLabel}</span>
               <button onClick={fetchRate} disabled={rateFetching} className="act-btn" style={{ background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.4)", color: "#c9a84c", padding: "5px 12px", borderRadius: 3, fontSize: 11, fontWeight: 700, cursor: "pointer", marginLeft: "auto", fontFamily: "'Exo 2',sans-serif", letterSpacing: 1 }}>
-                {rateFetching ? "⏳ ..." : "🔄 Оновити"}
+                🔄 Оновити
               </button>
             </div>
 
             {/* 3-col summary */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
               {[
-                { label: "Дохід", val: `$${totalIncome.toFixed(2)}`, color: "#10b981", icon: "📈" },
-                { label: "Витрати", val: `$${totalExpenses.toFixed(2)}`, color: "#f43f5e", icon: "📉" },
+                { label: "Дохід (всього)", val: `$${totalIncome.toFixed(2)}`, color: "#10b981", icon: "📈" },
+                { label: "Витрати (всього)", val: `$${totalExpenses.toFixed(2)}`, color: "#f43f5e", icon: "📉" },
                 { label: "Баланс", val: `${net >= 0 ? "+" : ""}$${net.toFixed(2)}`, color: net >= 0 ? "#00ff88" : "#f43f5e", icon: net >= 0 ? "💚" : "🔴" },
               ].map(s => (
                 <div key={s.label} className="wf-panel" style={{ padding: "16px 14px", textAlign: "center" }}>
                   <div style={{ fontSize: 22, marginBottom: 4 }}>{s.icon}</div>
-                  <div style={{ fontSize: 26, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif" }}>{s.val}</div>
-                  <div style={{ fontSize: 11, color: "#9a8a60", marginTop: 4, textTransform: "uppercase", letterSpacing: 2 }}>{s.label}</div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif" }}>{s.val}</div>
+                  <div style={{ fontSize: 10, color: "#9a8a60", marginTop: 4, textTransform: "uppercase", letterSpacing: 2 }}>{s.label}</div>
                 </div>
               ))}
             </div>
 
             {/* Income table */}
             <div className="wf-panel" style={{ padding: 16 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                <span className="wf-sec" style={{ marginBottom: 0, paddingBottom: 0, border: "none" }}>📈 Дохід</span>
-              </div>
+              <span className="wf-sec" style={{ display: "block", marginBottom: 12 }}>📈 Дохід</span>
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'Space Mono',monospace" }}>
                   <thead>
                     <tr style={{ borderBottom: "1px solid rgba(201,168,76,0.25)" }}>
-                      <th style={{ textAlign: "left", color: "#9a8a60", padding: "6px 8px", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, fontSize: 10 }}>Категорія</th>
-                      {months.map(m => <th key={m} style={{ textAlign: "right", color: "#9a8a60", padding: "6px 8px", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, fontSize: 10 }}>{monthLabel(m)}</th>)}
-                      <th style={{ textAlign: "right", color: "#c9a84c", padding: "6px 8px", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, fontSize: 10 }}>Всього</th>
-                      <th style={{ width: 24 }}></th>
+                      <th style={{ ...thStyle("#9a8a60"), textAlign: "left" }}>Категорія</th>
+                      {months.map(m => <th key={m} style={thStyle()}>{monthLabel(m)}</th>)}
+                      <th style={thStyle("#c9a84c")}>Весь час</th>
+                      <th style={{ width: 80 }}></th>
                     </tr>
                   </thead>
                   <tbody>
                     {incomeCats.map(cat => {
-                      const entries = incomeEntries.filter(e => e.catId === cat.id);
-                      const monthTotals = months.map(m => entries.filter(e => e.date.startsWith(m)).reduce((s, e) => s + toUSD(e.amount, e.currency), 0));
-                      const total = entries.reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
-                      if (total === 0 && entries.length === 0) return null;
+                      const catEntries = incomeEntries.filter(e => e.catId === cat.id);
+                      const monthTotals = months.map(m => catEntries.filter(e => e.date.startsWith(m)).reduce((s, e) => s + toUSD(e.amount, e.currency), 0));
+                      const total = catEntries.reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
+                      const isExpanded = expandedCatRows[`inc_${cat.id}`];
+                      if (total === 0 && catEntries.length === 0) return null;
                       return (
-                        <tr key={cat.id} style={{ borderBottom: "1px solid rgba(201,168,76,0.07)" }}>
-                          <td style={{ padding: "8px 8px", color: cat.color, fontWeight: 700 }}>{cat.icon} {cat.name}</td>
-                          {monthTotals.map((v, i) => <td key={i} style={{ textAlign: "right", padding: "8px 8px", color: v > 0 ? "#e0d8c0" : "#3a3028" }}>{v > 0 ? `$${v.toFixed(0)}` : "—"}</td>)}
-                          <td style={{ textAlign: "right", padding: "8px 8px", color: "#10b981", fontWeight: 700 }}>${total.toFixed(0)}</td>
-                          <td style={{ textAlign: "right", padding: "4px" }}>
-                            <button onClick={() => setIncomeCats(prev => prev.filter(c => c.id !== cat.id))} style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 13, padding: 2 }}>×</button>
-                          </td>
-                        </tr>
+                        <React.Fragment key={cat.id}>
+                          <tr style={{ borderBottom: "1px solid rgba(201,168,76,0.07)", cursor: "pointer" }} onClick={() => setExpandedCatRows(r => ({ ...r, [`inc_${cat.id}`]: !r[`inc_${cat.id}`] }))}>
+                            <td style={{ padding: "8px 8px", color: cat.color, fontWeight: 700 }}>{cat.icon} {cat.name} <span style={{ fontSize: 9, color: "#5a4a30" }}>{isExpanded ? "▲" : "▼"}</span></td>
+                            {monthTotals.map((v, i) => <td key={i} style={{ textAlign: "right", padding: "8px 8px", color: v > 0 ? "#e0d8c0" : "#3a3028" }}>{v > 0 ? `$${v.toFixed(0)}` : "—"}</td>)}
+                            <td style={{ textAlign: "right", padding: "8px 8px", color: "#10b981", fontWeight: 700 }}>${total.toFixed(0)}</td>
+                            <td style={{ textAlign: "right", padding: "4px" }}>
+                              <button onClick={e => { e.stopPropagation(); setIncomeCats(prev => prev.filter(c => c.id !== cat.id)); }} title="Видалити категорію" style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 11, padding: 2 }}>× кат.</button>
+                            </td>
+                          </tr>
+                          {isExpanded && catEntries.map(entry => (
+                            <tr key={entry.id} style={{ background: "rgba(16,185,129,0.04)", borderBottom: "1px solid rgba(16,185,129,0.06)" }}>
+                              <td style={{ padding: "6px 8px 6px 24px", color: "#9a8a60", fontSize: 11 }}>
+                                {entry.date} {entry.note && <span style={{ color: "#7a6a48" }}>— {entry.note}</span>}
+                              </td>
+                              <td colSpan={months.length} />
+                              <td style={{ textAlign: "right", padding: "6px 8px", color: "#10b981", fontSize: 11 }}>
+                                {entry.currency === "UAH" ? `${entry.amount} грн` : `$${entry.amount}`}
+                                {entry.currency === "UAH" && <span style={{ color: "#5a4a30", marginLeft: 4 }}>(${toUSD(entry.amount, entry.currency).toFixed(2)})</span>}
+                              </td>
+                              <td style={{ textAlign: "right", padding: "4px", whiteSpace: "nowrap" }}>
+                                <button onClick={() => refundIncomeEntry(entry.id)} title="Повернути кошти (знімає XP)" style={{ background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.3)", color: "#f43f5e", cursor: "pointer", fontSize: 10, padding: "3px 6px", borderRadius: 3, marginRight: 4 }}>📤 Повернути</button>
+                                <button onClick={() => startDelete(entry.id, "income")} title="Видалити запис (без впливу на XP)" style={{ background: "none", border: "1px solid rgba(201,168,76,0.2)", color: "#5a4a30", cursor: "pointer", fontSize: 10, padding: "3px 6px", borderRadius: 3 }}>🗑</button>
+                              </td>
+                            </tr>
+                          ))}
+                        </React.Fragment>
                       );
                     })}
-                    {incomeCats.every(cat => incomeEntries.filter(e => e.catId === cat.id).length === 0) && (
+                    {incomeEntries.length === 0 && (
                       <tr><td colSpan={months.length + 3} style={{ color: "#5a4a30", padding: "12px 8px", textAlign: "center", fontStyle: "italic" }}>Ще немає записів</td></tr>
                     )}
                     {totalIncome > 0 && (
                       <tr style={{ borderTop: "1px solid rgba(201,168,76,0.20)" }}>
                         <td style={{ padding: "8px 8px", color: "#c9a84c", fontWeight: 700, fontSize: 11, textTransform: "uppercase" }}>Всього</td>
-                        {months.map(m => {
-                          const v = incomeEntries.filter(e => e.date.startsWith(m)).reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
-                          return <td key={m} style={{ textAlign: "right", padding: "8px 8px", color: v > 0 ? "#c9a84c" : "#3a3028", fontWeight: 700 }}>{v > 0 ? `$${v.toFixed(0)}` : "—"}</td>;
-                        })}
+                        {months.map(m => { const v = incomeEntries.filter(e => e.date.startsWith(m)).reduce((s, e) => s + toUSD(e.amount, e.currency), 0); return <td key={m} style={{ textAlign: "right", padding: "8px 8px", color: v > 0 ? "#c9a84c" : "#3a3028", fontWeight: 700 }}>{v > 0 ? `$${v.toFixed(0)}` : "—"}</td>; })}
                         <td style={{ textAlign: "right", padding: "8px 8px", color: "#c9a84c", fontWeight: 800 }}>${totalIncome.toFixed(0)}</td>
                         <td></td>
                       </tr>
@@ -1271,14 +1367,13 @@ export default function AITracker() {
                   </tbody>
                 </table>
               </div>
-              {/* Add income form */}
-              <div style={{ marginTop: 14, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", paddingTop: 12, borderTop: "1px solid rgba(201,168,76,0.15)" }}>
+              <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", paddingTop: 12, borderTop: "1px solid rgba(201,168,76,0.15)" }}>
                 <select value={incForm.catId} onChange={e => setIncForm(f => ({ ...f, catId: e.target.value }))} style={selStyle}>
                   {incomeCats.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
                 </select>
                 <input value={incForm.amount} onChange={e => setIncForm(f => ({ ...f, amount: e.target.value }))} onKeyDown={e => e.key === "Enter" && addIncomeEntry()} placeholder="Сума" type="number" min="0" style={{ ...inpStyle, width: 100 }} />
                 <button onClick={() => setIncForm(f => ({ ...f, currency: f.currency === "USD" ? "UAH" : "USD" }))} style={{ background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.35)", color: "#c9a84c", padding: "8px 12px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 12, minWidth: 52 }}>{incForm.currency}</button>
-                <input value={incForm.note} onChange={e => setIncForm(f => ({ ...f, note: e.target.value }))} placeholder="Нотатка..." style={{ ...inpStyle, flex: 1, minWidth: 100 }} />
+                <input value={incForm.note} onChange={e => setIncForm(f => ({ ...f, note: e.target.value }))} placeholder="Нотатка..." style={{ ...inpStyle, flex: 1, minWidth: 80 }} />
                 <button onClick={addIncomeEntry} className="act-btn" style={{ background: "#10b981", color: "#000", border: "none", padding: "8px 16px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 12, whiteSpace: "nowrap" }}>+ Записати</button>
                 {addingCat !== "income" ? (
                   <button onClick={() => setAddingCat("income")} style={{ background: "none", border: "1px dashed rgba(201,168,76,0.3)", color: "#9a8a60", padding: "8px 10px", borderRadius: 4, cursor: "pointer", fontSize: 11 }}>+ Категорія</button>
@@ -1294,50 +1389,64 @@ export default function AITracker() {
 
             {/* Expense table */}
             <div className="wf-panel" style={{ padding: 16 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                <span className="wf-sec" style={{ marginBottom: 0, paddingBottom: 0, border: "none" }}>📉 Витрати</span>
-              </div>
+              <span className="wf-sec" style={{ display: "block", marginBottom: 12 }}>📉 Витрати</span>
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'Space Mono',monospace" }}>
                   <thead>
                     <tr style={{ borderBottom: "1px solid rgba(201,168,76,0.25)" }}>
-                      <th style={{ textAlign: "left", color: "#9a8a60", padding: "6px 8px", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, fontSize: 10 }}>Підписка / Витрата</th>
-                      {months.map(m => <th key={m} style={{ textAlign: "right", color: "#9a8a60", padding: "6px 8px", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, fontSize: 10 }}>{monthLabel(m)}</th>)}
-                      <th style={{ textAlign: "right", color: "#f43f5e", padding: "6px 8px", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, fontSize: 10 }}>Всього</th>
-                      <th style={{ width: 24 }}></th>
+                      <th style={{ ...thStyle("#9a8a60"), textAlign: "left" }}>Підписка / Витрата</th>
+                      {months.map(m => <th key={m} style={thStyle()}>{monthLabel(m)}</th>)}
+                      <th style={thStyle("#f43f5e")}>Весь час</th>
+                      <th style={{ width: 80 }}></th>
                     </tr>
                   </thead>
                   <tbody>
                     {expenseCats.map(cat => {
-                      const entries = expenseEntries.filter(e => e.catId === cat.id);
-                      const monthTotals = months.map(m => entries.filter(e => e.date.startsWith(m)).reduce((s, e) => s + toUSD(e.amount, e.currency), 0));
-                      const total = entries.reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
-                      const hasRecurring = entries.some(e => e.recurring);
-                      if (total === 0 && entries.length === 0) return null;
+                      const catEntries = expenseEntries.filter(e => e.catId === cat.id);
+                      const monthTotals = months.map(m => catEntries.filter(e => e.date.startsWith(m)).reduce((s, e) => s + toUSD(e.amount, e.currency), 0));
+                      const total = catEntries.reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
+                      const hasRecurring = catEntries.some(e => e.recurring);
+                      const isExpanded = expandedCatRows[`exp_${cat.id}`];
+                      if (total === 0 && catEntries.length === 0) return null;
                       return (
-                        <tr key={cat.id} style={{ borderBottom: "1px solid rgba(201,168,76,0.07)" }}>
-                          <td style={{ padding: "8px 8px", color: cat.color, fontWeight: 700 }}>
-                            {cat.icon} {cat.name}
-                            {hasRecurring && <span style={{ marginLeft: 6, fontSize: 9, color: "#f59e0b", border: "1px solid #f59e0b44", borderRadius: 2, padding: "1px 4px" }}>🔄</span>}
-                          </td>
-                          {monthTotals.map((v, i) => <td key={i} style={{ textAlign: "right", padding: "8px 8px", color: v > 0 ? "#f43f5e" : "#3a3028" }}>{v > 0 ? `$${v.toFixed(0)}` : "—"}</td>)}
-                          <td style={{ textAlign: "right", padding: "8px 8px", color: "#f43f5e", fontWeight: 700 }}>${total.toFixed(0)}</td>
-                          <td style={{ textAlign: "right", padding: "4px" }}>
-                            <button onClick={() => setExpenseCats(prev => prev.filter(c => c.id !== cat.id))} style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 13, padding: 2 }}>×</button>
-                          </td>
-                        </tr>
+                        <React.Fragment key={cat.id}>
+                          <tr style={{ borderBottom: "1px solid rgba(201,168,76,0.07)", cursor: "pointer" }} onClick={() => setExpandedCatRows(r => ({ ...r, [`exp_${cat.id}`]: !r[`exp_${cat.id}`] }))}>
+                            <td style={{ padding: "8px 8px", color: cat.color, fontWeight: 700 }}>
+                              {cat.icon} {cat.name}
+                              {hasRecurring && <span style={{ marginLeft: 6, fontSize: 9, color: "#f59e0b", border: "1px solid #f59e0b44", borderRadius: 2, padding: "1px 4px" }}>🔄</span>}
+                              <span style={{ fontSize: 9, color: "#5a4a30", marginLeft: 4 }}>{isExpanded ? "▲" : "▼"}</span>
+                            </td>
+                            {monthTotals.map((v, i) => <td key={i} style={{ textAlign: "right", padding: "8px 8px", color: v > 0 ? "#f43f5e" : "#3a3028" }}>{v > 0 ? `$${v.toFixed(0)}` : "—"}</td>)}
+                            <td style={{ textAlign: "right", padding: "8px 8px", color: "#f43f5e", fontWeight: 700 }}>${total.toFixed(0)}</td>
+                            <td style={{ textAlign: "right", padding: "4px" }}>
+                              <button onClick={e => { e.stopPropagation(); setExpenseCats(prev => prev.filter(c => c.id !== cat.id)); }} title="Видалити категорію" style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 11, padding: 2 }}>× кат.</button>
+                            </td>
+                          </tr>
+                          {isExpanded && catEntries.map(entry => (
+                            <tr key={entry.id} style={{ background: "rgba(244,63,94,0.03)", borderBottom: "1px solid rgba(244,63,94,0.06)" }}>
+                              <td style={{ padding: "6px 8px 6px 24px", color: "#9a8a60", fontSize: 11 }}>
+                                {entry.date} {entry.recurring && <span style={{ color: "#f59e0b", marginRight: 4 }}>🔄</span>}{entry.note && <span style={{ color: "#7a6a48" }}>— {entry.note}</span>}
+                              </td>
+                              <td colSpan={months.length} />
+                              <td style={{ textAlign: "right", padding: "6px 8px", color: "#f43f5e", fontSize: 11 }}>
+                                {entry.currency === "UAH" ? `${entry.amount} грн` : `$${entry.amount}`}
+                                {entry.currency === "UAH" && <span style={{ color: "#5a4a30", marginLeft: 4 }}>(${toUSD(entry.amount, entry.currency).toFixed(2)})</span>}
+                              </td>
+                              <td style={{ textAlign: "right", padding: "4px" }}>
+                                <button onClick={() => startDelete(entry.id, "expense")} title="Видалити запис" style={{ background: "none", border: "1px solid rgba(201,168,76,0.2)", color: "#5a4a30", cursor: "pointer", fontSize: 10, padding: "3px 6px", borderRadius: 3 }}>🗑</button>
+                              </td>
+                            </tr>
+                          ))}
+                        </React.Fragment>
                       );
                     })}
-                    {expenseCats.every(cat => expenseEntries.filter(e => e.catId === cat.id).length === 0) && (
+                    {expenseEntries.length === 0 && (
                       <tr><td colSpan={months.length + 3} style={{ color: "#5a4a30", padding: "12px 8px", textAlign: "center", fontStyle: "italic" }}>Ще немає записів</td></tr>
                     )}
                     {totalExpenses > 0 && (
                       <tr style={{ borderTop: "1px solid rgba(201,168,76,0.20)" }}>
                         <td style={{ padding: "8px 8px", color: "#c9a84c", fontWeight: 700, fontSize: 11, textTransform: "uppercase" }}>Всього</td>
-                        {months.map(m => {
-                          const v = expenseEntries.filter(e => e.date.startsWith(m)).reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
-                          return <td key={m} style={{ textAlign: "right", padding: "8px 8px", color: v > 0 ? "#f43f5e" : "#3a3028", fontWeight: 700 }}>{v > 0 ? `$${v.toFixed(0)}` : "—"}</td>;
-                        })}
+                        {months.map(m => { const v = expenseEntries.filter(e => e.date.startsWith(m)).reduce((s, e) => s + toUSD(e.amount, e.currency), 0); return <td key={m} style={{ textAlign: "right", padding: "8px 8px", color: v > 0 ? "#f43f5e" : "#3a3028", fontWeight: 700 }}>{v > 0 ? `$${v.toFixed(0)}` : "—"}</td>; })}
                         <td style={{ textAlign: "right", padding: "8px 8px", color: "#f43f5e", fontWeight: 800 }}>${totalExpenses.toFixed(0)}</td>
                         <td></td>
                       </tr>
@@ -1345,14 +1454,13 @@ export default function AITracker() {
                   </tbody>
                 </table>
               </div>
-              {/* Add expense form */}
-              <div style={{ marginTop: 14, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", paddingTop: 12, borderTop: "1px solid rgba(201,168,76,0.15)" }}>
+              <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", paddingTop: 12, borderTop: "1px solid rgba(201,168,76,0.15)" }}>
                 <select value={expForm.catId} onChange={e => setExpForm(f => ({ ...f, catId: e.target.value }))} style={selStyle}>
                   {expenseCats.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
                 </select>
                 <input value={expForm.amount} onChange={e => setExpForm(f => ({ ...f, amount: e.target.value }))} onKeyDown={e => e.key === "Enter" && addExpenseEntry()} placeholder="Сума" type="number" min="0" style={{ ...inpStyle, width: 100 }} />
                 <button onClick={() => setExpForm(f => ({ ...f, currency: f.currency === "USD" ? "UAH" : "USD" }))} style={{ background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.35)", color: "#f43f5e", padding: "8px 12px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 12, minWidth: 52 }}>{expForm.currency}</button>
-                <input value={expForm.note} onChange={e => setExpForm(f => ({ ...f, note: e.target.value }))} placeholder="Нотатка..." style={{ ...inpStyle, flex: 1, minWidth: 100 }} />
+                <input value={expForm.note} onChange={e => setExpForm(f => ({ ...f, note: e.target.value }))} placeholder="Нотатка..." style={{ ...inpStyle, flex: 1, minWidth: 80 }} />
                 <label style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", color: "#f59e0b", fontSize: 11, whiteSpace: "nowrap" }}>
                   <input type="checkbox" checked={expForm.recurring} onChange={e => setExpForm(f => ({ ...f, recurring: e.target.checked }))} style={{ accentColor: "#f59e0b" }} />
                   🔄 Щомісячна
@@ -1367,6 +1475,63 @@ export default function AITracker() {
                     <button onClick={() => { setAddingCat(null); setNewCatName(""); }} style={{ background: "none", border: "none", color: "#9a8a60", cursor: "pointer", fontSize: 16 }}>×</button>
                   </div>
                 )}
+              </div>
+            </div>
+
+            {/* Annual analytics + chart */}
+            <div className="wf-panel" style={{ padding: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+                <span className="wf-sec" style={{ marginBottom: 0, paddingBottom: 0, border: "none" }}>📊 Аналітика</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
+                  <button onClick={() => setAnalyticsYear(y => y - 1)} style={{ background: "none", border: "1px solid rgba(201,168,76,0.3)", color: "#9a8a60", padding: "4px 10px", borderRadius: 3, cursor: "pointer", fontSize: 12 }}>‹</button>
+                  <span style={{ color: "#c9a84c", fontWeight: 800, fontFamily: "'Exo 2',sans-serif", minWidth: 44, textAlign: "center" }}>{chartYear}</span>
+                  <button onClick={() => setAnalyticsYear(y => y + 1)} style={{ background: "none", border: "1px solid rgba(201,168,76,0.3)", color: "#9a8a60", padding: "4px 10px", borderRadius: 3, cursor: "pointer", fontSize: 12 }}>›</button>
+                </div>
+              </div>
+
+              {/* Year totals row */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 16 }}>
+                {[
+                  { label: `Дохід ${chartYear}`, val: `$${yearInc.toFixed(0)}`, color: "#10b981" },
+                  { label: `Витрати ${chartYear}`, val: `$${yearExp.toFixed(0)}`, color: "#f43f5e" },
+                  { label: "Різниця", val: `${yearNet >= 0 ? "+" : ""}$${yearNet.toFixed(0)}`, color: yearNet >= 0 ? "#00ff88" : "#f43f5e" },
+                ].map(s => (
+                  <div key={s.label} style={{ background: "rgba(8,5,2,0.5)", border: `1px solid ${s.color}22`, borderRadius: 4, padding: "10px 12px", textAlign: "center" }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif" }}>{s.val}</div>
+                    <div style={{ fontSize: 10, color: "#9a8a60", marginTop: 3, textTransform: "uppercase", letterSpacing: 1 }}>{s.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* SVG line chart */}
+              <div style={{ background: "rgba(5,3,1,0.5)", borderRadius: 4, padding: "8px 4px 4px", border: "1px solid rgba(201,168,76,0.12)" }}>
+                <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: "block" }}>
+                  {/* Grid lines */}
+                  {[0.25,0.5,0.75,1].map(p => (
+                    <line key={p} x1={PL} y1={PT + cH*(1-p)} x2={W-PR} y2={PT + cH*(1-p)} stroke="rgba(201,168,76,0.10)" strokeWidth="1" />
+                  ))}
+                  {/* Area fills */}
+                  <path d={areaPath(chartInc)} fill="rgba(16,185,129,0.07)" />
+                  <path d={areaPath(chartExp)} fill="rgba(244,63,94,0.07)" />
+                  {/* Lines */}
+                  <path d={linePath(chartInc)} fill="none" stroke="#10b981" strokeWidth="2" strokeLinejoin="round" />
+                  <path d={linePath(chartExp)} fill="none" stroke="#f43f5e" strokeWidth="2" strokeLinejoin="round" />
+                  {/* Dots */}
+                  {chartInc.map((v, i) => v > 0 && <circle key={i} cx={px(i)} cy={py(v)} r="3" fill="#10b981" />)}
+                  {chartExp.map((v, i) => v > 0 && <circle key={i} cx={px(i)} cy={py(v)} r="3" fill="#f43f5e" />)}
+                  {/* Month labels */}
+                  {MONTH_NAMES.map((name, i) => (
+                    <text key={i} x={px(i)} y={H-5} textAnchor="middle" fill="rgba(154,138,96,0.7)" fontSize="9" fontFamily="monospace">{name}</text>
+                  ))}
+                  {/* Y-axis */}
+                  {[0,0.5,1].map(p => (
+                    <text key={p} x={PL-4} y={PT + cH*(1-p) + 3} textAnchor="end" fill="rgba(154,138,96,0.6)" fontSize="8" fontFamily="monospace">${Math.round(maxVal*p)}</text>
+                  ))}
+                </svg>
+                <div style={{ display: "flex", gap: 16, justifyContent: "center", paddingTop: 6, paddingBottom: 4 }}>
+                  <span style={{ fontSize: 10, color: "#10b981", fontFamily: "'Space Mono',monospace" }}>■ Дохід</span>
+                  <span style={{ fontSize: 10, color: "#f43f5e", fontFamily: "'Space Mono',monospace" }}>■ Витрати</span>
+                </div>
               </div>
             </div>
 
