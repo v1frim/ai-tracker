@@ -445,9 +445,13 @@ export default function AITracker() {
     const now = new Date();
     const currentYM = now.toISOString().slice(0, 7);
     const todayDay = now.getDate();
-    const subsToPrompt = subscriptions.filter(s =>
-      s.active !== false && todayDay >= (s.billingDay ?? 1) && s.lastBilledYM !== currentYM
-    );
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const subsToPrompt = subscriptions.filter(s => {
+      if (s.active === false || s.lastBilledYM === currentYM) return false;
+      // if billing day exceeds days in this month, treat as last day of month
+      const effectiveDay = Math.min(s.billingDay ?? 1, daysInMonth);
+      return todayDay >= effectiveDay;
+    });
     if (subsToPrompt.length > 0) {
       setSubPrompt({ items: subsToPrompt.map(s => ({ ...s, checked: true })) });
     }
@@ -1557,15 +1561,20 @@ export default function AITracker() {
 
               {showSubForm && (
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 14, padding: "12px 14px", background: "rgba(8,5,2,0.5)", border: "1px solid rgba(201,168,76,0.2)", borderRadius: 4 }}>
+                  <select value={subForm.catId} onChange={e => {
+                    const cat = expenseCats.find(c => c.id === e.target.value);
+                    const prevCat = expenseCats.find(c => c.id === subForm.catId);
+                    const autoName = !subForm.name || subForm.name === prevCat?.name;
+                    setSubForm(f => ({ ...f, catId: e.target.value, name: autoName ? (cat?.name ?? f.name) : f.name }));
+                  }} style={selStyle}>
+                    {expenseCats.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+                  </select>
                   <input
                     value={subForm.name}
                     onChange={e => setSubForm(f => ({ ...f, name: e.target.value }))}
-                    placeholder="Назва (Claude, ChatGPT…)"
+                    placeholder="Назва (якщо відрізняється від категорії)"
                     style={{ ...inpStyle, flex: 1, minWidth: 120 }}
                   />
-                  <select value={subForm.catId} onChange={e => setSubForm(f => ({ ...f, catId: e.target.value }))} style={selStyle}>
-                    {expenseCats.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
-                  </select>
                   <input
                     value={subForm.amount}
                     onChange={e => setSubForm(f => ({ ...f, amount: e.target.value }))}
@@ -1579,16 +1588,18 @@ export default function AITracker() {
                     <span style={{ fontSize: 11, color: "#9a8a60", whiteSpace: "nowrap" }}>день:</span>
                     <input
                       value={subForm.billingDay}
-                      onChange={e => setSubForm(f => ({ ...f, billingDay: Math.min(28, Math.max(1, parseInt(e.target.value) || 1)) }))}
+                      onChange={e => setSubForm(f => ({ ...f, billingDay: Math.min(31, Math.max(1, parseInt(e.target.value) || 1)) }))}
                       type="number"
                       min="1"
-                      max="28"
+                      max="31"
                       style={{ ...inpStyle, width: 52, textAlign: "center" }}
                     />
                   </div>
                   <button onClick={() => {
-                    if (!subForm.name.trim() || !parseFloat(subForm.amount)) return;
-                    setSubscriptions(prev => [...prev, { id: `sub_${Date.now()}`, name: subForm.name.trim(), catId: subForm.catId, amount: parseFloat(subForm.amount), currency: subForm.currency, billingDay: subForm.billingDay || 1, active: true }]);
+                    if (!parseFloat(subForm.amount)) return;
+                    const cat = expenseCats.find(c => c.id === subForm.catId);
+                    const name = subForm.name.trim() || cat?.name || "Підписка";
+                    setSubscriptions(prev => [...prev, { id: `sub_${Date.now()}`, name, catId: subForm.catId, amount: parseFloat(subForm.amount), currency: subForm.currency, billingDay: subForm.billingDay || 1, active: true }]);
                     setSubForm({ name: "", catId: "exp_other", amount: "", currency: "USD", billingDay: 1 });
                     setShowSubForm(false);
                   }} style={{ background: "#c9a84c", color: "#000", border: "none", padding: "8px 16px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 12, whiteSpace: "nowrap" }}>✓ Додати</button>
