@@ -389,6 +389,11 @@ export default function AITracker() {
   const [pendingDelete, setPendingDelete] = useState(null); // { id, type, entry, xpPaid, timerId }
   const [expandedCatRows, setExpandedCatRows] = useState({});
   const [analyticsYear, setAnalyticsYear] = useState(new Date().getFullYear());
+  const [subscriptions, setSubscriptions] = useState(saved?.subscriptions ?? []);
+  const [subCheckedMonth, setSubCheckedMonth] = useState(saved?.subCheckedMonth ?? null);
+  const [subPrompt, setSubPrompt] = useState(null); // { items: [{...sub, checked: bool}] }
+  const [subForm, setSubForm] = useState({ name: "", catId: "exp_other", amount: "", currency: "USD" });
+  const [showSubForm, setShowSubForm] = useState(false);
   const [projects, setProjects] = useState(saved?.projects ?? DEFAULT_PROJECTS);
   const [projectInput, setProjectInput] = useState("");
   const [sessions, setSessions] = useState(saved?.sessions ?? DEFAULT_SESSIONS);
@@ -406,7 +411,7 @@ export default function AITracker() {
   const TAB_IDS = ["dashboard", "sessions", "skills", "achievements", "goals", "plan", "finances", "projects"];
 
   useEffect(() => {
-    const state = { skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, projects, unlockedAchievements, sessions, goals, plan };
+    const state = { skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, goals, plan };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, projects, unlockedAchievements, sessions, goals, plan]);
 
@@ -435,6 +440,12 @@ export default function AITracker() {
     if (activeTab !== "finances") return;
     const isStale = !uahRateUpdatedAt || (Date.now() - new Date(uahRateUpdatedAt).getTime()) > 60 * 60 * 1000;
     if (isStale) fetchRate();
+    // Check if we need to prompt for monthly subscriptions
+    const thisMonth = new Date().toISOString().slice(0, 7);
+    const activeSubs = subscriptions.filter(s => s.active !== false);
+    if (activeSubs.length > 0 && subCheckedMonth !== thisMonth) {
+      setSubPrompt({ items: activeSubs.map(s => ({ ...s, checked: true })) });
+    }
   }, [activeTab]); // eslint-disable-line
 
   // Tab key cycles through navigation tabs
@@ -1275,6 +1286,46 @@ export default function AITracker() {
           return (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
+            {/* Subscription monthly prompt modal */}
+            {subPrompt && (
+              <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 9990, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+                <div className="wf-panel" style={{ maxWidth: 460, width: "100%", padding: 24 }}>
+                  <div className="wf-sec" style={{ marginBottom: 16 }}>
+                    📅 Щомісячні витрати — {monthLabel(new Date().toISOString().slice(0,7))} {new Date().getFullYear()}
+                  </div>
+                  <div style={{ fontSize: 12, color: "#9a8a60", marginBottom: 14 }}>Додати ці підписки за поточний місяць?</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+                    {subPrompt.items.map((item, idx) => {
+                      const amtUSD = item.currency === "UAH" ? item.amount / uahRate : item.amount;
+                      return (
+                        <label key={item.id} style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(8,5,2,0.6)", border: `1px solid ${item.checked ? "rgba(201,168,76,0.35)" : "rgba(201,168,76,0.12)"}`, borderRadius: 4, padding: "10px 14px", cursor: "pointer" }}>
+                          <input type="checkbox" checked={item.checked} onChange={e => setSubPrompt(p => ({ ...p, items: p.items.map((x,i) => i===idx ? {...x, checked: e.target.checked} : x) }))} style={{ accentColor: "#c9a84c", width: 16, height: 16 }} />
+                          <span style={{ flex: 1, color: "#e0d8c0", fontFamily: "'Exo 2',sans-serif", fontWeight: 600 }}>{item.name}</span>
+                          <span style={{ color: "#f43f5e", fontFamily: "'Space Mono',monospace", fontSize: 13, fontWeight: 700 }}>
+                            {item.currency === "UAH" ? `${item.amount} грн` : `$${item.amount}`}
+                            {item.currency === "UAH" && <span style={{ color: "#5a4a30", fontSize: 10, marginLeft: 4 }}>(${amtUSD.toFixed(2)})</span>}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <button onClick={() => {
+                      const thisMonth = new Date().toISOString().slice(0,7);
+                      const today = new Date().toISOString().slice(0,10);
+                      subPrompt.items.filter(s => s.checked).forEach(s => {
+                        const entry = { id: `exp_${Date.now()}_${s.id}`, catId: s.catId, amount: s.amount, currency: s.currency, date: today, note: s.name, recurring: true };
+                        setExpenseEntries(prev => [...prev, entry]);
+                      });
+                      setSubCheckedMonth(thisMonth);
+                      setSubPrompt(null);
+                    }} style={{ flex: 1, background: "#c9a84c", color: "#000", border: "none", padding: "10px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 13, fontFamily: "'Exo 2',sans-serif" }}>✓ Додати вибрані</button>
+                    <button onClick={() => { setSubCheckedMonth(new Date().toISOString().slice(0,7)); setSubPrompt(null); }} style={{ background: "none", border: "1px solid rgba(201,168,76,0.3)", color: "#9a8a60", padding: "10px 16px", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>Пропустити</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Undo toast */}
             {pendingDelete && (
               <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", zIndex: 9998, background: "linear-gradient(135deg,rgba(30,20,4,0.98),rgba(14,10,2,0.98))", border: "1px solid rgba(201,168,76,0.5)", borderTop: "2px solid #c9a84c", borderRadius: 4, padding: "12px 20px", display: "flex", alignItems: "center", gap: 14, boxShadow: "0 8px 32px rgba(0,0,0,0.7)", fontFamily: "'Exo 2',sans-serif" }}>
@@ -1482,6 +1533,82 @@ export default function AITracker() {
               </div>
             </div>
 
+            {/* Subscriptions management */}
+            <div className="wf-panel" style={{ padding: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: subscriptions.length > 0 || showSubForm ? 14 : 0 }}>
+                <span className="wf-sec" style={{ marginBottom: 0, paddingBottom: 0, border: "none" }}>📅 Підписки</span>
+                <span style={{ fontSize: 11, color: "#9a8a60", marginLeft: 4 }}>автоматично списуються щомісяця</span>
+                <button onClick={() => setShowSubForm(v => !v)} style={{ marginLeft: "auto", background: showSubForm ? "rgba(244,63,94,0.12)" : "rgba(201,168,76,0.12)", border: `1px solid ${showSubForm ? "rgba(244,63,94,0.4)" : "rgba(201,168,76,0.4)"}`, color: showSubForm ? "#f43f5e" : "#c9a84c", padding: "5px 12px", borderRadius: 4, cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
+                  {showSubForm ? "× Скасувати" : "+ Нова"}
+                </button>
+              </div>
+
+              {showSubForm && (
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 14, padding: "12px 14px", background: "rgba(8,5,2,0.5)", border: "1px solid rgba(201,168,76,0.2)", borderRadius: 4 }}>
+                  <input
+                    value={subForm.name}
+                    onChange={e => setSubForm(f => ({ ...f, name: e.target.value }))}
+                    placeholder="Назва (Claude, ChatGPT…)"
+                    style={{ ...inpStyle, flex: 1, minWidth: 140 }}
+                  />
+                  <select value={subForm.catId} onChange={e => setSubForm(f => ({ ...f, catId: e.target.value }))} style={selStyle}>
+                    {expenseCats.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+                  </select>
+                  <input
+                    value={subForm.amount}
+                    onChange={e => setSubForm(f => ({ ...f, amount: e.target.value }))}
+                    placeholder="Сума"
+                    type="number"
+                    min="0"
+                    style={{ ...inpStyle, width: 90 }}
+                    onKeyDown={e => e.key === "Enter" && (() => {
+                      if (!subForm.name.trim() || !parseFloat(subForm.amount)) return;
+                      setSubscriptions(prev => [...prev, { id: `sub_${Date.now()}`, name: subForm.name.trim(), catId: subForm.catId, amount: parseFloat(subForm.amount), currency: subForm.currency, active: true }]);
+                      setSubForm({ name: "", catId: "exp_other", amount: "", currency: "USD" });
+                      setShowSubForm(false);
+                    })()}
+                  />
+                  <button onClick={() => setSubForm(f => ({ ...f, currency: f.currency === "USD" ? "UAH" : "USD" }))} style={{ background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.35)", color: "#f43f5e", padding: "8px 12px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 12, minWidth: 52 }}>{subForm.currency}</button>
+                  <button onClick={() => {
+                    if (!subForm.name.trim() || !parseFloat(subForm.amount)) return;
+                    setSubscriptions(prev => [...prev, { id: `sub_${Date.now()}`, name: subForm.name.trim(), catId: subForm.catId, amount: parseFloat(subForm.amount), currency: subForm.currency, active: true }]);
+                    setSubForm({ name: "", catId: "exp_other", amount: "", currency: "USD" });
+                    setShowSubForm(false);
+                  }} style={{ background: "#c9a84c", color: "#000", border: "none", padding: "8px 16px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 12, whiteSpace: "nowrap" }}>✓ Додати</button>
+                </div>
+              )}
+
+              {subscriptions.length === 0 ? (
+                <div style={{ fontSize: 12, color: "#5a4a30", textAlign: "center", padding: "14px 0" }}>Немає активних підписок</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {subscriptions.map(sub => {
+                    const amtUSD = sub.currency === "UAH" ? sub.amount / uahRate : sub.amount;
+                    const isActive = sub.active !== false;
+                    return (
+                      <div key={sub.id} style={{ display: "flex", alignItems: "center", gap: 10, background: isActive ? "rgba(8,5,2,0.55)" : "rgba(20,15,5,0.4)", border: `1px solid ${isActive ? "rgba(201,168,76,0.22)" : "rgba(201,168,76,0.08)"}`, borderRadius: 4, padding: "9px 12px", opacity: isActive ? 1 : 0.55 }}>
+                        <span style={{ flex: 1, color: isActive ? "#e0d8c0" : "#9a8a60", fontFamily: "'Exo 2',sans-serif", fontWeight: 600, fontSize: 13 }}>{sub.name}</span>
+                        <span style={{ color: "#f43f5e", fontFamily: "'Space Mono',monospace", fontSize: 12, fontWeight: 700 }}>
+                          {sub.currency === "UAH" ? `${sub.amount} грн` : `$${sub.amount}`}
+                          {sub.currency === "UAH" && <span style={{ color: "#5a4a30", fontSize: 10, marginLeft: 4 }}>(~${amtUSD.toFixed(1)})</span>}
+                        </span>
+                        <span style={{ fontSize: 10, color: isActive ? "#10b981" : "#f59e0b", background: isActive ? "rgba(16,185,129,0.12)" : "rgba(245,158,11,0.12)", border: `1px solid ${isActive ? "rgba(16,185,129,0.3)" : "rgba(245,158,11,0.3)"}`, borderRadius: 10, padding: "2px 8px", fontFamily: "'Space Mono',monospace", minWidth: 54, textAlign: "center" }}>
+                          {isActive ? "🟢 активна" : "⏸ пауза"}
+                        </span>
+                        <button onClick={() => setSubscriptions(prev => prev.map(s => s.id === sub.id ? { ...s, active: !isActive } : s))} style={{ background: isActive ? "rgba(245,158,11,0.1)" : "rgba(16,185,129,0.1)", border: `1px solid ${isActive ? "rgba(245,158,11,0.35)" : "rgba(16,185,129,0.35)"}`, color: isActive ? "#f59e0b" : "#10b981", padding: "5px 10px", borderRadius: 3, cursor: "pointer", fontSize: 11, fontWeight: 700 }}>
+                          {isActive ? "⏸" : "▶"}
+                        </button>
+                        <button onClick={() => setSubscriptions(prev => prev.filter(s => s.id !== sub.id))} style={{ background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.25)", color: "#f43f5e", padding: "5px 8px", borderRadius: 3, cursor: "pointer", fontSize: 13, lineHeight: 1 }}>×</button>
+                      </div>
+                    );
+                  })}
+                  <div style={{ fontSize: 11, color: "#5a4a60", textAlign: "right", paddingTop: 4, fontFamily: "'Space Mono',monospace" }}>
+                    Щомісяця: <span style={{ color: "#f43f5e", fontWeight: 700 }}>${subscriptions.filter(s => s.active !== false).reduce((sum, s) => sum + (s.currency === "UAH" ? s.amount / uahRate : s.amount), 0).toFixed(2)}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Annual analytics + chart */}
             <div className="wf-panel" style={{ padding: 16 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
@@ -1533,9 +1660,9 @@ export default function AITracker() {
                   {MONTH_NAMES.map((name, i) => (
                     <text key={i} x={px(i)} y={H-5} textAnchor="middle" fill="rgba(154,138,96,0.7)" fontSize="9" fontFamily="monospace">{name}</text>
                   ))}
-                  {/* Y-axis: min, 0, max */}
-                  {[[minNet, PT+cH], [0, zeroY], [maxNet, PT]].map(([val, yPos]) => (
-                    <text key={val} x={PL-4} y={yPos+3} textAnchor="end" fill={val === 0 ? "rgba(201,168,76,0.7)" : val > 0 ? "rgba(16,185,129,0.7)" : "rgba(244,63,94,0.7)"} fontSize="8" fontFamily="monospace">{val >= 0 ? `+$${Math.round(val)}` : `-$${Math.round(Math.abs(val))}`}</text>
+                  {/* Y-axis: only show distinct values (avoid overlap when min=0 or max=0) */}
+                  {[...(maxNet > 0.5 ? [[maxNet, PT]] : []), [0, zeroY], ...(minNet < -0.5 ? [[minNet, PT+cH]] : [])].map(([val, yPos]) => (
+                    <text key={val} x={PL-4} y={yPos+3} textAnchor="end" fill={val === 0 ? "rgba(201,168,76,0.7)" : val > 0 ? "rgba(16,185,129,0.7)" : "rgba(244,63,94,0.7)"} fontSize="8" fontFamily="monospace">{val > 0 ? `+$${Math.round(val)}` : val < 0 ? `-$${Math.round(Math.abs(val))}` : "$0"}</text>
                   ))}
                 </svg>
                 <div style={{ display: "flex", gap: 16, justifyContent: "center", paddingTop: 6, paddingBottom: 4 }}>
