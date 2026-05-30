@@ -109,6 +109,52 @@ const DEFAULT_PLAN = [
   { id: "dp9", text: "Автоматизація — продаж AI-пайплайнів для бізнесу", priority: "scale", done: false },
 ];
 
+const LEAGUES = [
+  { id: "grey",      name: "Сіра",        minLevel: 1,   maxLevel: 9,   color: "#a0a8b8", bg: "linear-gradient(135deg,#3a3c42,#6a6e78)", glow: "rgba(160,168,184,0.45)" },
+  { id: "bronze",    name: "Бронзова",    minLevel: 10,  maxLevel: 19,  color: "#c08040", bg: "linear-gradient(135deg,#6a3c10,#c08040)", glow: "rgba(192,128,64,0.5)"  },
+  { id: "silver",    name: "Срібна",      minLevel: 20,  maxLevel: 34,  color: "#c8d4e0", bg: "linear-gradient(135deg,#6a7880,#b0bcc8)", glow: "rgba(200,212,224,0.5)" },
+  { id: "gold",      name: "Золота",      minLevel: 35,  maxLevel: 54,  color: "#c9a84c", bg: "linear-gradient(135deg,#7a5818,#c9a84c)", glow: "rgba(201,168,76,0.55)" },
+  { id: "diamond",   name: "Діамантова", minLevel: 55,  maxLevel: 79,  color: "#a855f7", bg: "linear-gradient(135deg,#5a1a9a,#a855f7)", glow: "rgba(168,85,247,0.55)" },
+  { id: "royal",     name: "Королівська",minLevel: 80,  maxLevel: 99,  color: "#f43f5e", bg: "linear-gradient(135deg,#8a1030,#f43f5e)", glow: "rgba(244,63,94,0.55)"  },
+  { id: "legendary", name: "Легендарна", minLevel: 100, maxLevel: 100, color: "#ff2020", bg: "linear-gradient(135deg,#8a0000,#ff2020)", glow: "rgba(255,32,32,0.6)"   },
+];
+
+function getLeague(level) {
+  for (let i = LEAGUES.length - 1; i >= 0; i--) {
+    if (level >= LEAGUES[i].minLevel) return LEAGUES[i];
+  }
+  return LEAGUES[0];
+}
+
+function LeagueBadge({ level, size = 36 }) {
+  const lg = getLeague(level);
+  const isLegendary = lg.id === "legendary";
+  const fs = Math.round(size * 0.33);
+  return (
+    <div title={`${lg.name} ліга`} style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
+      <svg width={size} height={size} viewBox="0 0 36 36" style={{ display: "block" }}>
+        <defs>
+          <linearGradient id={`lg-${lg.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor={lg.color} stopOpacity="0.9" />
+            <stop offset="100%" stopColor={lg.color} stopOpacity="0.5" />
+          </linearGradient>
+        </defs>
+        {isLegendary ? (
+          <polygon points="18,2 34,10 34,26 18,34 2,26 2,10" fill={`url(#lg-${lg.id})`} stroke={lg.color} strokeWidth="1.5" strokeOpacity="0.9" />
+        ) : (
+          <polygon points="18,2 34,10 34,26 18,34 2,26 2,10" fill="rgba(8,5,2,0.85)" stroke={lg.color} strokeWidth="1.5" strokeOpacity="0.8" />
+        )}
+        {isLegendary && <polygon points="18,7 30,13 30,23 18,29 6,23 6,13" fill="rgba(120,0,0,0.5)" />}
+      </svg>
+      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {isLegendary
+          ? <span style={{ fontSize: fs + 2, lineHeight: 1 }}>⭐</span>
+          : <span style={{ fontSize: fs, fontWeight: 800, color: lg.color, fontFamily: "'Exo 2',sans-serif", lineHeight: 1 }}>{level}</span>}
+      </div>
+    </div>
+  );
+}
+
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -557,10 +603,14 @@ export default function AITracker() {
         <div style={{ marginBottom: 24, paddingBottom: 20, borderBottom: "1px solid rgba(201,168,76,0.30)" }}>
           {/* Top row: avatar + name + stats */}
           <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>
-            <div style={{ width: 58, height: 58, borderRadius: 4, flexShrink: 0, background: "linear-gradient(145deg,#3a2808,#7a5818)", border: "2px solid #c9a84c", boxShadow: "0 0 22px rgba(201,168,76,0.4), inset 0 0 16px rgba(201,168,76,0.08)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 800, color: "#c9a84c", fontFamily: "'Exo 2',sans-serif", letterSpacing: -1 }}>Vi</div>
+            <div style={{ position: "relative", flexShrink: 0 }}>
+              <div style={{ width: 58, height: 58, borderRadius: 4, background: "linear-gradient(145deg,#3a2808,#7a5818)", border: `2px solid ${getLeague(totalLevel).color}`, boxShadow: `0 0 22px ${getLeague(totalLevel).glow}, inset 0 0 16px rgba(201,168,76,0.08)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 800, color: "#c9a84c", fontFamily: "'Exo 2',sans-serif", letterSpacing: -1 }}>Vi</div>
+              <div style={{ position: "absolute", bottom: -8, right: -10 }}><LeagueBadge level={totalLevel} size={30} /></div>
+            </div>
             <div style={{ flex: 1, minWidth: 160 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                 <span style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 22, fontWeight: 800, color: "#e0d8c0", letterSpacing: 3, textTransform: "uppercase" }}>ViFrim</span>
+                <span style={{ background: `${getLeague(totalLevel).color}22`, border: `1px solid ${getLeague(totalLevel).color}88`, color: getLeague(totalLevel).color, padding: "3px 10px", borderRadius: 3, fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>{getLeague(totalLevel).name} ліга</span>
                 {streak > 0 && (
                   <span style={{ background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.5)", color: "#c9a84c", padding: "3px 10px", borderRadius: 3, fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>🔥 {streak} дн.</span>
                 )}
@@ -619,9 +669,25 @@ export default function AITracker() {
               ))}
             </div>
 
-            {/* Progress percent */}
-            <div style={{ textAlign: "center", marginTop: 5, fontSize: 12, color: "#9a8a60", fontFamily: "'Space Mono',monospace" }}>
-              {Math.round(xpProgress)}% до наступного рівня
+            {/* Progress percent + league info */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 7, flexWrap: "wrap", gap: 6 }}>
+              <div style={{ fontSize: 11, color: "#9a8a60", fontFamily: "'Space Mono',monospace" }}>
+                {Math.round(xpProgress)}% до рівня {totalLevel + 1}
+              </div>
+              {(() => {
+                const cur = getLeague(totalLevel);
+                const nextLg = LEAGUES[LEAGUES.indexOf(cur) + 1];
+                if (!nextLg) return <span style={{ fontSize: 11, color: cur.color, fontFamily: "'Exo 2',sans-serif", fontWeight: 800, letterSpacing: 1, textTransform: "uppercase" }}>★ {cur.name} ліга — МАКС</span>;
+                const levelsLeft = nextLg.minLevel - totalLevel;
+                return (
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 11, color: cur.color, fontFamily: "'Exo 2',sans-serif", fontWeight: 700, textTransform: "uppercase" }}>{cur.name}</span>
+                    <span style={{ fontSize: 11, color: "#5a4a30" }}>→</span>
+                    <span style={{ fontSize: 11, color: nextLg.color, fontFamily: "'Exo 2',sans-serif", fontWeight: 700, textTransform: "uppercase" }}>{nextLg.name}</span>
+                    <span style={{ fontSize: 11, color: "#9a8a60", fontFamily: "'Space Mono',monospace" }}>ще {levelsLeft} рів.</span>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>
