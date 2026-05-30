@@ -1256,13 +1256,17 @@ export default function AITracker() {
           const chartMonths = Array.from({ length: 12 }, (_, i) => `${chartYear}-${String(i+1).padStart(2,"0")}`);
           const chartInc = chartMonths.map(m => incomeEntries.filter(e => e.date.startsWith(m)).reduce((s, e) => s + toUSD(e.amount, e.currency), 0));
           const chartExp = chartMonths.map(m => expenseEntries.filter(e => e.date.startsWith(m)).reduce((s, e) => s + toUSD(e.amount, e.currency), 0));
-          const maxVal = Math.max(...chartInc, ...chartExp, 1);
+          const chartNet = chartMonths.map((_, i) => chartInc[i] - chartExp[i]);
           const W = 580, H = 130, PL = 46, PR = 8, PT = 10, PB = 22;
           const cW = W - PL - PR, cH = H - PT - PB;
           const px = (i) => PL + (i / 11) * cW;
-          const py = (v) => PT + cH - (v / maxVal) * cH;
-          const linePath = (data) => data.map((v, i) => `${i === 0 ? "M" : "L"}${px(i).toFixed(1)},${py(v).toFixed(1)}`).join(" ");
-          const areaPath = (data) => `${linePath(data)} L${px(11).toFixed(1)},${(PT+cH).toFixed(1)} L${PL},${(PT+cH).toFixed(1)} Z`;
+          const minNet = Math.min(...chartNet, 0);
+          const maxNet = Math.max(...chartNet, 0);
+          const netRange = Math.max(maxNet - minNet, 1);
+          const pyNet = (v) => PT + cH - ((v - minNet) / netRange) * cH;
+          const zeroY = pyNet(0);
+          const netLinePath = chartNet.map((v, i) => `${i === 0 ? "M" : "L"}${px(i).toFixed(1)},${pyNet(v).toFixed(1)}`).join(" ");
+          const netAreaPath = `${netLinePath} L${px(11).toFixed(1)},${zeroY.toFixed(1)} L${PL},${zeroY.toFixed(1)} Z`;
 
           const yearInc = chartInc.reduce((s, v) => s + v, 0);
           const yearExp = chartExp.reduce((s, v) => s + v, 0);
@@ -1506,31 +1510,38 @@ export default function AITracker() {
               {/* SVG line chart */}
               <div style={{ background: "rgba(5,3,1,0.5)", borderRadius: 4, padding: "8px 4px 4px", border: "1px solid rgba(201,168,76,0.12)" }}>
                 <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: "block" }}>
+                  <defs>
+                    <clipPath id="posClip"><rect x={PL} y={PT} width={cW} height={Math.max(0, zeroY - PT)} /></clipPath>
+                    <clipPath id="negClip"><rect x={PL} y={zeroY} width={cW} height={Math.max(0, PT + cH - zeroY)} /></clipPath>
+                  </defs>
                   {/* Grid lines */}
                   {[0.25,0.5,0.75,1].map(p => (
-                    <line key={p} x1={PL} y1={PT + cH*(1-p)} x2={W-PR} y2={PT + cH*(1-p)} stroke="rgba(201,168,76,0.10)" strokeWidth="1" />
+                    <line key={p} x1={PL} y1={PT + cH*(1-p)} x2={W-PR} y2={PT + cH*(1-p)} stroke="rgba(201,168,76,0.08)" strokeWidth="1" />
                   ))}
-                  {/* Area fills */}
-                  <path d={areaPath(chartInc)} fill="rgba(16,185,129,0.07)" />
-                  <path d={areaPath(chartExp)} fill="rgba(244,63,94,0.07)" />
-                  {/* Lines */}
-                  <path d={linePath(chartInc)} fill="none" stroke="#10b981" strokeWidth="2" strokeLinejoin="round" />
-                  <path d={linePath(chartExp)} fill="none" stroke="#f43f5e" strokeWidth="2" strokeLinejoin="round" />
-                  {/* Dots */}
-                  {chartInc.map((v, i) => v > 0 && <circle key={i} cx={px(i)} cy={py(v)} r="3" fill="#10b981" />)}
-                  {chartExp.map((v, i) => v > 0 && <circle key={i} cx={px(i)} cy={py(v)} r="3" fill="#f43f5e" />)}
+                  {/* Zero line */}
+                  <line x1={PL} y1={zeroY} x2={W-PR} y2={zeroY} stroke="rgba(201,168,76,0.35)" strokeWidth="1" strokeDasharray="4,3" />
+                  {/* Area fills: green above zero, red below */}
+                  <path d={netAreaPath} fill="rgba(16,185,129,0.22)" clipPath="url(#posClip)" />
+                  <path d={netAreaPath} fill="rgba(244,63,94,0.22)" clipPath="url(#negClip)" />
+                  {/* Net line — gold */}
+                  <path d={netLinePath} fill="none" stroke="#c9a84c" strokeWidth="2" strokeLinejoin="round" />
+                  {/* Dots colored by sign */}
+                  {chartNet.map((v, i) => (v !== 0 &&
+                    <circle key={i} cx={px(i)} cy={pyNet(v)} r="3" fill={v >= 0 ? "#10b981" : "#f43f5e"} />
+                  ))}
                   {/* Month labels */}
                   {MONTH_NAMES.map((name, i) => (
                     <text key={i} x={px(i)} y={H-5} textAnchor="middle" fill="rgba(154,138,96,0.7)" fontSize="9" fontFamily="monospace">{name}</text>
                   ))}
-                  {/* Y-axis */}
-                  {[0,0.5,1].map(p => (
-                    <text key={p} x={PL-4} y={PT + cH*(1-p) + 3} textAnchor="end" fill="rgba(154,138,96,0.6)" fontSize="8" fontFamily="monospace">${Math.round(maxVal*p)}</text>
+                  {/* Y-axis: min, 0, max */}
+                  {[[minNet, PT+cH], [0, zeroY], [maxNet, PT]].map(([val, yPos]) => (
+                    <text key={val} x={PL-4} y={yPos+3} textAnchor="end" fill={val === 0 ? "rgba(201,168,76,0.7)" : val > 0 ? "rgba(16,185,129,0.7)" : "rgba(244,63,94,0.7)"} fontSize="8" fontFamily="monospace">{val >= 0 ? `+$${Math.round(val)}` : `-$${Math.round(Math.abs(val))}`}</text>
                   ))}
                 </svg>
                 <div style={{ display: "flex", gap: 16, justifyContent: "center", paddingTop: 6, paddingBottom: 4 }}>
-                  <span style={{ fontSize: 10, color: "#10b981", fontFamily: "'Space Mono',monospace" }}>■ Дохід</span>
-                  <span style={{ fontSize: 10, color: "#f43f5e", fontFamily: "'Space Mono',monospace" }}>■ Витрати</span>
+                  <span style={{ fontSize: 10, color: "#10b981", fontFamily: "'Space Mono',monospace" }}>■ профіцит</span>
+                  <span style={{ fontSize: 10, color: "#f43f5e", fontFamily: "'Space Mono',monospace" }}>■ дефіцит</span>
+                  <span style={{ fontSize: 10, color: "#c9a84c", fontFamily: "'Space Mono',monospace" }}>— дохід − витрати</span>
                 </div>
               </div>
             </div>
