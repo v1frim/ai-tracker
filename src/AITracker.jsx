@@ -414,7 +414,7 @@ export default function AITracker() {
   useEffect(() => {
     const state = { skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, goals, plan };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, projects, unlockedAchievements, sessions, goals, plan]);
+  }, [skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, goals, plan]);
 
   // Computed totals in USD
   const toUSD = useCallback((amount, currency) => currency === "UAH" ? amount / uahRate : amount, [uahRate]);
