@@ -41,7 +41,7 @@ const GOAL_CATEGORIES = [
   { id: "income", label: "Дохід", color: "#f59e0b", icon: "💰" },
   { id: "skills", label: "Навички", color: "#00ff88", icon: "🧠" },
   { id: "project", label: "Проект", color: "#6366f1", icon: "🚀" },
-  { id: "other", label: "Інше", color: "#a8b8cc", icon: "🎯" },
+  { id: "other", label: "Інше", color: "#6a5f40", icon: "🎯" },
 ];
 
 const PLAN_PRIORITIES = [
@@ -160,9 +160,9 @@ function CubeSvg({ s }) {
   const W = h * 2 + 4; const H = h * 1.5 + 4;
   return (
     <svg width={W} height={H} viewBox={`${-h-2} ${-h-2} ${W} ${H}`} style={{ display: "block" }}>
-      <polygon points={top}   fill="#7099ff" fillOpacity="0.82" stroke="#9ab8ff" strokeWidth="0.7" strokeOpacity="0.55" />
-      <polygon points={right} fill="#3d5ec9" fillOpacity="0.82" stroke="#5070dd" strokeWidth="0.7" strokeOpacity="0.55" />
-      <polygon points={left}  fill="#1d3696" fillOpacity="0.82" stroke="#2f4cbb" strokeWidth="0.7" strokeOpacity="0.55" />
+      <polygon points={top}   fill="#c9a84c" fillOpacity="0.80" stroke="#e8c870" strokeWidth="0.7" strokeOpacity="0.60" />
+      <polygon points={right} fill="#7a5818" fillOpacity="0.80" stroke="#a07828" strokeWidth="0.7" strokeOpacity="0.55" />
+      <polygon points={left}  fill="#3a2808" fillOpacity="0.80" stroke="#5a3c10" strokeWidth="0.7" strokeOpacity="0.50" />
     </svg>
   );
 }
@@ -170,8 +170,8 @@ function RingSvg({ s }) {
   const r = s / 2;
   return (
     <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`} style={{ display: "block" }}>
-      <circle cx={r} cy={r} r={r-2}    fill="none" stroke="#7090ee" strokeWidth="2.8" strokeOpacity="0.78" />
-      <circle cx={r} cy={r} r={r*0.55} fill="none" stroke="#4f6ccc" strokeWidth="1.2" strokeOpacity="0.42" />
+      <circle cx={r} cy={r} r={r-2}    fill="none" stroke="#c9a84c" strokeWidth="2.5" strokeOpacity="0.65" />
+      <circle cx={r} cy={r} r={r*0.55} fill="none" stroke="#8a6820" strokeWidth="1.2" strokeOpacity="0.38" />
     </svg>
   );
 }
@@ -179,7 +179,7 @@ function TriSvg({ s }) {
   const h = s * 0.866;
   return (
     <svg width={s} height={h} viewBox={`0 0 ${s} ${h}`} style={{ display: "block" }}>
-      <polygon points={`${s/2},2 ${s-2},${h-2} 2,${h-2}`} fill="none" stroke="#7090ee" strokeWidth="2.2" strokeOpacity="0.78" />
+      <polygon points={`${s/2},2 ${s-2},${h-2} 2,${h-2}`} fill="none" stroke="#a08030" strokeWidth="2.2" strokeOpacity="0.68" />
     </svg>
   );
 }
@@ -187,8 +187,8 @@ function DiamondSvg({ s }) {
   const m = s / 2;
   return (
     <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`} style={{ display: "block" }}>
-      <polygon points={`${m},2 ${s-2},${m} ${m},${s-2} 2,${m}`} fill="none" stroke="#7090ee" strokeWidth="2.2" strokeOpacity="0.78" />
-      <polygon points={`${m},${s*0.22} ${s*0.78},${m} ${m},${s*0.78} ${s*0.22},${m}`} fill="#4560cc" fillOpacity="0.13" />
+      <polygon points={`${m},2 ${s-2},${m} ${m},${s-2} 2,${m}`} fill="none" stroke="#c9a84c" strokeWidth="2.2" strokeOpacity="0.65" />
+      <polygon points={`${m},${s*0.22} ${s*0.78},${m} ${m},${s*0.78} ${s*0.22},${m}`} fill="#8a6018" fillOpacity="0.14" />
     </svg>
   );
 }
@@ -419,11 +419,11 @@ export default function AITracker() {
   }, [heatmapDays]);
 
   return (
-    <div style={{ fontFamily: "'Courier New', monospace", background: "transparent", minHeight: "100vh", color: "#e2e8f0" }}>
+    <div style={{ fontFamily: "'Courier New', monospace", background: "transparent", minHeight: "100vh", color: "#e0d8c0" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;800&family=Space+Mono:wght@400;700&display=swap');
-        .tab-btn { transition: all 0.18s; letter-spacing: 0.3px; }
-        .tab-btn:hover { transform: translateY(-2px); }
+
+        .tab-btn { transition: color 0.18s, border-color 0.18s; }
         .skill-card { transition: all 0.18s; }
         .skill-card:hover { transform: translateY(-3px); }
         .tool-chip { transition: all 0.15s; }
@@ -432,101 +432,164 @@ export default function AITracker() {
         .act-btn:hover { transform: translateY(-1px); opacity: 0.9; }
         .checkin-btn { transition: all 0.2s; }
         .checkin-btn:not(:disabled):hover { transform: scale(1.03); box-shadow: 0 0 40px rgba(0,255,136,0.5) !important; }
+
         @keyframes slideIn { from { transform: translateX(120px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
-        input::placeholder { color: #4d6070; }
-        input:focus { outline: none; border-color: rgba(0,255,136,0.4) !important; }
-        select option { background: #0e1a3a; color: #e2e8f0; }
-        .sec-title { font-family: 'Exo 2',sans-serif; font-size: 11px; font-weight: 700;
-                     color: #c9a84c; text-transform: uppercase; letter-spacing: 3px; }
+        @keyframes wfPulse { 0%,100%{opacity:1;box-shadow:0 0 16px rgba(201,168,76,0.4)} 50%{opacity:0.85;box-shadow:0 0 28px rgba(201,168,76,0.7)} }
+
+        input::placeholder { color: #5a4a30; }
+        input:focus { outline: none; border-color: rgba(201,168,76,0.6) !important; box-shadow: 0 0 0 1px rgba(201,168,76,0.25) !important; }
+        select option { background: #0e0a04; color: #e0d8c0; }
+
+        /* Warframe panel chrome */
+        .wf-panel {
+          position: relative;
+          background: rgba(5,3,1,0.82);
+          border: 1px solid rgba(201,168,76,0.22);
+          border-top: 2px solid rgba(201,168,76,0.7);
+          border-radius: 4px;
+        }
+        .wf-panel::before, .wf-panel::after {
+          content: '';
+          position: absolute;
+          width: 10px; height: 10px;
+        }
+        .wf-panel::before {
+          bottom: -1px; right: -1px;
+          border-bottom: 2px solid rgba(201,168,76,0.4);
+          border-right: 2px solid rgba(201,168,76,0.4);
+        }
+        .wf-panel::after {
+          bottom: -1px; left: -1px;
+          border-bottom: 2px solid rgba(201,168,76,0.4);
+          border-left: 2px solid rgba(201,168,76,0.4);
+        }
+
+        /* Warframe mod card style */
+        .wf-card {
+          position: relative;
+          background: linear-gradient(160deg, rgba(12,9,3,0.95) 0%, rgba(8,6,2,0.92) 100%);
+          border: 1px solid rgba(201,168,76,0.25);
+          border-top: 2px solid rgba(201,168,76,0.6);
+          border-radius: 4px;
+          overflow: hidden;
+        }
+        .wf-card::before {
+          content: '';
+          position: absolute;
+          top: 0; left: 0; right: 0;
+          height: 40px;
+          background: linear-gradient(180deg, rgba(201,168,76,0.06) 0%, transparent 100%);
+          pointer-events: none;
+        }
+
+        /* Section title divider */
+        .wf-sec {
+          font-family: 'Exo 2',sans-serif;
+          font-size: 11px; font-weight: 700;
+          color: #c9a84c;
+          text-transform: uppercase; letter-spacing: 3px;
+          padding-bottom: 10px;
+          margin-bottom: 14px;
+          border-bottom: 1px solid rgba(201,168,76,0.25);
+        }
+
+        /* Warframe stat row */
+        .wf-stat-row {
+          display: flex; justify-content: space-between; align-items: center;
+          padding: 6px 0;
+          border-bottom: 1px solid rgba(201,168,76,0.08);
+          font-size: 13px;
+        }
+        .wf-stat-row:last-child { border-bottom: none; }
+        .wf-stat-label { color: #9a8a60; text-transform: uppercase; letter-spacing: 1px; font-size: 11px; }
+        .wf-stat-val { color: #e0d8c0; font-family: 'Exo 2',sans-serif; font-weight: 700; }
       `}</style>
 
       <FloatingBg />
 
       {notification && (
-        <div key={notification.id} style={{ position: "fixed", top: 16, right: 16, zIndex: 9999, background: notification.type === "achievement" ? "linear-gradient(135deg,#f59e0b,#d97706)" : "linear-gradient(135deg,#00ff88,#00bb66)", color: "#000", padding: "11px 20px", borderRadius: 12, fontWeight: 700, fontSize: 13, boxShadow: `0 0 28px ${notification.type === "achievement" ? "rgba(245,158,11,0.6)" : "rgba(0,255,136,0.5)"}`, animation: "slideIn 0.3s ease", fontFamily: "'Space Mono',monospace" }}>{notification.msg}</div>
+        <div key={notification.id} style={{ position: "fixed", top: 16, right: 16, zIndex: 9999, background: "linear-gradient(135deg,rgba(40,28,4,0.98),rgba(18,12,2,0.98))", color: "#c9a84c", padding: "12px 22px", borderRadius: 3, fontWeight: 700, fontSize: 12, border: "1px solid rgba(201,168,76,0.55)", borderTop: "2px solid #c9a84c", boxShadow: "0 0 30px rgba(201,168,76,0.30), 0 6px 24px rgba(0,0,0,0.7)", animation: "slideIn 0.3s ease", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 2 }}>{notification.msg}</div>
       )}
 
       <div style={{ position: "relative", zIndex: 1, maxWidth: 920, margin: "0 auto", padding: "20px 14px" }}>
 
         {/* Header */}
-        <div style={{ marginBottom: 22, paddingBottom: 20, borderBottom: "1px solid rgba(0,255,136,0.15)" }}>
+        <div style={{ marginBottom: 24, paddingBottom: 20, borderBottom: "1px solid rgba(201,168,76,0.30)" }}>
           {/* Top row: avatar + name + stats */}
-          <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginBottom: 14 }}>
-            <div style={{ width: 60, height: 60, borderRadius: "50%", flexShrink: 0, background: "linear-gradient(135deg,#00ff88,#00aa55)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 800, color: "#000", boxShadow: "0 0 22px rgba(0,255,136,0.45)", fontFamily: "'Exo 2',sans-serif", letterSpacing: -1 }}>Vi</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>
+            <div style={{ width: 58, height: 58, borderRadius: 4, flexShrink: 0, background: "linear-gradient(145deg,#3a2808,#7a5818)", border: "2px solid #c9a84c", boxShadow: "0 0 22px rgba(201,168,76,0.4), inset 0 0 16px rgba(201,168,76,0.08)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 800, color: "#c9a84c", fontFamily: "'Exo 2',sans-serif", letterSpacing: -1 }}>Vi</div>
             <div style={{ flex: 1, minWidth: 160 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                <span style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 20, fontWeight: 800, color: "#fff" }}>ViFrim</span>
+                <span style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 22, fontWeight: 800, color: "#e0d8c0", letterSpacing: 3, textTransform: "uppercase" }}>ViFrim</span>
                 {streak > 0 && (
-                  <span style={{ background: "rgba(245,158,11,0.12)", border: "1px solid #f59e0b", color: "#f59e0b", padding: "2px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700 }}>🔥 {streak} дн.</span>
+                  <span style={{ background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.5)", color: "#c9a84c", padding: "3px 10px", borderRadius: 3, fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>🔥 {streak} дн.</span>
                 )}
               </div>
-              <div style={{ fontSize: 11, color: "#7a8fa6", marginTop: 3 }}>AI Progress Tracker</div>
+              <div style={{ fontSize: 11, color: "#9a8a60", marginTop: 4, textTransform: "uppercase", letterSpacing: 3 }}>AI Progress Tracker</div>
             </div>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {[
-                { label: "Дохід", val: `$${income.toFixed(0)}`, color: "#f59e0b" },
-                { label: "Проекти", val: projects.length, color: "#6366f1" },
+                { label: "Дохід", val: `$${income.toFixed(0)}`, color: "#c9a84c" },
+                { label: "Проекти", val: projects.length, color: "#c9a84c" },
                 { label: "Інструменти", val: `${totalTools}/${TOTAL_TOOLS}`, color: "#00ff88" },
-                { label: "Сесій/міс", val: `${monthSessions}/${sessions.monthlyTarget}`, color: "#f43f5e" },
+                { label: "Сесій/міс", val: `${monthSessions}/${sessions.monthlyTarget}`, color: "#c9a84c" },
               ].map(s => (
-                <div key={s.label} style={{ textAlign: "center", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 12, padding: "8px 13px" }}>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif" }}>{s.val}</div>
-                  <div style={{ fontSize: 11, color: "#7a8fa6", textTransform: "uppercase", letterSpacing: 2 }}>{s.label}</div>
+                <div key={s.label} className="wf-panel" style={{ textAlign: "center", padding: "10px 14px", minWidth: 84 }}>
+                  <div style={{ fontSize: 11, color: "#9a8a60", textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>{s.label}</div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif" }}>{s.val}</div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* XP Bar — Aion style */}
-          <div style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(0,255,136,0.12)", borderRadius: 12, padding: "10px 14px" }}>
+          {/* XP Bar — Warframe Mastery Rank style */}
+          <div className="wf-panel" style={{ padding: "12px 16px" }}>
             {/* Level labels + XP numbers */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ background: "linear-gradient(135deg,#00ff88,#00aa55)", color: "#000", padding: "2px 10px", borderRadius: 6, fontSize: 12, fontWeight: 800, fontFamily: "'Exo 2',sans-serif" }}>LVL {totalLevel}</span>
-                <span style={{ fontSize: 12, color: "#00ff88", fontFamily: "'Space Mono',monospace", fontWeight: 700 }}>{totalXP.toLocaleString()} XP</span>
+                <span style={{ background: "linear-gradient(135deg,#7a5818,#c9a84c)", color: "#000", padding: "3px 12px", borderRadius: 3, fontSize: 12, fontWeight: 800, fontFamily: "'Exo 2',sans-serif", letterSpacing: 2, textTransform: "uppercase" }}>RANK {totalLevel}</span>
+                <span style={{ fontSize: 12, color: "#c9a84c", fontFamily: "'Space Mono',monospace", fontWeight: 700 }}>{totalXP.toLocaleString()} XP</span>
               </div>
-              <div style={{ fontSize: 11, color: "#7a8fa6", fontFamily: "'Space Mono',monospace" }}>
-                ще <span style={{ color: "#a8b8cc", fontWeight: 700 }}>{(nextLevelXP - totalXP).toLocaleString()}</span> XP
+              <div style={{ fontSize: 11, color: "#9a8a60", fontFamily: "'Space Mono',monospace" }}>
+                ще <span style={{ color: "#c9a84c", fontWeight: 700 }}>{(nextLevelXP - totalXP).toLocaleString()}</span> XP
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 12, color: "#7a8fa6", fontFamily: "'Space Mono',monospace" }}>{nextLevelXP.toLocaleString()} XP</span>
-                <span style={{ background: "rgba(0,255,136,0.08)", border: "1px solid rgba(0,255,136,0.3)", color: "#00ff88", padding: "2px 10px", borderRadius: 6, fontSize: 12, fontWeight: 800, fontFamily: "'Exo 2',sans-serif" }}>LVL {totalLevel + 1}</span>
+                <span style={{ fontSize: 12, color: "#9a8a60", fontFamily: "'Space Mono',monospace" }}>{nextLevelXP.toLocaleString()} XP</span>
+                <span style={{ background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.5)", color: "#c9a84c", padding: "3px 12px", borderRadius: 3, fontSize: 12, fontWeight: 800, fontFamily: "'Exo 2',sans-serif", letterSpacing: 2, textTransform: "uppercase" }}>RANK {totalLevel + 1}</span>
               </div>
             </div>
 
             {/* Bar track */}
-            <div style={{ position: "relative", height: 14, background: "rgba(255,255,255,0.06)", borderRadius: 7, overflow: "hidden", border: "1px solid rgba(0,255,136,0.08)" }}>
-              {/* Filled portion */}
+            <div style={{ position: "relative", height: 12, background: "rgba(20,14,4,0.80)", borderRadius: 2, overflow: "hidden", border: "1px solid rgba(201,168,76,0.20)" }}>
+              {/* Filled portion — gold gradient like Warframe capacity bar */}
               <div style={{
                 width: `${Math.min(100, xpProgress)}%`,
                 height: "100%",
-                background: "linear-gradient(90deg, #006633 0%, #00cc66 60%, #00ff88 85%, #aaffd4 100%)",
-                borderRadius: 7,
+                background: "linear-gradient(90deg, #4a3008 0%, #8a6020 30%, #c9a84c 70%, #e8c870 100%)",
+                borderRadius: 2,
                 transition: "width 0.7s ease",
-                boxShadow: "0 0 10px rgba(0,255,136,0.6), inset 0 1px 0 rgba(255,255,255,0.2)",
+                boxShadow: "0 0 10px rgba(201,168,76,0.5), inset 0 1px 0 rgba(255,230,100,0.3)",
                 position: "relative",
               }}>
-                {/* Shimmer line */}
-                <div style={{ position: "absolute", top: 2, left: 0, right: 0, height: 2, background: "rgba(255,255,255,0.3)", borderRadius: 2 }} />
+                <div style={{ position: "absolute", top: 1, left: 0, right: 0, height: 2, background: "rgba(255,230,100,0.35)", borderRadius: 2 }} />
               </div>
               {/* Segment notches */}
               {[10,20,30,40,50,60,70,80,90].map(p => (
-                <div key={p} style={{ position: "absolute", top: 0, left: `${p}%`, width: 1, height: "100%", background: "rgba(0,0,0,0.35)", pointerEvents: "none" }} />
+                <div key={p} style={{ position: "absolute", top: 0, left: `${p}%`, width: 1, height: "100%", background: "rgba(0,0,0,0.50)", pointerEvents: "none" }} />
               ))}
             </div>
 
             {/* Progress percent */}
-            <div style={{ textAlign: "center", marginTop: 5, fontSize: 12, color: "#7a8fa6", fontFamily: "'Space Mono',monospace" }}>
+            <div style={{ textAlign: "center", marginTop: 5, fontSize: 12, color: "#9a8a60", fontFamily: "'Space Mono',monospace" }}>
               {Math.round(xpProgress)}% до наступного рівня
             </div>
           </div>
         </div>
 
-        {/* Tabs */}
-        <div style={{ display: "flex", gap: 7, marginBottom: 22, flexWrap: "wrap" }}>
+        {/* Tabs — Warframe underline style */}
+        <div style={{ display: "flex", gap: 0, marginBottom: 24, flexWrap: "wrap", borderBottom: "1px solid rgba(201,168,76,0.28)" }}>
           {tabs.map(t => (
-            <button key={t.id} className="tab-btn" onClick={() => setActiveTab(t.id)} style={{ padding: "9px 16px", borderRadius: 10, fontSize: 13, cursor: "pointer", background: activeTab === t.id ? "#00ff88" : "rgba(255,255,255,0.05)", color: activeTab === t.id ? "#000" : "#c0cfe0", border: activeTab === t.id ? "none" : "1px solid rgba(255,255,255,0.12)", fontWeight: activeTab === t.id ? 800 : 500, fontFamily: "'Exo 2',sans-serif" }}>{t.label}</button>
+            <button key={t.id} className="tab-btn" onClick={() => setActiveTab(t.id)} style={{ padding: "10px 15px", borderRadius: 0, fontSize: 11, cursor: "pointer", background: "transparent", color: activeTab === t.id ? "#c9a84c" : "#6a5f40", border: "none", borderBottom: activeTab === t.id ? "2px solid #c9a84c" : "2px solid transparent", marginBottom: -1, fontWeight: activeTab === t.id ? 700 : 500, fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: "2px" }}>{t.label}</button>
           ))}
         </div>
 
@@ -537,11 +600,11 @@ export default function AITracker() {
               {SKILLS.slice(0, 6).map(sk => {
                 const unlocked = skillData[sk.id].unlockedTools;
                 return (
-                  <div key={sk.id} onClick={() => { setSelectedSkill(sk); setActiveTab("skills"); }} className="skill-card" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${unlocked.length > 0 ? sk.color + "33" : "rgba(255,255,255,0.07)"}`, borderRadius: 14, padding: 14, cursor: "pointer" }}>
+                  <div key={sk.id} onClick={() => { setSelectedSkill(sk); setActiveTab("skills"); }} className="skill-card" style={{ background: "rgba(5,3,1,0.76)", border: `1px solid ${unlocked.length > 0 ? sk.color + "33" : "rgba(201,168,76,0.12)"}`, borderRadius: 4, padding: 14, cursor: "pointer" }}>
                     <div style={{ fontSize: 22, marginBottom: 6 }}>{sk.emoji}</div>
-                    <div style={{ fontSize: 11, color: "#a8b8cc", marginBottom: 5 }}>{sk.name}</div>
+                    <div style={{ fontSize: 11, color: "#6a5f40", marginBottom: 5 }}>{sk.name}</div>
                     <div style={{ fontSize: 12, color: sk.color, marginBottom: 6 }}>{unlocked.length}/{sk.tools.length} інстр.</div>
-                    <div style={{ height: 4, background: "rgba(255,255,255,0.08)", borderRadius: 2 }}>
+                    <div style={{ height: 4, background: "rgba(201,168,76,0.18)", borderRadius: 2 }}>
                       <div style={{ width: `${(unlocked.length / sk.tools.length) * 100}%`, height: "100%", background: sk.color, borderRadius: 2, transition: "width 0.5s" }} />
                     </div>
                   </div>
@@ -550,21 +613,21 @@ export default function AITracker() {
             </div>
 
             {/* Quick session check-in on dashboard */}
-            <div style={{ background: doneToday ? "rgba(0,255,136,0.05)" : "rgba(244,63,94,0.05)", border: `1px solid ${doneToday ? "rgba(0,255,136,0.2)" : "rgba(244,63,94,0.2)"}`, borderRadius: 14, padding: 16, marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <div style={{ background: doneToday ? "rgba(201,168,76,0.06)" : "rgba(244,63,94,0.05)", border: `1px solid ${doneToday ? "rgba(201,168,76,0.30)" : "rgba(244,63,94,0.2)"}`, borderTop: doneToday ? "2px solid rgba(201,168,76,0.6)" : "2px solid rgba(244,63,94,0.5)", borderRadius: 4, padding: 16, marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: doneToday ? "#00ff88" : "#f43f5e", fontFamily: "'Exo 2',sans-serif" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: doneToday ? "#c9a84c" : "#f43f5e", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>
                   {doneToday ? "✓ AI-сесія сьогодні виконана" : "⚡ Чи працював сьогодні з AI?"}
                 </div>
-                <div style={{ fontSize: 11, color: "#7a8fa6", marginTop: 3 }}>
+                <div style={{ fontSize: 11, color: "#9a8a60", marginTop: 3 }}>
                   Стрік: {streak} дн. · {monthSessions}/{sessions.monthlyTarget} цього місяця · всього {sessions.dates.length} сесій
                 </div>
               </div>
               {!doneToday && (
-                <button className="checkin-btn" onClick={logSession} style={{ background: "linear-gradient(135deg,#00ff88,#00cc6a)", color: "#000", border: "none", padding: "10px 20px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'Space Mono',monospace", boxShadow: "0 0 20px rgba(0,255,136,0.3)", whiteSpace: "nowrap" }}>+ Так (+50 XP)</button>
+                <button className="checkin-btn" onClick={logSession} style={{ background: "linear-gradient(135deg,#00ff88,#00cc6a)", color: "#000", border: "none", padding: "10px 20px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'Space Mono',monospace", boxShadow: "0 0 20px rgba(0,255,136,0.3)", whiteSpace: "nowrap" }}>+ Так (+50 XP)</button>
               )}
             </div>
 
-            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 18 }}>
+            <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18 }}>
               <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 14 }}>🎯 Швидкі дії</div>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 {[
@@ -572,11 +635,11 @@ export default function AITracker() {
                   { label: "+ Записати дохід", color: "#f59e0b", rgb: "245,158,11", tab: "finances" },
                   { label: "+ Новий проект", color: "#6366f1", rgb: "99,102,241", tab: "projects" },
                 ].map(btn => (
-                  <button key={btn.tab} className="act-btn" onClick={() => setActiveTab(btn.tab)} style={{ background: `rgba(${btn.rgb},0.1)`, border: `1px solid ${btn.color}`, color: btn.color, padding: "10px 16px", borderRadius: 10, cursor: "pointer", fontSize: 12, fontFamily: "'Space Mono',monospace", fontWeight: 700 }}>{btn.label}</button>
+                  <button key={btn.tab} className="act-btn" onClick={() => setActiveTab(btn.tab)} style={{ background: `rgba(${btn.rgb},0.1)`, border: `1px solid ${btn.color}`, color: btn.color, padding: "10px 16px", borderRadius: 4, cursor: "pointer", fontSize: 12, fontFamily: "'Space Mono',monospace", fontWeight: 700 }}>{btn.label}</button>
                 ))}
               </div>
               <div style={{ marginTop: 16, padding: "12px 14px", background: "rgba(0,255,136,0.05)", border: "1px solid rgba(0,255,136,0.15)", borderRadius: 10 }}>
-                <span style={{ fontSize: 12, color: "#8090a8" }}>🏅 Розблоковано досягнень: </span>
+                <span style={{ fontSize: 12, color: "#8a7850" }}>🏅 Розблоковано досягнень: </span>
                 <span style={{ fontSize: 13, color: "#00ff88", fontWeight: 700 }}>{unlockedAchievements.length} / {ACHIEVEMENTS.length}</span>
               </div>
             </div>
@@ -588,20 +651,20 @@ export default function AITracker() {
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
             {/* Big check-in button */}
-            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 24, textAlign: "center" }}>
-              <div style={{ fontSize: 13, color: "#8090a8", marginBottom: 6, fontFamily: "'Space Mono',monospace" }}>
+            <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 24, textAlign: "center" }}>
+              <div style={{ fontSize: 13, color: "#8a7850", marginBottom: 6, fontFamily: "'Space Mono',monospace" }}>
                 {new Date().toLocaleDateString("uk-UA", { weekday: "long", day: "numeric", month: "long" })}
               </div>
               {doneToday ? (
                 <div>
                   <div style={{ fontSize: 48, marginBottom: 10 }}>✅</div>
                   <div style={{ fontSize: 18, fontWeight: 800, color: "#00ff88", fontFamily: "'Exo 2',sans-serif" }}>Сесія виконана!</div>
-                  <div style={{ fontSize: 12, color: "#7a8fa6", marginTop: 6 }}>Повернись завтра для нового +50 XP</div>
+                  <div style={{ fontSize: 12, color: "#9a8a60", marginTop: 6 }}>Повернись завтра для нового +50 XP</div>
                 </div>
               ) : (
                 <div>
                   <div style={{ fontSize: 18, fontWeight: 800, color: "#fff", fontFamily: "'Exo 2',sans-serif", marginBottom: 16 }}>Ти сьогодні працював з AI?</div>
-                  <button className="checkin-btn" onClick={logSession} style={{ background: "linear-gradient(135deg,#00ff88,#00cc6a)", color: "#000", border: "none", padding: "16px 40px", borderRadius: 14, fontWeight: 800, cursor: "pointer", fontSize: 16, fontFamily: "'Exo 2',sans-serif", boxShadow: "0 0 30px rgba(0,255,136,0.4)", letterSpacing: 0.5 }}>⚡ Так, працював! (+50 XP)</button>
+                  <button className="checkin-btn" onClick={logSession} style={{ background: "linear-gradient(135deg,#00ff88,#00cc6a)", color: "#000", border: "none", padding: "16px 40px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 16, fontFamily: "'Exo 2',sans-serif", boxShadow: "0 0 30px rgba(0,255,136,0.4)", letterSpacing: 0.5 }}>⚡ Так, працював! (+50 XP)</button>
                 </div>
               )}
             </div>
@@ -614,45 +677,45 @@ export default function AITracker() {
                 { label: "Всього сесій", val: sessions.dates.length, icon: "⚡", color: "#6366f1", sub: `+50 XP кожна` },
                 { label: "Найдовший стрік", val: `${Math.max(streak, 0)} дн.`, icon: "🏅", color: "#ec4899", sub: "личний рекорд" },
               ].map(s => (
-                <div key={s.label} style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${s.color}22`, borderRadius: 14, padding: "14px 16px", textAlign: "center" }}>
+                <div key={s.label} style={{ background: "rgba(5,3,1,0.76)", border: `1px solid ${s.color}22`, borderRadius: 4, padding: "14px 16px", textAlign: "center" }}>
                   <div style={{ fontSize: 22, marginBottom: 6 }}>{s.icon}</div>
                   <div style={{ fontSize: 26, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif" }}>{s.val}</div>
-                  <div style={{ fontSize: 12, color: "#7a8fa6", marginTop: 3, textTransform: "uppercase", letterSpacing: 1 }}>{s.label}</div>
+                  <div style={{ fontSize: 12, color: "#9a8a60", marginTop: 3, textTransform: "uppercase", letterSpacing: 1 }}>{s.label}</div>
                   <div style={{ fontSize: 12, color: s.color, marginTop: 2 }}>{s.sub}</div>
                 </div>
               ))}
             </div>
 
             {/* Monthly progress bar */}
-            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 18 }}>
+            <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
                 <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 14, fontWeight: 700, color: "#fff" }}>
                   📅 Ціль місяця
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 11, color: "#8090a8" }}>Ціль:</span>
+                  <span style={{ fontSize: 11, color: "#8a7850" }}>Ціль:</span>
                   <input
                     type="number"
                     min="1"
                     max="31"
                     value={sessions.monthlyTarget}
                     onChange={e => updateMonthlyTarget(e.target.value)}
-                    style={{ width: 56, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "4px 8px", color: "#00ff88", fontSize: 13, fontFamily: "'Space Mono',monospace", textAlign: "center" }}
+                    style={{ width: 56, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 3, padding: "4px 8px", color: "#00ff88", fontSize: 13, fontFamily: "'Space Mono',monospace", textAlign: "center" }}
                   />
-                  <span style={{ fontSize: 11, color: "#8090a8" }}>сесій</span>
+                  <span style={{ fontSize: 11, color: "#8a7850" }}>сесій</span>
                 </div>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 8 }}>
-                <span style={{ color: "#a8b8cc" }}>{monthSessions} виконано</span>
+                <span style={{ color: "#6a5f40" }}>{monthSessions} виконано</span>
                 <span style={{ color: "#00ff88", fontWeight: 700 }}>{Math.min(100, Math.round(monthSessions / sessions.monthlyTarget * 100))}%</span>
               </div>
-              <div style={{ height: 10, background: "rgba(255,255,255,0.07)", borderRadius: 5, overflow: "hidden" }}>
-                <div style={{ width: `${Math.min(100, (monthSessions / sessions.monthlyTarget) * 100)}%`, height: "100%", background: monthSessions >= sessions.monthlyTarget ? "#00ff88" : "linear-gradient(90deg,#f43f5e,#f59e0b)", borderRadius: 5, transition: "width 0.5s" }} />
+              <div style={{ height: 10, background: "rgba(201,168,76,0.12)", borderRadius: 5, overflow: "hidden" }}>
+                <div style={{ width: `${Math.min(100, (monthSessions / sessions.monthlyTarget) * 100)}%`, height: "100%", background: monthSessions >= sessions.monthlyTarget ? "#c9a84c" : "linear-gradient(90deg,#f43f5e,#f59e0b)", borderRadius: 5, transition: "width 0.5s" }} />
               </div>
             </div>
 
             {/* Heatmap */}
-            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 18 }}>
+            <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18 }}>
               <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 14 }}>🗓 Активність (останні 56 днів)</div>
               <div style={{ display: "flex", gap: 4, flexWrap: "nowrap", overflowX: "auto", paddingBottom: 4 }}>
                 {heatmapWeeks.map((week, wi) => (
@@ -661,17 +724,17 @@ export default function AITracker() {
                       const done = sessionSet.has(day);
                       const isToday = day === todayStr();
                       return (
-                        <div key={day} title={day} style={{ width: 14, height: 14, borderRadius: 3, background: done ? "#00ff88" : "rgba(255,255,255,0.06)", border: isToday ? "1px solid #00ff88" : "none", transition: "background 0.2s" }} />
+                        <div key={day} title={day} style={{ width: 14, height: 14, borderRadius: 3, background: done ? "#c9a84c" : "rgba(201,168,76,0.10)", border: isToday ? "1px solid #c9a84c" : "none", transition: "background 0.2s" }} />
                       );
                     })}
                   </div>
                 ))}
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 10 }}>
-                <div style={{ width: 12, height: 12, borderRadius: 2, background: "rgba(255,255,255,0.06)" }} />
-                <span style={{ fontSize: 12, color: "#7a8fa6" }}>Пропущено</span>
-                <div style={{ width: 12, height: 12, borderRadius: 2, background: "#00ff88" }} />
-                <span style={{ fontSize: 12, color: "#7a8fa6" }}>Є сесія</span>
+                <div style={{ width: 12, height: 12, borderRadius: 2, background: "rgba(201,168,76,0.10)" }} />
+                <span style={{ fontSize: 12, color: "#9a8a60" }}>Пропущено</span>
+                <div style={{ width: 12, height: 12, borderRadius: 2, background: "#c9a84c" }} />
+                <span style={{ fontSize: 12, color: "#9a8a60" }}>Є сесія</span>
               </div>
             </div>
           </div>
@@ -684,18 +747,18 @@ export default function AITracker() {
               const unlocked = skillData[sk.id].unlockedTools;
               const isOpen = selectedSkill?.id === sk.id;
               return (
-                <div key={sk.id} className="skill-card" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${isOpen ? sk.color : unlocked.length > 0 ? sk.color + "33" : "rgba(255,255,255,0.08)"}`, borderRadius: 14, overflow: "hidden" }}>
+                <div key={sk.id} className="skill-card wf-card" style={{ border: `1px solid ${isOpen ? sk.color + "80" : unlocked.length > 0 ? sk.color + "44" : "rgba(201,168,76,0.18)"}`, borderTop: `2px solid ${isOpen ? sk.color : unlocked.length > 0 ? sk.color + "88" : "rgba(201,168,76,0.35)"}`, overflow: "hidden" }}>
                   <div onClick={() => setSelectedSkill(isOpen ? null : sk)} style={{ padding: "14px 16px", cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}>
                     <span style={{ fontSize: 20 }}>{sk.emoji}</span>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{sk.name}</div>
-                      <div style={{ fontSize: 12, color: sk.color, marginTop: 2 }}>{unlocked.length}/{sk.tools.length} вивчено · +100 XP за інструмент</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#e0d8c0", textTransform: "uppercase", letterSpacing: 1 }}>{sk.name}</div>
+                      <div style={{ fontSize: 11, color: sk.color, marginTop: 3, letterSpacing: 1 }}>{unlocked.length}/{sk.tools.length} · +100 XP за інструмент</div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ width: 80, height: 5, background: "rgba(255,255,255,0.08)", borderRadius: 3 }}>
+                      <div style={{ width: 80, height: 5, background: "rgba(201,168,76,0.18)", borderRadius: 3 }}>
                         <div style={{ width: `${(unlocked.length / sk.tools.length) * 100}%`, height: "100%", background: sk.color, borderRadius: 3 }} />
                       </div>
-                      <span style={{ color: "#7a8fa6", fontSize: 14 }}>{isOpen ? "▲" : "▼"}</span>
+                      <span style={{ color: "#9a8a60", fontSize: 14 }}>{isOpen ? "▲" : "▼"}</span>
                     </div>
                   </div>
                   {isOpen && (
@@ -703,7 +766,7 @@ export default function AITracker() {
                       {sk.tools.map(tool => {
                         const done = unlocked.includes(tool);
                         return (
-                          <button key={tool} className="tool-chip" disabled={done} onClick={() => learnTool(sk.id, tool)} style={{ padding: "6px 13px", borderRadius: 8, fontSize: 11, cursor: done ? "default" : "pointer", background: done ? `${sk.color}20` : "rgba(255,255,255,0.04)", border: `1px solid ${done ? sk.color : "rgba(255,255,255,0.1)"}`, color: done ? sk.color : "#a8b8cc", fontFamily: "'Space Mono',monospace", textDecoration: done ? "line-through" : "none" }}>
+                          <button key={tool} className="tool-chip" disabled={done} onClick={() => learnTool(sk.id, tool)} style={{ padding: "6px 13px", borderRadius: 3, fontSize: 11, cursor: done ? "default" : "pointer", background: done ? `${sk.color}20` : "rgba(6,4,1,0.72)", border: `1px solid ${done ? sk.color : "rgba(201,168,76,0.25)"}`, color: done ? sk.color : "#6a5f40", fontFamily: "'Space Mono',monospace", textDecoration: done ? "line-through" : "none" }}>
                             {done ? "✓ " : ""}{tool}
                           </button>
                         );
@@ -722,11 +785,11 @@ export default function AITracker() {
             {ACHIEVEMENTS.map(a => {
               const done = unlockedAchievements.includes(a.id);
               return (
-                <div key={a.id} style={{ background: done ? "rgba(245,158,11,0.07)" : "rgba(255,255,255,0.03)", border: `1px solid ${done ? "#f59e0b44" : "rgba(255,255,255,0.07)"}`, borderRadius: 14, padding: 16, opacity: done ? 1 : 0.55, filter: done ? "none" : "grayscale(0.6)" }}>
-                  <div style={{ fontSize: 30, marginBottom: 8 }}>{a.icon}</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: done ? "#f59e0b" : "#fff", marginBottom: 4, fontFamily: "'Exo 2',sans-serif" }}>{a.name}</div>
-                  <div style={{ fontSize: 11, color: "#8090a8", marginBottom: 8 }}>{a.desc}</div>
-                  <div style={{ fontSize: 11, color: "#00ff88" }}>+{a.xp} XP {done ? "✓" : ""}</div>
+                <div key={a.id} className={done ? "wf-card" : ""} style={{ background: done ? "linear-gradient(160deg,rgba(60,40,5,0.95),rgba(20,14,3,0.95))" : "rgba(5,3,1,0.80)", border: `1px solid ${done ? "#c9a84c44" : "rgba(201,168,76,0.12)"}`, borderTop: done ? "2px solid #c9a84c" : "2px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 16, opacity: done ? 1 : 0.50, filter: done ? "none" : "grayscale(0.8)" }}>
+                  <div style={{ fontSize: 28, marginBottom: 10 }}>{a.icon}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: done ? "#c9a84c" : "#8a7850", marginBottom: 6, fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>{a.name}</div>
+                  <div style={{ fontSize: 11, color: "#6a5a38", marginBottom: 10, lineHeight: 1.5 }}>{a.desc}</div>
+                  <div style={{ fontSize: 11, color: done ? "#c9a84c" : "#5a4a30", fontFamily: "'Space Mono',monospace", letterSpacing: 1 }}>+{a.xp} XP {done ? "✓" : ""}</div>
                 </div>
               );
             })}
@@ -744,16 +807,16 @@ export default function AITracker() {
                 { label: "Проектів", val: projects.length, icon: "🚀", color: "#6366f1" },
                 { label: "AI-сесій", val: sessions.dates.length, icon: "⚡", color: "#f43f5e" },
               ].map(s => (
-                <div key={s.label} style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${s.color}22`, borderRadius: 12, padding: "14px 16px", textAlign: "center" }}>
+                <div key={s.label} style={{ background: "rgba(6,4,1,0.72)", border: `1px solid ${s.color}22`, borderRadius: 4, padding: "14px 16px", textAlign: "center" }}>
                   <div style={{ fontSize: 22, marginBottom: 4 }}>{s.icon}</div>
                   <div style={{ fontSize: 26, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif" }}>{s.val}</div>
-                  <div style={{ fontSize: 12, color: "#7a8fa6", marginTop: 2, textTransform: "uppercase", letterSpacing: 1 }}>{s.label}</div>
+                  <div style={{ fontSize: 12, color: "#9a8a60", marginTop: 2, textTransform: "uppercase", letterSpacing: 1 }}>{s.label}</div>
                 </div>
               ))}
             </div>
 
             {/* Add goal */}
-            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 16 }}>
+            <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 16 }}>
               <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 12 }}>+ Нова ціль</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <input
@@ -766,12 +829,12 @@ export default function AITracker() {
                     }
                   }}
                   placeholder="Опиши ціль..."
-                  style={{ flex: 1, minWidth: 180, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "9px 14px", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace" }}
+                  style={{ flex: 1, minWidth: 180, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "9px 14px", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace" }}
                 />
                 <select
                   value={goalCategory}
                   onChange={e => setGoalCategory(e.target.value)}
-                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "9px 12px", color: "#a8b8cc", fontSize: 12, cursor: "pointer" }}
+                  style={{ background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "9px 12px", color: "#6a5f40", fontSize: 12, cursor: "pointer" }}
                 >
                   {GOAL_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
                 </select>
@@ -779,7 +842,7 @@ export default function AITracker() {
                   if (!goalInput.trim()) return;
                   setGoals(prev => [...prev, { id: `g${Date.now()}`, text: goalInput.trim(), category: goalCategory, done: false }]);
                   setGoalInput("");
-                }} style={{ background: "#00ff88", color: "#000", border: "none", padding: "9px 16px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 12 }}>Додати</button>
+                }} style={{ background: "#00ff88", color: "#000", border: "none", padding: "9px 16px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 12 }}>Додати</button>
               </div>
             </div>
 
@@ -792,7 +855,7 @@ export default function AITracker() {
                   <div style={{ fontSize: 12, color: cat.color, fontWeight: 700, marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>{cat.icon} {cat.label}</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     {catGoals.map(g => (
-                      <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 12, background: g.done ? "rgba(0,255,136,0.05)" : "rgba(255,255,255,0.03)", border: `1px solid ${g.done ? "rgba(0,255,136,0.2)" : "rgba(255,255,255,0.08)"}`, borderRadius: 12, padding: "12px 16px" }}>
+                      <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 12, background: g.done ? "rgba(0,255,136,0.05)" : "rgba(5,3,1,0.76)", border: `1px solid ${g.done ? "rgba(0,255,136,0.2)" : "rgba(201,168,76,0.18)"}`, borderRadius: 4, padding: "12px 16px" }}>
                         <button onClick={() => setGoals(prev => prev.map(x => {
                           if (x.id !== g.id) return x;
                           if (!x.done && !x.xpAwarded) {
@@ -804,12 +867,12 @@ export default function AITracker() {
                           style={{ width: 22, height: 22, borderRadius: "50%", border: `2px solid ${g.done ? "#00ff88" : "rgba(255,255,255,0.2)"}`, background: g.done ? "#00ff88" : "transparent", cursor: "pointer", flexShrink: 0, fontSize: 11, color: "#000", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
                           {g.done ? "✓" : ""}
                         </button>
-                        <span style={{ flex: 1, color: g.done ? "#7a8fa6" : "#e2e8f0", fontSize: 13, textDecoration: g.done ? "line-through" : "none" }}>{g.text}</span>
+                        <span style={{ flex: 1, color: g.done ? "#9a8a60" : "#e0d8c0", fontSize: 13, textDecoration: g.done ? "line-through" : "none" }}>{g.text}</span>
                         {!g.done && !g.xpAwarded && (
-                          <span style={{ fontSize: 12, color: "#00ff88", background: "rgba(0,255,136,0.1)", border: "1px solid rgba(0,255,136,0.2)", padding: "2px 7px", borderRadius: 20, whiteSpace: "nowrap" }}>+100 XP</span>
+                          <span style={{ fontSize: 12, color: "#00ff88", background: "rgba(0,255,136,0.1)", border: "1px solid rgba(0,255,136,0.2)", padding: "2px 7px", borderRadius: 3, whiteSpace: "nowrap" }}>+100 XP</span>
                         )}
                         <button onClick={() => setGoals(prev => prev.filter(x => x.id !== g.id))}
-                          style={{ background: "none", border: "none", color: "#4d6070", cursor: "pointer", fontSize: 16, padding: "0 4px" }}>×</button>
+                          style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 16, padding: "0 4px" }}>×</button>
                       </div>
                     ))}
                   </div>
@@ -827,7 +890,7 @@ export default function AITracker() {
         {activeTab === "plan" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {/* Add task */}
-            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 16 }}>
+            <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 16 }}>
               <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 12 }}>+ Нова задача</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <input
@@ -840,12 +903,12 @@ export default function AITracker() {
                     }
                   }}
                   placeholder="Задача або стратегія..."
-                  style={{ flex: 1, minWidth: 180, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "9px 14px", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace" }}
+                  style={{ flex: 1, minWidth: 180, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "9px 14px", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace" }}
                 />
                 <select
                   value={planPriority}
                   onChange={e => setPlanPriority(e.target.value)}
-                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "9px 12px", color: "#a8b8cc", fontSize: 12, cursor: "pointer" }}
+                  style={{ background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "9px 12px", color: "#6a5f40", fontSize: 12, cursor: "pointer" }}
                 >
                   {PLAN_PRIORITIES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
                 </select>
@@ -853,7 +916,7 @@ export default function AITracker() {
                   if (!planInput.trim()) return;
                   setPlan(prev => [...prev, { id: `p${Date.now()}`, text: planInput.trim(), priority: planPriority, done: false }]);
                   setPlanInput("");
-                }} style={{ background: "#6366f1", color: "#fff", border: "none", padding: "9px 16px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 12 }}>Додати</button>
+                }} style={{ background: "#6366f1", color: "#fff", border: "none", padding: "9px 16px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 12 }}>Додати</button>
               </div>
             </div>
 
@@ -865,12 +928,12 @@ export default function AITracker() {
               return (
                 <div key={pr.id}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                    <span style={{ background: pr.bg, border: `1px solid ${pr.color}44`, color: pr.color, padding: "3px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>{pr.label}</span>
-                    <span style={{ fontSize: 11, color: "#4d6070" }}>{items.length} активних{done.length > 0 ? ` · ${done.length} виконано` : ""}</span>
+                    <span style={{ background: pr.bg, border: `1px solid ${pr.color}44`, color: pr.color, padding: "3px 12px", borderRadius: 3, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>{pr.label}</span>
+                    <span style={{ fontSize: 11, color: "#5a4a30" }}>{items.length} активних{done.length > 0 ? ` · ${done.length} виконано` : ""}</span>
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
                     {[...items, ...done].map(item => (
-                      <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 10, background: item.done ? "rgba(255,255,255,0.02)" : pr.bg, border: `1px solid ${item.done ? "rgba(255,255,255,0.05)" : pr.color + "22"}`, borderRadius: 11, padding: "11px 14px" }}>
+                      <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 10, background: item.done ? "rgba(5,3,1,0.80)" : pr.bg, border: `1px solid ${item.done ? "rgba(8,5,2,0.68)" : pr.color + "22"}`, borderRadius: 11, padding: "11px 14px" }}>
                         <button onClick={() => setPlan(prev => prev.map(x => {
                           if (x.id !== item.id) return x;
                           if (!x.done && !x.xpAwarded) {
@@ -879,12 +942,12 @@ export default function AITracker() {
                           }
                           return { ...x, done: !x.done };
                         }))}
-                          style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${item.done ? "#7a8fa6" : pr.color}`, background: item.done ? "#7a8fa6" : "transparent", cursor: "pointer", flexShrink: 0, fontSize: 12, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
+                          style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${item.done ? "#9a8a60" : pr.color}`, background: item.done ? "#9a8a60" : "transparent", cursor: "pointer", flexShrink: 0, fontSize: 12, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
                           {item.done ? "✓" : ""}
                         </button>
-                        <span style={{ flex: 1, color: item.done ? "#4d6070" : "#cbd5e1", fontSize: 12, textDecoration: item.done ? "line-through" : "none" }}>{item.text}</span>
+                        <span style={{ flex: 1, color: item.done ? "#5a4a30" : "#cbd5e1", fontSize: 12, textDecoration: item.done ? "line-through" : "none" }}>{item.text}</span>
                         {!item.done && !item.xpAwarded && (
-                          <span style={{ fontSize: 12, color: pr.color, background: pr.bg, border: `1px solid ${pr.color}33`, padding: "2px 7px", borderRadius: 20, whiteSpace: "nowrap" }}>+75 XP</span>
+                          <span style={{ fontSize: 12, color: pr.color, background: pr.bg, border: `1px solid ${pr.color}33`, padding: "2px 7px", borderRadius: 3, whiteSpace: "nowrap" }}>+75 XP</span>
                         )}
                         {!item.done && (
                           <select
@@ -896,7 +959,7 @@ export default function AITracker() {
                           </select>
                         )}
                         <button onClick={() => setPlan(prev => prev.filter(x => x.id !== item.id))}
-                          style={{ background: "none", border: "none", color: "#4d6070", cursor: "pointer", fontSize: 16, padding: "0 4px" }}>×</button>
+                          style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 16, padding: "0 4px" }}>×</button>
                       </div>
                     ))}
                   </div>
@@ -919,24 +982,24 @@ export default function AITracker() {
                 { label: "Витрати", val: `$${expenses.toFixed(2)}`, color: "#f43f5e", icon: "📉" },
                 { label: "Баланс", val: `${netPositive ? "+" : ""}$${net.toFixed(2)}`, color: netPositive ? "#00ff88" : "#f43f5e", icon: netPositive ? "💚" : "🔴" },
               ].map(s => (
-                <div key={s.label} style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${s.color}22`, borderRadius: 14, padding: "18px 16px", textAlign: "center" }}>
+                <div key={s.label} style={{ background: "rgba(6,4,1,0.72)", border: `1px solid ${s.color}22`, borderRadius: 4, padding: "18px 16px", textAlign: "center" }}>
                   <div style={{ fontSize: 24, marginBottom: 6 }}>{s.icon}</div>
                   <div style={{ fontSize: 28, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif" }}>{s.val}</div>
-                  <div style={{ fontSize: 11, color: "#7a8fa6", marginTop: 6, textTransform: "uppercase", letterSpacing: 2 }}>{s.label}</div>
+                  <div style={{ fontSize: 11, color: "#9a8a60", marginTop: 6, textTransform: "uppercase", letterSpacing: 2 }}>{s.label}</div>
                 </div>
               ))}
             </div>
 
             {/* Net balance bar */}
             {(income > 0 || expenses > 0) && (
-              <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "14px 16px" }}>
-                <div style={{ fontSize: 11, color: "#8090a8", marginBottom: 8 }}>Дохід vs Витрати</div>
-                <div style={{ height: 10, background: "rgba(255,255,255,0.07)", borderRadius: 5, overflow: "hidden", display: "flex" }}>
+              <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: "14px 16px" }}>
+                <div style={{ fontSize: 11, color: "#8a7850", marginBottom: 8 }}>Дохід vs Витрати</div>
+                <div style={{ height: 10, background: "rgba(201,168,76,0.12)", borderRadius: 5, overflow: "hidden", display: "flex" }}>
                   {income > 0 && (
                     <div style={{ width: `${Math.min(100, (income / Math.max(income, expenses)) * 100)}%`, height: "100%", background: "linear-gradient(90deg,#059669,#10b981)", borderRadius: "5px 0 0 5px", transition: "width 0.5s" }} />
                   )}
                 </div>
-                <div style={{ height: 10, background: "rgba(255,255,255,0.07)", borderRadius: 5, overflow: "hidden", marginTop: 4, display: "flex" }}>
+                <div style={{ height: 10, background: "rgba(201,168,76,0.12)", borderRadius: 5, overflow: "hidden", marginTop: 4, display: "flex" }}>
                   {expenses > 0 && (
                     <div style={{ width: `${Math.min(100, (expenses / Math.max(income, expenses)) * 100)}%`, height: "100%", background: "linear-gradient(90deg,#b91c1c,#f43f5e)", borderRadius: "5px 0 0 5px", transition: "width 0.5s" }} />
                   )}
@@ -950,7 +1013,7 @@ export default function AITracker() {
             )}
 
             {/* Income input */}
-            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 14, padding: 16 }}>
+            <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 4, padding: 16 }}>
               <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 14, fontWeight: 700, color: "#10b981", marginBottom: 12 }}>📈 Додати дохід</div>
               <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                 <input
@@ -960,15 +1023,15 @@ export default function AITracker() {
                   placeholder="Сума в $..."
                   type="number"
                   min="0"
-                  style={{ width: 160, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "9px 14px", color: "#fff", fontSize: 15, fontFamily: "'Space Mono',monospace" }}
+                  style={{ width: 160, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "9px 14px", color: "#fff", fontSize: 15, fontFamily: "'Space Mono',monospace" }}
                 />
-                <button className="act-btn" onClick={addIncome} style={{ background: "#10b981", color: "#000", border: "none", padding: "9px 18px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>+ Записати</button>
-                <span style={{ fontSize: 11, color: "#7a8fa6" }}>+3× XP від суми</span>
+                <button className="act-btn" onClick={addIncome} style={{ background: "#10b981", color: "#000", border: "none", padding: "9px 18px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>+ Записати</button>
+                <span style={{ fontSize: 11, color: "#9a8a60" }}>+3× XP від суми</span>
               </div>
             </div>
 
             {/* Expense input */}
-            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(244,63,94,0.2)", borderRadius: 14, padding: 16 }}>
+            <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(244,63,94,0.2)", borderRadius: 4, padding: 16 }}>
               <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 14, fontWeight: 700, color: "#f43f5e", marginBottom: 12 }}>📉 Додати витрату</div>
               <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                 <input
@@ -978,14 +1041,14 @@ export default function AITracker() {
                   placeholder="Сума в $..."
                   type="number"
                   min="0"
-                  style={{ width: 160, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "9px 14px", color: "#fff", fontSize: 15, fontFamily: "'Space Mono',monospace" }}
+                  style={{ width: 160, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "9px 14px", color: "#fff", fontSize: 15, fontFamily: "'Space Mono',monospace" }}
                 />
-                <button className="act-btn" onClick={addExpense} style={{ background: "#f43f5e", color: "#fff", border: "none", padding: "9px 18px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>− Записати</button>
+                <button className="act-btn" onClick={addExpense} style={{ background: "#f43f5e", color: "#fff", border: "none", padding: "9px 18px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>− Записати</button>
               </div>
             </div>
 
             {/* Milestone bars (based on income) */}
-            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 18 }}>
+            <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18 }}>
               <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 14 }}>🏁 Дохідні цілі</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {[
@@ -994,12 +1057,12 @@ export default function AITracker() {
                   { label: "До $10,000", max: 10000, color: "#f43f5e" },
                   { label: "До $100,000", max: 100000, color: "#f59e0b" },
                 ].map(g => (
-                  <div key={g.label} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 10, padding: "12px 14px" }}>
+                  <div key={g.label} style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 4, padding: "12px 14px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 6 }}>
                       <span style={{ color: "#fff" }}>{g.label}</span>
                       <span style={{ color: g.color }}>{Math.min(100, (income / g.max) * 100).toFixed(1)}%</span>
                     </div>
-                    <div style={{ height: 6, background: "rgba(255,255,255,0.07)", borderRadius: 3 }}>
+                    <div style={{ height: 6, background: "rgba(201,168,76,0.12)", borderRadius: 3 }}>
                       <div style={{ width: `${Math.min(100, (income / g.max) * 100)}%`, height: "100%", background: g.color, borderRadius: 3, transition: "width 0.5s" }} />
                     </div>
                   </div>
@@ -1019,16 +1082,16 @@ export default function AITracker() {
                 onChange={e => setProjectInput(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && addProject()}
                 placeholder="Назва проекту..."
-                style={{ flex: 1, minWidth: 200, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 14px", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace" }}
+                style={{ flex: 1, minWidth: 200, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "10px 14px", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace" }}
               />
-              <button className="act-btn" onClick={addProject} style={{ background: "#6366f1", color: "#fff", border: "none", padding: "10px 18px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>+ Додати (+200 XP)</button>
+              <button className="act-btn" onClick={addProject} style={{ background: "#6366f1", color: "#fff", border: "none", padding: "10px 18px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>+ Додати (+200 XP)</button>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {projects.map((p, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, background: "rgba(99,102,241,0.07)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 12, padding: "13px 16px" }}>
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, background: "rgba(99,102,241,0.07)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 4, padding: "13px 16px" }}>
                   <span style={{ fontSize: 20 }}>🚀</span>
                   <span style={{ flex: 1, color: "#fff", fontSize: 13 }}>{p.name}</span>
-                  <span style={{ color: "#7a8fa6", fontSize: 11 }}>{p.date}</span>
+                  <span style={{ color: "#9a8a60", fontSize: 11 }}>{p.date}</span>
                 </div>
               ))}
             </div>
