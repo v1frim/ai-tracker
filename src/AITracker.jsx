@@ -181,6 +181,7 @@ function monthLabel(ym) {
 function getLastMonths(n) {
   return Array.from({ length: n }, (_, i) => {
     const d = new Date();
+    d.setDate(1); // prevent month overflow on day 29/30/31
     d.setMonth(d.getMonth() - (n - 1 - i));
     return d.toISOString().slice(0, 7);
   });
@@ -382,8 +383,8 @@ export default function AITracker() {
   const [uahRate, setUahRate] = useState(saved?.uahRate ?? 44.29);
   const [uahRateUpdatedAt, setUahRateUpdatedAt] = useState(saved?.uahRateUpdatedAt ?? null);
   const [rateFetching, setRateFetching] = useState(false);
-  const [incForm, setIncForm] = useState({ amount: "", currency: "USD", catId: "inc_other", note: "" });
-  const [expForm, setExpForm] = useState({ amount: "", currency: "USD", catId: "exp_other", note: "", recurring: false });
+  const [incForm, setIncForm] = useState({ amount: "", currency: "USD", catId: "inc_other", note: "", date: todayStr() });
+  const [expForm, setExpForm] = useState({ amount: "", currency: "USD", catId: "exp_other", note: "", date: todayStr() });
   const [newCatName, setNewCatName] = useState("");
   const [addingCat, setAddingCat] = useState(null); // "income" | "expense" | null
   const [pendingDelete, setPendingDelete] = useState(null); // { id, type, entry, xpPaid, timerId }
@@ -392,7 +393,7 @@ export default function AITracker() {
   const [subscriptions, setSubscriptions] = useState(saved?.subscriptions ?? []);
   const [subCheckedMonth, setSubCheckedMonth] = useState(saved?.subCheckedMonth ?? null);
   const [subPrompt, setSubPrompt] = useState(null); // { items: [{...sub, checked: bool}] }
-  const [subForm, setSubForm] = useState({ name: "", catId: "exp_other", amount: "", currency: "USD" });
+  const [subForm, setSubForm] = useState({ name: "", catId: "exp_other", amount: "", currency: "USD", billingDay: 1 });
   const [showSubForm, setShowSubForm] = useState(false);
   const [projects, setProjects] = useState(saved?.projects ?? DEFAULT_PROJECTS);
   const [projectInput, setProjectInput] = useState("");
@@ -440,11 +441,15 @@ export default function AITracker() {
     if (activeTab !== "finances") return;
     const isStale = !uahRateUpdatedAt || (Date.now() - new Date(uahRateUpdatedAt).getTime()) > 60 * 60 * 1000;
     if (isStale) fetchRate();
-    // Check if we need to prompt for monthly subscriptions
-    const thisMonth = new Date().toISOString().slice(0, 7);
-    const activeSubs = subscriptions.filter(s => s.active !== false);
-    if (activeSubs.length > 0 && subCheckedMonth !== thisMonth) {
-      setSubPrompt({ items: activeSubs.map(s => ({ ...s, checked: true })) });
+    // Prompt for subscriptions whose billing day has arrived this month
+    const now = new Date();
+    const currentYM = now.toISOString().slice(0, 7);
+    const todayDay = now.getDate();
+    const subsToPrompt = subscriptions.filter(s =>
+      s.active !== false && todayDay >= (s.billingDay ?? 1) && s.lastBilledYM !== currentYM
+    );
+    if (subsToPrompt.length > 0) {
+      setSubPrompt({ items: subsToPrompt.map(s => ({ ...s, checked: true })) });
     }
   }, [activeTab]); // eslint-disable-line
 
@@ -527,7 +532,7 @@ export default function AITracker() {
     if (!amt || amt <= 0) return;
     const amtUSD = incForm.currency === "UAH" ? amt / uahRate : amt;
     const xpPaid = Math.ceil(amtUSD * 3);
-    const entry = { id: `inc_${Date.now()}`, catId: incForm.catId, amount: amt, currency: incForm.currency, date: new Date().toISOString().slice(0,10), note: incForm.note, xpPaid };
+    const entry = { id: `inc_${Date.now()}`, catId: incForm.catId, amount: amt, currency: incForm.currency, date: incForm.date || todayStr(), note: incForm.note, xpPaid };
     setIncomeEntries(prev => {
       const next = [...prev, entry];
       const newTotal = next.reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
@@ -538,7 +543,7 @@ export default function AITracker() {
       });
       return next;
     });
-    setIncForm(f => ({ ...f, amount: "", note: "" }));
+    setIncForm(f => ({ ...f, amount: "", note: "", date: todayStr() }));
   }, [incForm, uahRate, toUSD, gainXP, checkAchievements, totalTools, projects, skillData, streak, sessions.dates.length]);
 
   // Delete entry with 5s undo window
@@ -590,9 +595,9 @@ export default function AITracker() {
   const addExpenseEntry = useCallback(() => {
     const amt = parseFloat(expForm.amount);
     if (!amt || amt <= 0) return;
-    const entry = { id: `exp_${Date.now()}`, catId: expForm.catId, amount: amt, currency: expForm.currency, date: new Date().toISOString().slice(0,10), note: expForm.note, recurring: expForm.recurring };
+    const entry = { id: `exp_${Date.now()}`, catId: expForm.catId, amount: amt, currency: expForm.currency, date: expForm.date || todayStr(), note: expForm.note };
     setExpenseEntries(prev => [...prev, entry]);
-    setExpForm(f => ({ ...f, amount: "", note: "" }));
+    setExpForm(f => ({ ...f, amount: "", note: "", date: todayStr() }));
   }, [expForm]);
 
   const addProject = useCallback(() => {
@@ -1311,16 +1316,25 @@ export default function AITracker() {
                   </div>
                   <div style={{ display: "flex", gap: 10 }}>
                     <button onClick={() => {
-                      const thisMonth = new Date().toISOString().slice(0,7);
-                      const today = new Date().toISOString().slice(0,10);
+                      const currentYM = new Date().toISOString().slice(0, 7);
+                      const today = new Date().toISOString().slice(0, 10);
+                      const checkedIds = new Set(subPrompt.items.filter(s => s.checked).map(s => s.id));
                       subPrompt.items.filter(s => s.checked).forEach(s => {
                         const entry = { id: `exp_${Date.now()}_${s.id}`, catId: s.catId, amount: s.amount, currency: s.currency, date: today, note: s.name, recurring: true, subId: s.id };
                         setExpenseEntries(prev => [...prev, entry]);
                       });
-                      setSubCheckedMonth(thisMonth);
+                      setSubscriptions(prev => prev.map(s =>
+                        subPrompt.items.some(x => x.id === s.id) ? { ...s, lastBilledYM: currentYM } : s
+                      ));
                       setSubPrompt(null);
                     }} style={{ flex: 1, background: "#c9a84c", color: "#000", border: "none", padding: "10px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 13, fontFamily: "'Exo 2',sans-serif" }}>✓ Додати вибрані</button>
-                    <button onClick={() => { setSubCheckedMonth(new Date().toISOString().slice(0,7)); setSubPrompt(null); }} style={{ background: "none", border: "1px solid rgba(201,168,76,0.3)", color: "#9a8a60", padding: "10px 16px", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>Пропустити</button>
+                    <button onClick={() => {
+                      const currentYM = new Date().toISOString().slice(0, 7);
+                      setSubscriptions(prev => prev.map(s =>
+                        subPrompt.items.some(x => x.id === s.id) ? { ...s, lastBilledYM: currentYM } : s
+                      ));
+                      setSubPrompt(null);
+                    }} style={{ background: "none", border: "1px solid rgba(201,168,76,0.3)", color: "#9a8a60", padding: "10px 16px", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>Пропустити</button>
                   </div>
                 </div>
               </div>
@@ -1429,6 +1443,7 @@ export default function AITracker() {
                 <input value={incForm.amount} onChange={e => setIncForm(f => ({ ...f, amount: e.target.value }))} onKeyDown={e => e.key === "Enter" && addIncomeEntry()} placeholder="Сума" type="number" min="0" style={{ ...inpStyle, width: 100 }} />
                 <button onClick={() => setIncForm(f => ({ ...f, currency: f.currency === "USD" ? "UAH" : "USD" }))} style={{ background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.35)", color: "#c9a84c", padding: "8px 12px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 12, minWidth: 52 }}>{incForm.currency}</button>
                 <input value={incForm.note} onChange={e => setIncForm(f => ({ ...f, note: e.target.value }))} placeholder="Нотатка..." style={{ ...inpStyle, flex: 1, minWidth: 80 }} />
+                <input type="date" value={incForm.date} onChange={e => setIncForm(f => ({ ...f, date: e.target.value }))} style={{ ...inpStyle, width: 130, colorScheme: "dark" }} />
                 <button onClick={addIncomeEntry} className="act-btn" style={{ background: "#10b981", color: "#000", border: "none", padding: "8px 16px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 12, whiteSpace: "nowrap" }}>+ Записати</button>
                 {addingCat !== "income" ? (
                   <button onClick={() => setAddingCat("income")} style={{ background: "none", border: "1px dashed rgba(201,168,76,0.3)", color: "#9a8a60", padding: "8px 10px", borderRadius: 4, cursor: "pointer", fontSize: 11 }}>+ Категорія</button>
@@ -1449,7 +1464,7 @@ export default function AITracker() {
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'Space Mono',monospace" }}>
                   <thead>
                     <tr style={{ borderBottom: "1px solid rgba(201,168,76,0.25)" }}>
-                      <th style={{ ...thStyle("#9a8a60"), textAlign: "left" }}>Підписка / Витрата</th>
+                      <th style={{ ...thStyle("#9a8a60"), textAlign: "left" }}>Категорія</th>
                       {months.map(m => <th key={m} style={thStyle()}>{monthLabel(m)}</th>)}
                       <th style={thStyle("#f43f5e")}>Весь час</th>
                       <th style={{ width: 80 }}></th>
@@ -1516,10 +1531,7 @@ export default function AITracker() {
                 <input value={expForm.amount} onChange={e => setExpForm(f => ({ ...f, amount: e.target.value }))} onKeyDown={e => e.key === "Enter" && addExpenseEntry()} placeholder="Сума" type="number" min="0" style={{ ...inpStyle, width: 100 }} />
                 <button onClick={() => setExpForm(f => ({ ...f, currency: f.currency === "USD" ? "UAH" : "USD" }))} style={{ background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.35)", color: "#f43f5e", padding: "8px 12px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 12, minWidth: 52 }}>{expForm.currency}</button>
                 <input value={expForm.note} onChange={e => setExpForm(f => ({ ...f, note: e.target.value }))} placeholder="Нотатка..." style={{ ...inpStyle, flex: 1, minWidth: 80 }} />
-                <label style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", color: "#f59e0b", fontSize: 11, whiteSpace: "nowrap" }}>
-                  <input type="checkbox" checked={expForm.recurring} onChange={e => setExpForm(f => ({ ...f, recurring: e.target.checked }))} style={{ accentColor: "#f59e0b" }} />
-                  🔄 Щомісячна
-                </label>
+                <input type="date" value={expForm.date} onChange={e => setExpForm(f => ({ ...f, date: e.target.value }))} style={{ ...inpStyle, width: 130, colorScheme: "dark" }} />
                 <button onClick={addExpenseEntry} className="act-btn" style={{ background: "#f43f5e", color: "#fff", border: "none", padding: "8px 16px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 12, whiteSpace: "nowrap" }}>− Записати</button>
                 {addingCat !== "expense" ? (
                   <button onClick={() => setAddingCat("expense")} style={{ background: "none", border: "1px dashed rgba(244,63,94,0.3)", color: "#9a8a60", padding: "8px 10px", borderRadius: 4, cursor: "pointer", fontSize: 11 }}>+ Категорія</button>
@@ -1549,7 +1561,7 @@ export default function AITracker() {
                     value={subForm.name}
                     onChange={e => setSubForm(f => ({ ...f, name: e.target.value }))}
                     placeholder="Назва (Claude, ChatGPT…)"
-                    style={{ ...inpStyle, flex: 1, minWidth: 140 }}
+                    style={{ ...inpStyle, flex: 1, minWidth: 120 }}
                   />
                   <select value={subForm.catId} onChange={e => setSubForm(f => ({ ...f, catId: e.target.value }))} style={selStyle}>
                     {expenseCats.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
@@ -1560,19 +1572,24 @@ export default function AITracker() {
                     placeholder="Сума"
                     type="number"
                     min="0"
-                    style={{ ...inpStyle, width: 90 }}
-                    onKeyDown={e => e.key === "Enter" && (() => {
-                      if (!subForm.name.trim() || !parseFloat(subForm.amount)) return;
-                      setSubscriptions(prev => [...prev, { id: `sub_${Date.now()}`, name: subForm.name.trim(), catId: subForm.catId, amount: parseFloat(subForm.amount), currency: subForm.currency, active: true }]);
-                      setSubForm({ name: "", catId: "exp_other", amount: "", currency: "USD" });
-                      setShowSubForm(false);
-                    })()}
+                    style={{ ...inpStyle, width: 80 }}
                   />
                   <button onClick={() => setSubForm(f => ({ ...f, currency: f.currency === "USD" ? "UAH" : "USD" }))} style={{ background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.35)", color: "#f43f5e", padding: "8px 12px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 12, minWidth: 52 }}>{subForm.currency}</button>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    <span style={{ fontSize: 11, color: "#9a8a60", whiteSpace: "nowrap" }}>день:</span>
+                    <input
+                      value={subForm.billingDay}
+                      onChange={e => setSubForm(f => ({ ...f, billingDay: Math.min(28, Math.max(1, parseInt(e.target.value) || 1)) }))}
+                      type="number"
+                      min="1"
+                      max="28"
+                      style={{ ...inpStyle, width: 52, textAlign: "center" }}
+                    />
+                  </div>
                   <button onClick={() => {
                     if (!subForm.name.trim() || !parseFloat(subForm.amount)) return;
-                    setSubscriptions(prev => [...prev, { id: `sub_${Date.now()}`, name: subForm.name.trim(), catId: subForm.catId, amount: parseFloat(subForm.amount), currency: subForm.currency, active: true }]);
-                    setSubForm({ name: "", catId: "exp_other", amount: "", currency: "USD" });
+                    setSubscriptions(prev => [...prev, { id: `sub_${Date.now()}`, name: subForm.name.trim(), catId: subForm.catId, amount: parseFloat(subForm.amount), currency: subForm.currency, billingDay: subForm.billingDay || 1, active: true }]);
+                    setSubForm({ name: "", catId: "exp_other", amount: "", currency: "USD", billingDay: 1 });
                     setShowSubForm(false);
                   }} style={{ background: "#c9a84c", color: "#000", border: "none", padding: "8px 16px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 12, whiteSpace: "nowrap" }}>✓ Додати</button>
                 </div>
@@ -1599,13 +1616,13 @@ export default function AITracker() {
                           <div style={{ color: isActive ? "#e0d8c0" : "#9a8a60", fontFamily: "'Exo 2',sans-serif", fontWeight: 600, fontSize: 13 }}>{sub.name}</div>
                           <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 2 }}>
                             {cat && <span style={{ fontSize: 10, color: "#5a4a30" }}>{cat.name}</span>}
-                            {lastDate && (
-                              <span style={{ fontSize: 10, color: "#6a5a40", fontFamily: "'Space Mono',monospace" }}>
-                                📅 списано {lastDate}
-                              </span>
-                            )}
-                            {!lastDate && (
-                              <span style={{ fontSize: 10, color: "#4a3a25", fontFamily: "'Space Mono',monospace" }}>📅 ще не списувалось</span>
+                            <span style={{ fontSize: 10, color: "#6a5840", fontFamily: "'Space Mono',monospace" }}>
+                              🗓 {sub.billingDay ?? 1}-го числа
+                            </span>
+                            {lastDate ? (
+                              <span style={{ fontSize: 10, color: "#5a5030", fontFamily: "'Space Mono',monospace" }}>· списано {lastDate}</span>
+                            ) : (
+                              <span style={{ fontSize: 10, color: "#4a3a25", fontFamily: "'Space Mono',monospace" }}>· ще не списувалось</span>
                             )}
                           </div>
                         </div>
