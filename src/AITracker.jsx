@@ -837,14 +837,14 @@ export default function AITracker() {
                       const done = unlockedAchievements.includes(a.id);
                       const tier = TIERS[a.tier];
                       return (
-                        <div key={a.id} className={done ? "wf-card" : ""} style={{ background: done ? `linear-gradient(160deg, ${tier.color}26, rgba(10,7,2,0.95))` : "rgba(5,3,1,0.80)", border: `1px solid ${done ? tier.color + "55" : "rgba(201,168,76,0.10)"}`, borderTop: `2px solid ${done ? tier.color : "rgba(201,168,76,0.18)"}`, borderRadius: 4, padding: 16, opacity: done ? 1 : 0.5, filter: done ? "none" : "grayscale(0.8)", boxShadow: done ? `0 0 18px ${tier.glow}` : "none" }}>
+                        <div key={a.id} className={done ? "wf-card" : ""} style={{ background: done ? `linear-gradient(160deg, ${tier.color}26, rgba(10,7,2,0.95))` : "rgba(14,10,4,0.88)", border: `1px solid ${done ? tier.color + "55" : "rgba(201,168,76,0.22)"}`, borderTop: `2px solid ${done ? tier.color : "rgba(201,168,76,0.30)"}`, borderRadius: 4, padding: 16, boxShadow: done ? `0 0 18px ${tier.glow}` : "none" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                            <div style={{ fontSize: 28 }}>{a.icon}</div>
-                            <span style={{ fontSize: 9, fontWeight: 800, color: done ? tier.color : "#5a4a30", border: `1px solid ${done ? tier.color + "66" : "rgba(201,168,76,0.15)"}`, borderRadius: 2, padding: "2px 7px", textTransform: "uppercase", letterSpacing: 1.5, fontFamily: "'Exo 2',sans-serif", whiteSpace: "nowrap" }}>{tier.label}</span>
+                            <div style={{ fontSize: 28, filter: done ? "none" : "grayscale(1) brightness(0.55)" }}>{a.icon}</div>
+                            <span style={{ fontSize: 9, fontWeight: 800, color: done ? tier.color : "#6a5a38", border: `1px solid ${done ? tier.color + "66" : "rgba(201,168,76,0.22)"}`, borderRadius: 2, padding: "2px 7px", textTransform: "uppercase", letterSpacing: 1.5, fontFamily: "'Exo 2',sans-serif", whiteSpace: "nowrap" }}>{tier.label}</span>
                           </div>
-                          <div style={{ fontSize: 14, fontWeight: 800, color: done ? tier.color : "#8a7850", marginBottom: 6, fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>{a.name}</div>
-                          <div style={{ fontSize: 12, color: "#6a5a38", marginBottom: 10, lineHeight: 1.5 }}>{a.desc}</div>
-                          <div style={{ fontSize: 12, color: done ? tier.color : "#5a4a30", fontFamily: "'Space Mono',monospace", letterSpacing: 1 }}>+{a.xp} XP {done ? "✓" : ""}</div>
+                          <div style={{ fontSize: 14, fontWeight: 800, color: done ? tier.color : "#9a8a60", marginBottom: 6, fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>{a.name}</div>
+                          <div style={{ fontSize: 12, color: done ? "#9a8a60" : "#7a6a48", marginBottom: 10, lineHeight: 1.5 }}>{a.desc}</div>
+                          <div style={{ fontSize: 12, color: done ? tier.color : "#6a5a38", fontFamily: "'Space Mono',monospace", letterSpacing: 1 }}>+{a.xp} XP {done ? "✓" : "🔒"}</div>
                         </div>
                       );
                     })}
