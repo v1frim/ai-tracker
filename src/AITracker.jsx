@@ -589,7 +589,7 @@ export default function AITracker() {
         {/* Tabs — Warframe underline style */}
         <div style={{ display: "flex", gap: 0, marginBottom: 24, flexWrap: "wrap", borderBottom: "1px solid rgba(201,168,76,0.28)" }}>
           {tabs.map(t => (
-            <button key={t.id} className="tab-btn" onClick={() => setActiveTab(t.id)} style={{ padding: "10px 15px", borderRadius: 0, fontSize: 11, cursor: "pointer", background: "transparent", color: activeTab === t.id ? "#c9a84c" : "#6a5f40", border: "none", borderBottom: activeTab === t.id ? "2px solid #c9a84c" : "2px solid transparent", marginBottom: -1, fontWeight: activeTab === t.id ? 700 : 500, fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: "2px" }}>{t.label}</button>
+            <button key={t.id} className="tab-btn" onClick={() => setActiveTab(t.id)} style={{ padding: "11px 16px", borderRadius: 0, fontSize: 13, cursor: "pointer", background: "transparent", color: activeTab === t.id ? "#d4b040" : "#6a5f40", border: "none", borderBottom: activeTab === t.id ? "2px solid #d4b040" : "2px solid transparent", marginBottom: -1, fontWeight: activeTab === t.id ? 800 : 600, fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: "3px" }}>{t.label}</button>
           ))}
         </div>
 
@@ -602,8 +602,8 @@ export default function AITracker() {
                 return (
                   <div key={sk.id} onClick={() => { setSelectedSkill(sk); setActiveTab("skills"); }} className="skill-card" style={{ background: "rgba(5,3,1,0.76)", border: `1px solid ${unlocked.length > 0 ? sk.color + "33" : "rgba(201,168,76,0.12)"}`, borderRadius: 4, padding: 14, cursor: "pointer" }}>
                     <div style={{ fontSize: 22, marginBottom: 6 }}>{sk.emoji}</div>
-                    <div style={{ fontSize: 11, color: "#6a5f40", marginBottom: 5 }}>{sk.name}</div>
-                    <div style={{ fontSize: 12, color: sk.color, marginBottom: 6 }}>{unlocked.length}/{sk.tools.length} інстр.</div>
+                    <div style={{ fontSize: 13, color: "#9a8a60", marginBottom: 5, fontFamily: "'Exo 2',sans-serif", fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>{sk.name}</div>
+                    <div style={{ fontSize: 13, color: sk.color, marginBottom: 6, fontWeight: 700, fontFamily: "'Exo 2',sans-serif" }}>{unlocked.length}/{sk.tools.length} інстр.</div>
                     <div style={{ height: 4, background: "rgba(201,168,76,0.18)", borderRadius: 2 }}>
                       <div style={{ width: `${(unlocked.length / sk.tools.length) * 100}%`, height: "100%", background: sk.color, borderRadius: 2, transition: "width 0.5s" }} />
                     </div>
@@ -751,8 +751,8 @@ export default function AITracker() {
                   <div onClick={() => setSelectedSkill(isOpen ? null : sk)} style={{ padding: "14px 16px", cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}>
                     <span style={{ fontSize: 20 }}>{sk.emoji}</span>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "#e0d8c0", textTransform: "uppercase", letterSpacing: 1 }}>{sk.name}</div>
-                      <div style={{ fontSize: 11, color: sk.color, marginTop: 3, letterSpacing: 1 }}>{unlocked.length}/{sk.tools.length} · +100 XP за інструмент</div>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: "#e0d8c0", textTransform: "uppercase", letterSpacing: 2, fontFamily: "'Exo 2',sans-serif" }}>{sk.name}</div>
+                      <div style={{ fontSize: 13, color: sk.color, marginTop: 4, letterSpacing: 1, fontWeight: 600 }}>{unlocked.length}/{sk.tools.length} · +100 XP за інструмент</div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <div style={{ width: 80, height: 5, background: "rgba(201,168,76,0.18)", borderRadius: 3 }}>
@@ -766,7 +766,7 @@ export default function AITracker() {
                       {sk.tools.map(tool => {
                         const done = unlocked.includes(tool);
                         return (
-                          <button key={tool} className="tool-chip" disabled={done} onClick={() => learnTool(sk.id, tool)} style={{ padding: "6px 13px", borderRadius: 3, fontSize: 11, cursor: done ? "default" : "pointer", background: done ? `${sk.color}20` : "rgba(6,4,1,0.72)", border: `1px solid ${done ? sk.color : "rgba(201,168,76,0.25)"}`, color: done ? sk.color : "#6a5f40", fontFamily: "'Space Mono',monospace", textDecoration: done ? "line-through" : "none" }}>
+                          <button key={tool} className="tool-chip" disabled={done} onClick={() => learnTool(sk.id, tool)} style={{ padding: "7px 14px", borderRadius: 3, fontSize: 13, cursor: done ? "default" : "pointer", background: done ? `${sk.color}20` : "rgba(6,4,1,0.72)", border: `1px solid ${done ? sk.color : "rgba(201,168,76,0.25)"}`, color: done ? sk.color : "#6a5f40", fontFamily: "'Space Mono',monospace", textDecoration: done ? "line-through" : "none" }}>
                             {done ? "✓ " : ""}{tool}
                           </button>
                         );
