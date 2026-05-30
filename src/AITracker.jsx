@@ -15,12 +15,14 @@ const SKILLS = [
 
 const TOTAL_TOOLS = SKILLS.reduce((a, s) => a + s.tools.length, 0);
 
-// Рівні складності (рідкісність як у Warframe-модів)
+// Рівні складності — 6 ступенів рідкісності
 const TIERS = {
-  common:    { label: "Common",    color: "#b0703a", glow: "rgba(176,112,58,0.45)" },
-  uncommon:  { label: "Uncommon",  color: "#a8b6c4", glow: "rgba(168,182,196,0.45)" },
-  rare:      { label: "Rare",      color: "#c9a84c", glow: "rgba(201,168,76,0.5)" },
-  legendary: { label: "Legendary", color: "#22d3ee", glow: "rgba(34,211,238,0.55)" },
+  common:    { label: "Common",    color: "#9a7850", glow: "rgba(154,120,80,0.40)"  },
+  uncommon:  { label: "Uncommon",  color: "#a0b8c8", glow: "rgba(160,184,200,0.45)" },
+  rare:      { label: "Rare",      color: "#4a9fd4", glow: "rgba(74,159,212,0.50)"  },
+  epic:      { label: "Epic",      color: "#a855f7", glow: "rgba(168,85,247,0.55)"  },
+  legendary: { label: "Legendary", color: "#c9a84c", glow: "rgba(201,168,76,0.55)"  },
+  prime:     { label: "Prime",     color: "#ef4444", glow: "rgba(239,68,68,0.60)"   },
 };
 
 // Групи досягнень (для рендеру з заголовками)
@@ -36,40 +38,40 @@ const ACH_GROUPS = [
 const ACHIEVEMENTS = [
   // ── Інструменти ──
   { id: "first_tool",    group: "tools", tier: "common",    name: "Перший крок",          desc: "Вивчи 1 AI-інструмент",                xp: 50,   icon: "🔧", check: (t) => t >= 1 },
-  { id: "five_tools",    group: "tools", tier: "common",    name: "Дослідник",            desc: "Вивчи 5 AI-інструментів",              xp: 150,  icon: "🔍", check: (t) => t >= 5 },
-  { id: "ten_tools",     group: "tools", tier: "uncommon",  name: "Колекціонер",          desc: "Вивчи 10 AI-інструментів",             xp: 300,  icon: "🗂️", check: (t) => t >= 10 },
-  { id: "twenty_tools",  group: "tools", tier: "rare",      name: "Майстер інструментів", desc: "Вивчи 20 AI-інструментів",             xp: 600,  icon: "🧰", check: (t) => t >= 20 },
-  { id: "all_tools",     group: "tools", tier: "legendary", name: "Арсенал",              desc: `Вивчи всі ${TOTAL_TOOLS} інструментів`, xp: 1500, icon: "🌟", check: (t) => t >= TOTAL_TOOLS },
-  { id: "all_categories",group: "tools", tier: "rare",      name: "Поліглот ШІ",          desc: "По 1 інструменту в кожній категорії",  xp: 500,  icon: "🌐",
+  { id: "five_tools",    group: "tools", tier: "uncommon",  name: "Дослідник",            desc: "Вивчи 5 AI-інструментів",              xp: 150,  icon: "🔍", check: (t) => t >= 5 },
+  { id: "ten_tools",     group: "tools", tier: "rare",      name: "Колекціонер",          desc: "Вивчи 10 AI-інструментів",             xp: 300,  icon: "🗂️", check: (t) => t >= 10 },
+  { id: "all_categories",group: "tools", tier: "epic",      name: "Поліглот ШІ",          desc: "По 1 інструменту в кожній категорії",  xp: 500,  icon: "🌐",
     check: (t, i, p, skillData) => SKILLS.every(s => skillData[s.id]?.unlockedTools?.length > 0) },
+  { id: "twenty_tools",  group: "tools", tier: "legendary", name: "Майстер інструментів", desc: "Вивчи 20 AI-інструментів",             xp: 800,  icon: "🧰", check: (t) => t >= 20 },
+  { id: "all_tools",     group: "tools", tier: "prime",     name: "Арсенал",              desc: `Вивчи всі ${TOTAL_TOOLS} інструментів`, xp: 2000, icon: "🌟", check: (t) => t >= TOTAL_TOOLS },
 
   // ── Дохід ──
-  { id: "first_dollar",   group: "income", tier: "common",    name: "Перший долар",  desc: "Зароби перший $1 з AI",  xp: 100,  icon: "💵", check: (t, i) => i >= 1 },
-  { id: "hundred_dollar", group: "income", tier: "uncommon",  name: "Перша сотня",   desc: "Зароби $100 з AI",       xp: 300,  icon: "💯", check: (t, i) => i >= 100 },
-  { id: "thousand_dollar",group: "income", tier: "rare",      name: "Перша тисяча",  desc: "Зароби $1,000 з AI",     xp: 700,  icon: "🏆", check: (t, i) => i >= 1000 },
-  { id: "tenk_dollar",    group: "income", tier: "legendary", name: "П'ять нулів",   desc: "Зароби $10,000 з AI",    xp: 1500, icon: "💎", check: (t, i) => i >= 10000 },
-  { id: "hundredk_dollar",group: "income", tier: "legendary", name: "Шестизначний",  desc: "Зароби $100,000 з AI",   xp: 5000, icon: "👑", check: (t, i) => i >= 100000 },
+  { id: "first_dollar",   group: "income", tier: "common",    name: "Перший долар",  desc: "Зароби перший $1 з AI",   xp: 100,  icon: "💵", check: (t, i) => i >= 1 },
+  { id: "hundred_dollar", group: "income", tier: "uncommon",  name: "Перша сотня",   desc: "Зароби $100 з AI",        xp: 300,  icon: "💯", check: (t, i) => i >= 100 },
+  { id: "thousand_dollar",group: "income", tier: "rare",      name: "Перша тисяча",  desc: "Зароби $1,000 з AI",      xp: 700,  icon: "🏆", check: (t, i) => i >= 1000 },
+  { id: "tenk_dollar",    group: "income", tier: "epic",      name: "П'ять нулів",   desc: "Зароби $10,000 з AI",     xp: 1500, icon: "💎", check: (t, i) => i >= 10000 },
+  { id: "hundredk_dollar",group: "income", tier: "prime",     name: "Шестизначний",  desc: "Зароби $100,000 з AI",    xp: 5000, icon: "👑", check: (t, i) => i >= 100000 },
 
   // ── Проекти ──
   { id: "first_project",  group: "projects", tier: "common",    name: "Будівничий",       desc: "Заверши перший AI-проект", xp: 200,  icon: "🚀", check: (t, i, p) => p >= 1 },
   { id: "three_projects", group: "projects", tier: "uncommon",  name: "Серійний творець", desc: "Заверши 3 проекти",        xp: 400,  icon: "🏗️", check: (t, i, p) => p >= 3 },
-  { id: "five_projects",  group: "projects", tier: "rare",      name: "Продуктолог",      desc: "Заверши 5 проектів",       xp: 800,  icon: "🏭", check: (t, i, p) => p >= 5 },
-  { id: "ten_projects",   group: "projects", tier: "legendary", name: "Імперія",          desc: "Заверши 10 проектів",      xp: 1500, icon: "🏛️", check: (t, i, p) => p >= 10 },
+  { id: "five_projects",  group: "projects", tier: "epic",      name: "Продуктолог",      desc: "Заверши 5 проектів",       xp: 900,  icon: "🏭", check: (t, i, p) => p >= 5 },
+  { id: "ten_projects",   group: "projects", tier: "legendary", name: "Імперія",          desc: "Заверши 10 проектів",      xp: 2000, icon: "🏛️", check: (t, i, p) => p >= 10 },
 
   // ── Стріки ──
   { id: "streak_3",   group: "streak", tier: "common",    name: "Розгін",         desc: "3 дні поспіль з AI",    xp: 100,  icon: "✨", check: (t, i, p, sd, streak) => streak >= 3 },
   { id: "streak_7",   group: "streak", tier: "uncommon",  name: "Тижневий стрік", desc: "7 днів поспіль з AI",   xp: 250,  icon: "🔥", check: (t, i, p, sd, streak) => streak >= 7 },
-  { id: "streak_30",  group: "streak", tier: "rare",      name: "Місячний стрік", desc: "30 днів поспіль з AI",  xp: 800,  icon: "⚡", check: (t, i, p, sd, streak) => streak >= 30 },
-  { id: "streak_100", group: "streak", tier: "legendary", name: "Незламний",      desc: "100 днів поспіль з AI", xp: 2500, icon: "🌋", check: (t, i, p, sd, streak) => streak >= 100 },
+  { id: "streak_30",  group: "streak", tier: "epic",      name: "Місячний стрік", desc: "30 днів поспіль з AI",  xp: 1000, icon: "⚡", check: (t, i, p, sd, streak) => streak >= 30 },
+  { id: "streak_100", group: "streak", tier: "prime",     name: "Незламний",      desc: "100 днів поспіль з AI", xp: 3000, icon: "🌋", check: (t, i, p, sd, streak) => streak >= 100 },
 
   // ── Сесії ──
   { id: "sessions_10",  group: "sessions", tier: "common",    name: "Звичка",      desc: "Проведи 10 AI-сесій",  xp: 150,  icon: "🌱", check: (t, i, p, sd, streak, totalSess) => totalSess >= 10 },
-  { id: "sessions_50",  group: "sessions", tier: "uncommon",  name: "50 сесій",    desc: "Проведи 50 AI-сесій",  xp: 500,  icon: "💪", check: (t, i, p, sd, streak, totalSess) => totalSess >= 50 },
-  { id: "sessions_100", group: "sessions", tier: "rare",      name: "Сотня сесій", desc: "Проведи 100 AI-сесій", xp: 1000, icon: "🦾", check: (t, i, p, sd, streak, totalSess) => totalSess >= 100 },
-  { id: "sessions_365", group: "sessions", tier: "legendary", name: "Рік з AI",    desc: "Проведи 365 AI-сесій", xp: 3000, icon: "🏵️", check: (t, i, p, sd, streak, totalSess) => totalSess >= 365 },
+  { id: "sessions_50",  group: "sessions", tier: "rare",      name: "50 сесій",    desc: "Проведи 50 AI-сесій",  xp: 500,  icon: "💪", check: (t, i, p, sd, streak, totalSess) => totalSess >= 50 },
+  { id: "sessions_100", group: "sessions", tier: "epic",      name: "Сотня сесій", desc: "Проведи 100 AI-сесій", xp: 1200, icon: "🦾", check: (t, i, p, sd, streak, totalSess) => totalSess >= 100 },
+  { id: "sessions_365", group: "sessions", tier: "legendary", name: "Рік з AI",    desc: "Проведи 365 AI-сесій", xp: 4000, icon: "🏵️", check: (t, i, p, sd, streak, totalSess) => totalSess >= 365 },
 
   // ── Особливі ──
-  { id: "oxford_dev", group: "special", tier: "rare", name: "Oxford Dev", desc: "Запущено! (Oxford_1000 вже є 🎉)", xp: 300, icon: "📚", check: () => true },
+  { id: "oxford_dev", group: "special", tier: "epic", name: "Oxford Dev", desc: "Запущено! (Oxford_1000 вже є 🎉)", xp: 300, icon: "📚", check: () => true },
 ];
 
 const DEFAULT_SKILL_DATA = Object.fromEntries(SKILLS.map(s => [s.id, { unlockedTools: [] }]));
