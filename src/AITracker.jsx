@@ -1177,85 +1177,202 @@ export default function AITracker() {
 
         {/* Finances */}
         {activeTab === "finances" && (() => {
-          const net = income - expenses;
-          const netPositive = net >= 0;
+          const net = totalIncome - totalExpenses;
+          const months = getLastMonths(4);
+
+          // Rate staleness indicator
+          function RateAge() {
+            if (!uahRateUpdatedAt) return <span style={{ color: "#f43f5e", fontSize: 11 }}>не встановлено</span>;
+            const mins = Math.round((Date.now() - new Date(uahRateUpdatedAt)) / 60000);
+            if (mins < 60) return <span style={{ color: "#10b981", fontSize: 11 }}>🟢 {mins} хв. тому</span>;
+            const hrs = Math.round(mins / 60);
+            if (hrs < 24) return <span style={{ color: "#10b981", fontSize: 11 }}>🟢 {hrs} год. тому</span>;
+            const days = Math.round(hrs / 24);
+            return <span style={{ color: days > 3 ? "#f43f5e" : "#f59e0b", fontSize: 11 }}>{days > 3 ? "🔴" : "🟡"} {days} дн. тому</span>;
+          }
+
+          const inpStyle = { background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "8px 12px", color: "#e0d8c0", fontSize: 13, fontFamily: "'Space Mono',monospace" };
+          const selStyle = { ...inpStyle, cursor: "pointer", color: "#9a8a60" };
+
           return (
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {/* 3-column summary */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+
+            {/* Rate bar */}
+            <div className="wf-panel" style={{ padding: "10px 16px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 11, color: "#9a8a60", textTransform: "uppercase", letterSpacing: 1 }}>Курс USD/UAH:</span>
+              <span style={{ fontSize: 16, fontWeight: 800, color: "#c9a84c", fontFamily: "'Exo 2',sans-serif" }}>1$ = {uahRate} грн</span>
+              <RateAge />
+              <button onClick={fetchRate} disabled={rateFetching} className="act-btn" style={{ background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.4)", color: "#c9a84c", padding: "5px 12px", borderRadius: 3, fontSize: 11, fontWeight: 700, cursor: "pointer", marginLeft: "auto", fontFamily: "'Exo 2',sans-serif", letterSpacing: 1 }}>
+                {rateFetching ? "⏳ ..." : "🔄 Оновити"}
+              </button>
+            </div>
+
+            {/* 3-col summary */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
               {[
-                { label: "Дохід", val: `$${income.toFixed(2)}`, color: "#10b981", icon: "📈" },
-                { label: "Витрати", val: `$${expenses.toFixed(2)}`, color: "#f43f5e", icon: "📉" },
-                { label: "Баланс", val: `${netPositive ? "+" : ""}$${net.toFixed(2)}`, color: netPositive ? "#00ff88" : "#f43f5e", icon: netPositive ? "💚" : "🔴" },
+                { label: "Дохід", val: `$${totalIncome.toFixed(2)}`, color: "#10b981", icon: "📈" },
+                { label: "Витрати", val: `$${totalExpenses.toFixed(2)}`, color: "#f43f5e", icon: "📉" },
+                { label: "Баланс", val: `${net >= 0 ? "+" : ""}$${net.toFixed(2)}`, color: net >= 0 ? "#00ff88" : "#f43f5e", icon: net >= 0 ? "💚" : "🔴" },
               ].map(s => (
-                <div key={s.label} style={{ background: "rgba(6,4,1,0.72)", border: `1px solid ${s.color}22`, borderRadius: 4, padding: "18px 16px", textAlign: "center" }}>
-                  <div style={{ fontSize: 24, marginBottom: 6 }}>{s.icon}</div>
-                  <div style={{ fontSize: 28, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif" }}>{s.val}</div>
-                  <div style={{ fontSize: 11, color: "#9a8a60", marginTop: 6, textTransform: "uppercase", letterSpacing: 2 }}>{s.label}</div>
+                <div key={s.label} className="wf-panel" style={{ padding: "16px 14px", textAlign: "center" }}>
+                  <div style={{ fontSize: 22, marginBottom: 4 }}>{s.icon}</div>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif" }}>{s.val}</div>
+                  <div style={{ fontSize: 11, color: "#9a8a60", marginTop: 4, textTransform: "uppercase", letterSpacing: 2 }}>{s.label}</div>
                 </div>
               ))}
             </div>
 
-            {/* Net balance bar */}
-            {(income > 0 || expenses > 0) && (
-              <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: "14px 16px" }}>
-                <div style={{ fontSize: 11, color: "#8a7850", marginBottom: 8 }}>Дохід vs Витрати</div>
-                <div style={{ height: 10, background: "rgba(201,168,76,0.12)", borderRadius: 5, overflow: "hidden", display: "flex" }}>
-                  {income > 0 && (
-                    <div style={{ width: `${Math.min(100, (income / Math.max(income, expenses)) * 100)}%`, height: "100%", background: "linear-gradient(90deg,#059669,#10b981)", borderRadius: "5px 0 0 5px", transition: "width 0.5s" }} />
-                  )}
-                </div>
-                <div style={{ height: 10, background: "rgba(201,168,76,0.12)", borderRadius: 5, overflow: "hidden", marginTop: 4, display: "flex" }}>
-                  {expenses > 0 && (
-                    <div style={{ width: `${Math.min(100, (expenses / Math.max(income, expenses)) * 100)}%`, height: "100%", background: "linear-gradient(90deg,#b91c1c,#f43f5e)", borderRadius: "5px 0 0 5px", transition: "width 0.5s" }} />
-                  )}
-                </div>
-                <div style={{ display: "flex", gap: 16, marginTop: 8 }}>
-                  <span style={{ fontSize: 12, color: "#10b981" }}>■ Дохід</span>
-                  <span style={{ fontSize: 12, color: "#f43f5e" }}>■ Витрати</span>
-                  {!netPositive && <span style={{ fontSize: 12, color: "#f43f5e", marginLeft: "auto" }}>мінус ${Math.abs(net).toFixed(2)}</span>}
-                </div>
+            {/* Income table */}
+            <div className="wf-panel" style={{ padding: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <span className="wf-sec" style={{ marginBottom: 0, paddingBottom: 0, border: "none" }}>📈 Дохід</span>
               </div>
-            )}
-
-            {/* Income input */}
-            <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 4, padding: 16 }}>
-              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 14, fontWeight: 700, color: "#10b981", marginBottom: 12 }}>📈 Додати дохід</div>
-              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                <input
-                  value={incomeInput}
-                  onChange={e => setIncomeInput(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && addIncome()}
-                  placeholder="Сума в $..."
-                  type="number"
-                  min="0"
-                  style={{ width: 160, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "9px 14px", color: "#fff", fontSize: 15, fontFamily: "'Space Mono',monospace" }}
-                />
-                <button className="act-btn" onClick={addIncome} style={{ background: "#10b981", color: "#000", border: "none", padding: "9px 18px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>+ Записати</button>
-                <span style={{ fontSize: 11, color: "#9a8a60" }}>+3× XP від суми</span>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'Space Mono',monospace" }}>
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid rgba(201,168,76,0.25)" }}>
+                      <th style={{ textAlign: "left", color: "#9a8a60", padding: "6px 8px", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, fontSize: 10 }}>Категорія</th>
+                      {months.map(m => <th key={m} style={{ textAlign: "right", color: "#9a8a60", padding: "6px 8px", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, fontSize: 10 }}>{monthLabel(m)}</th>)}
+                      <th style={{ textAlign: "right", color: "#c9a84c", padding: "6px 8px", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, fontSize: 10 }}>Всього</th>
+                      <th style={{ width: 24 }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {incomeCats.map(cat => {
+                      const entries = incomeEntries.filter(e => e.catId === cat.id);
+                      const monthTotals = months.map(m => entries.filter(e => e.date.startsWith(m)).reduce((s, e) => s + toUSD(e.amount, e.currency), 0));
+                      const total = entries.reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
+                      if (total === 0 && entries.length === 0) return null;
+                      return (
+                        <tr key={cat.id} style={{ borderBottom: "1px solid rgba(201,168,76,0.07)" }}>
+                          <td style={{ padding: "8px 8px", color: cat.color, fontWeight: 700 }}>{cat.icon} {cat.name}</td>
+                          {monthTotals.map((v, i) => <td key={i} style={{ textAlign: "right", padding: "8px 8px", color: v > 0 ? "#e0d8c0" : "#3a3028" }}>{v > 0 ? `$${v.toFixed(0)}` : "—"}</td>)}
+                          <td style={{ textAlign: "right", padding: "8px 8px", color: "#10b981", fontWeight: 700 }}>${total.toFixed(0)}</td>
+                          <td style={{ textAlign: "right", padding: "4px" }}>
+                            <button onClick={() => setIncomeCats(prev => prev.filter(c => c.id !== cat.id))} style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 13, padding: 2 }}>×</button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {incomeCats.every(cat => incomeEntries.filter(e => e.catId === cat.id).length === 0) && (
+                      <tr><td colSpan={months.length + 3} style={{ color: "#5a4a30", padding: "12px 8px", textAlign: "center", fontStyle: "italic" }}>Ще немає записів</td></tr>
+                    )}
+                    {totalIncome > 0 && (
+                      <tr style={{ borderTop: "1px solid rgba(201,168,76,0.20)" }}>
+                        <td style={{ padding: "8px 8px", color: "#c9a84c", fontWeight: 700, fontSize: 11, textTransform: "uppercase" }}>Всього</td>
+                        {months.map(m => {
+                          const v = incomeEntries.filter(e => e.date.startsWith(m)).reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
+                          return <td key={m} style={{ textAlign: "right", padding: "8px 8px", color: v > 0 ? "#c9a84c" : "#3a3028", fontWeight: 700 }}>{v > 0 ? `$${v.toFixed(0)}` : "—"}</td>;
+                        })}
+                        <td style={{ textAlign: "right", padding: "8px 8px", color: "#c9a84c", fontWeight: 800 }}>${totalIncome.toFixed(0)}</td>
+                        <td></td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              {/* Add income form */}
+              <div style={{ marginTop: 14, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", paddingTop: 12, borderTop: "1px solid rgba(201,168,76,0.15)" }}>
+                <select value={incForm.catId} onChange={e => setIncForm(f => ({ ...f, catId: e.target.value }))} style={selStyle}>
+                  {incomeCats.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+                </select>
+                <input value={incForm.amount} onChange={e => setIncForm(f => ({ ...f, amount: e.target.value }))} onKeyDown={e => e.key === "Enter" && addIncomeEntry()} placeholder="Сума" type="number" min="0" style={{ ...inpStyle, width: 100 }} />
+                <button onClick={() => setIncForm(f => ({ ...f, currency: f.currency === "USD" ? "UAH" : "USD" }))} style={{ background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.35)", color: "#c9a84c", padding: "8px 12px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 12, minWidth: 52 }}>{incForm.currency}</button>
+                <input value={incForm.note} onChange={e => setIncForm(f => ({ ...f, note: e.target.value }))} placeholder="Нотатка..." style={{ ...inpStyle, flex: 1, minWidth: 100 }} />
+                <button onClick={addIncomeEntry} className="act-btn" style={{ background: "#10b981", color: "#000", border: "none", padding: "8px 16px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 12, whiteSpace: "nowrap" }}>+ Записати</button>
+                {addingCat !== "income" ? (
+                  <button onClick={() => setAddingCat("income")} style={{ background: "none", border: "1px dashed rgba(201,168,76,0.3)", color: "#9a8a60", padding: "8px 10px", borderRadius: 4, cursor: "pointer", fontSize: 11 }}>+ Категорія</button>
+                ) : (
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <input value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder="Назва..." style={{ ...inpStyle, width: 120 }} autoFocus />
+                    <button onClick={() => { if (!newCatName.trim()) return; setIncomeCats(prev => [...prev, { id: `ic_${Date.now()}`, name: newCatName.trim(), color: "#c9a84c", icon: "💰" }]); setNewCatName(""); setAddingCat(null); }} style={{ background: "#c9a84c", border: "none", color: "#000", padding: "8px 10px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 11 }}>✓</button>
+                    <button onClick={() => { setAddingCat(null); setNewCatName(""); }} style={{ background: "none", border: "none", color: "#9a8a60", cursor: "pointer", fontSize: 16 }}>×</button>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Expense input */}
-            <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(244,63,94,0.2)", borderRadius: 4, padding: 16 }}>
-              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 14, fontWeight: 700, color: "#f43f5e", marginBottom: 12 }}>📉 Додати витрату</div>
-              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                <input
-                  value={expenseInput}
-                  onChange={e => setExpenseInput(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && addExpense()}
-                  placeholder="Сума в $..."
-                  type="number"
-                  min="0"
-                  style={{ width: 160, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "9px 14px", color: "#fff", fontSize: 15, fontFamily: "'Space Mono',monospace" }}
-                />
-                <button className="act-btn" onClick={addExpense} style={{ background: "#f43f5e", color: "#fff", border: "none", padding: "9px 18px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>− Записати</button>
+            {/* Expense table */}
+            <div className="wf-panel" style={{ padding: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <span className="wf-sec" style={{ marginBottom: 0, paddingBottom: 0, border: "none" }}>📉 Витрати</span>
+              </div>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'Space Mono',monospace" }}>
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid rgba(201,168,76,0.25)" }}>
+                      <th style={{ textAlign: "left", color: "#9a8a60", padding: "6px 8px", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, fontSize: 10 }}>Підписка / Витрата</th>
+                      {months.map(m => <th key={m} style={{ textAlign: "right", color: "#9a8a60", padding: "6px 8px", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, fontSize: 10 }}>{monthLabel(m)}</th>)}
+                      <th style={{ textAlign: "right", color: "#f43f5e", padding: "6px 8px", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, fontSize: 10 }}>Всього</th>
+                      <th style={{ width: 24 }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {expenseCats.map(cat => {
+                      const entries = expenseEntries.filter(e => e.catId === cat.id);
+                      const monthTotals = months.map(m => entries.filter(e => e.date.startsWith(m)).reduce((s, e) => s + toUSD(e.amount, e.currency), 0));
+                      const total = entries.reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
+                      const hasRecurring = entries.some(e => e.recurring);
+                      if (total === 0 && entries.length === 0) return null;
+                      return (
+                        <tr key={cat.id} style={{ borderBottom: "1px solid rgba(201,168,76,0.07)" }}>
+                          <td style={{ padding: "8px 8px", color: cat.color, fontWeight: 700 }}>
+                            {cat.icon} {cat.name}
+                            {hasRecurring && <span style={{ marginLeft: 6, fontSize: 9, color: "#f59e0b", border: "1px solid #f59e0b44", borderRadius: 2, padding: "1px 4px" }}>🔄</span>}
+                          </td>
+                          {monthTotals.map((v, i) => <td key={i} style={{ textAlign: "right", padding: "8px 8px", color: v > 0 ? "#f43f5e" : "#3a3028" }}>{v > 0 ? `$${v.toFixed(0)}` : "—"}</td>)}
+                          <td style={{ textAlign: "right", padding: "8px 8px", color: "#f43f5e", fontWeight: 700 }}>${total.toFixed(0)}</td>
+                          <td style={{ textAlign: "right", padding: "4px" }}>
+                            <button onClick={() => setExpenseCats(prev => prev.filter(c => c.id !== cat.id))} style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 13, padding: 2 }}>×</button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {expenseCats.every(cat => expenseEntries.filter(e => e.catId === cat.id).length === 0) && (
+                      <tr><td colSpan={months.length + 3} style={{ color: "#5a4a30", padding: "12px 8px", textAlign: "center", fontStyle: "italic" }}>Ще немає записів</td></tr>
+                    )}
+                    {totalExpenses > 0 && (
+                      <tr style={{ borderTop: "1px solid rgba(201,168,76,0.20)" }}>
+                        <td style={{ padding: "8px 8px", color: "#c9a84c", fontWeight: 700, fontSize: 11, textTransform: "uppercase" }}>Всього</td>
+                        {months.map(m => {
+                          const v = expenseEntries.filter(e => e.date.startsWith(m)).reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
+                          return <td key={m} style={{ textAlign: "right", padding: "8px 8px", color: v > 0 ? "#f43f5e" : "#3a3028", fontWeight: 700 }}>{v > 0 ? `$${v.toFixed(0)}` : "—"}</td>;
+                        })}
+                        <td style={{ textAlign: "right", padding: "8px 8px", color: "#f43f5e", fontWeight: 800 }}>${totalExpenses.toFixed(0)}</td>
+                        <td></td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              {/* Add expense form */}
+              <div style={{ marginTop: 14, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", paddingTop: 12, borderTop: "1px solid rgba(201,168,76,0.15)" }}>
+                <select value={expForm.catId} onChange={e => setExpForm(f => ({ ...f, catId: e.target.value }))} style={selStyle}>
+                  {expenseCats.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+                </select>
+                <input value={expForm.amount} onChange={e => setExpForm(f => ({ ...f, amount: e.target.value }))} onKeyDown={e => e.key === "Enter" && addExpenseEntry()} placeholder="Сума" type="number" min="0" style={{ ...inpStyle, width: 100 }} />
+                <button onClick={() => setExpForm(f => ({ ...f, currency: f.currency === "USD" ? "UAH" : "USD" }))} style={{ background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.35)", color: "#f43f5e", padding: "8px 12px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 12, minWidth: 52 }}>{expForm.currency}</button>
+                <input value={expForm.note} onChange={e => setExpForm(f => ({ ...f, note: e.target.value }))} placeholder="Нотатка..." style={{ ...inpStyle, flex: 1, minWidth: 100 }} />
+                <label style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", color: "#f59e0b", fontSize: 11, whiteSpace: "nowrap" }}>
+                  <input type="checkbox" checked={expForm.recurring} onChange={e => setExpForm(f => ({ ...f, recurring: e.target.checked }))} style={{ accentColor: "#f59e0b" }} />
+                  🔄 Щомісячна
+                </label>
+                <button onClick={addExpenseEntry} className="act-btn" style={{ background: "#f43f5e", color: "#fff", border: "none", padding: "8px 16px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 12, whiteSpace: "nowrap" }}>− Записати</button>
+                {addingCat !== "expense" ? (
+                  <button onClick={() => setAddingCat("expense")} style={{ background: "none", border: "1px dashed rgba(244,63,94,0.3)", color: "#9a8a60", padding: "8px 10px", borderRadius: 4, cursor: "pointer", fontSize: 11 }}>+ Категорія</button>
+                ) : (
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <input value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder="Назва..." style={{ ...inpStyle, width: 120 }} autoFocus />
+                    <button onClick={() => { if (!newCatName.trim()) return; setExpenseCats(prev => [...prev, { id: `ec_${Date.now()}`, name: newCatName.trim(), color: "#f43f5e", icon: "💸" }]); setNewCatName(""); setAddingCat(null); }} style={{ background: "#f43f5e", border: "none", color: "#fff", padding: "8px 10px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 11 }}>✓</button>
+                    <button onClick={() => { setAddingCat(null); setNewCatName(""); }} style={{ background: "none", border: "none", color: "#9a8a60", cursor: "pointer", fontSize: 16 }}>×</button>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Milestone bars (based on income) */}
-            <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18 }}>
-              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 14 }}>🏁 Дохідні цілі</div>
+            {/* Milestone bars */}
+            <div className="wf-panel" style={{ padding: 16 }}>
+              <div className="wf-sec">🏁 Дохідні цілі</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {[
                   { label: "До $100", max: 100, color: "#10b981" },
@@ -1263,18 +1380,19 @@ export default function AITracker() {
                   { label: "До $10,000", max: 10000, color: "#f43f5e" },
                   { label: "До $100,000", max: 100000, color: "#f59e0b" },
                 ].map(g => (
-                  <div key={g.label} style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 4, padding: "12px 14px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 6 }}>
-                      <span style={{ color: "#fff" }}>{g.label}</span>
-                      <span style={{ color: g.color }}>{Math.min(100, (income / g.max) * 100).toFixed(1)}%</span>
+                  <div key={g.label}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 5 }}>
+                      <span style={{ color: "#e0d8c0" }}>{g.label}</span>
+                      <span style={{ color: g.color, fontFamily: "'Space Mono',monospace" }}>${totalIncome.toFixed(0)} · {Math.min(100, (totalIncome / g.max) * 100).toFixed(1)}%</span>
                     </div>
                     <div style={{ height: 6, background: "rgba(201,168,76,0.12)", borderRadius: 3 }}>
-                      <div style={{ width: `${Math.min(100, (income / g.max) * 100)}%`, height: "100%", background: g.color, borderRadius: 3, transition: "width 0.5s" }} />
+                      <div style={{ width: `${Math.min(100, (totalIncome / g.max) * 100)}%`, height: "100%", background: g.color, borderRadius: 3, transition: "width 0.5s" }} />
                     </div>
                   </div>
                 ))}
               </div>
             </div>
+
           </div>
           );
         })()}
