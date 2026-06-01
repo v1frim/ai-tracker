@@ -393,7 +393,7 @@ export default function AITracker() {
   const [subscriptions, setSubscriptions] = useState(saved?.subscriptions ?? []);
   const [subCheckedMonth, setSubCheckedMonth] = useState(saved?.subCheckedMonth ?? null);
   const [subPrompt, setSubPrompt] = useState(null); // { items: [{...sub, checked: bool}] }
-  const [subForm, setSubForm] = useState({ name: "", catId: "exp_other", amount: "", currency: "USD", billingDay: 1 });
+  const [subForm, setSubForm] = useState({ name: "", catId: "exp_other", amount: "", currency: "USD", startDate: todayStr() });
   const [showSubForm, setShowSubForm] = useState(false);
   const [journalOpen, setJournalOpen] = useState(true);
   const [revokeConfirm, setRevokeConfirm] = useState(null); // { id, name, xp }
@@ -1790,22 +1790,36 @@ export default function AITracker() {
                   />
                   <button onClick={() => setSubForm(f => ({ ...f, currency: f.currency === "USD" ? "UAH" : "USD" }))} style={{ background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.35)", color: "#f43f5e", padding: "8px 12px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 12, minWidth: 52 }}>{subForm.currency}</button>
                   <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                    <span style={{ fontSize: 11, color: "#9a8a60", whiteSpace: "nowrap" }}>день:</span>
-                    <input
-                      value={subForm.billingDay}
-                      onChange={e => setSubForm(f => ({ ...f, billingDay: Math.min(31, Math.max(1, parseInt(e.target.value) || 1)) }))}
-                      type="number"
-                      min="1"
-                      max="31"
-                      style={{ ...inpStyle, width: 52, textAlign: "center" }}
-                    />
+                    <span style={{ fontSize: 11, color: "#9a8a60", whiteSpace: "nowrap" }}>з дати:</span>
+                    <input type="date" value={subForm.startDate} onChange={e => setSubForm(f => ({ ...f, startDate: e.target.value }))} style={{ ...inpStyle, width: 134, colorScheme: "dark" }} />
                   </div>
                   <button onClick={() => {
-                    if (!parseFloat(subForm.amount)) return;
+                    if (!parseFloat(subForm.amount) || !subForm.startDate) return;
                     const cat = expenseCats.find(c => c.id === subForm.catId);
                     const name = subForm.name.trim() || cat?.name || "Підписка";
-                    setSubscriptions(prev => [...prev, { id: `sub_${Date.now()}`, name, catId: subForm.catId, amount: parseFloat(subForm.amount), currency: subForm.currency, billingDay: subForm.billingDay || 1, active: true }]);
-                    setSubForm({ name: "", catId: "exp_other", amount: "", currency: "USD", billingDay: 1 });
+                    const amt = parseFloat(subForm.amount);
+                    const start = new Date(subForm.startDate + "T00:00:00");
+                    const billingDay = start.getDate();
+                    const now = new Date();
+                    const newSubId = `sub_${Date.now()}`;
+                    // Generate all past billing dates from start to today
+                    const pastDates = [];
+                    let cur = new Date(start.getFullYear(), start.getMonth(), 1);
+                    while (cur <= now) {
+                      const daysInM = new Date(cur.getFullYear(), cur.getMonth() + 1, 0).getDate();
+                      const effDay = Math.min(billingDay, daysInM);
+                      const bd = new Date(cur.getFullYear(), cur.getMonth(), effDay);
+                      if (bd >= start && bd <= now) pastDates.push(bd.toISOString().slice(0, 10));
+                      cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+                    }
+                    if (pastDates.length > 0) {
+                      setExpenseEntries(prev => [...prev, ...pastDates.map((date, idx) => ({
+                        id: `exp_${Date.now()}_sub${idx}`, catId: subForm.catId, amount: amt, currency: subForm.currency, date, note: name, recurring: true, subId: newSubId,
+                      }))]);
+                    }
+                    const lastBilledYM = pastDates.length > 0 ? pastDates[pastDates.length - 1].slice(0, 7) : null;
+                    setSubscriptions(prev => [...prev, { id: newSubId, name, catId: subForm.catId, amount: amt, currency: subForm.currency, billingDay, startDate: subForm.startDate, lastBilledYM, active: true }]);
+                    setSubForm({ name: "", catId: "exp_other", amount: "", currency: "USD", startDate: todayStr() });
                     setShowSubForm(false);
                   }} style={{ background: "#c9a84c", color: "#000", border: "none", padding: "8px 16px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 12, whiteSpace: "nowrap" }}>✓ Додати</button>
                 </div>
@@ -1833,7 +1847,9 @@ export default function AITracker() {
                           <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 2 }}>
                             {cat && <span style={{ fontSize: 10, color: "#5a4a30" }}>{cat.name}</span>}
                             <span style={{ fontSize: 10, color: "#6a5840", fontFamily: "'Space Mono',monospace" }}>
-                              🗓 {sub.billingDay ?? 1}-го числа
+                              🗓 {sub.startDate
+                                ? `з ${new Date(sub.startDate + "T00:00:00").toLocaleDateString("uk-UA", { day: "numeric", month: "short", year: "numeric" })}`
+                                : `${sub.billingDay ?? 1}-го числа`}
                             </span>
                             {lastDate ? (
                               <span style={{ fontSize: 10, color: "#5a5030", fontFamily: "'Space Mono',monospace" }}>· списано {lastDate}</span>
