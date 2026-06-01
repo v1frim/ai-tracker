@@ -94,9 +94,15 @@ const PLAN_PRIORITIES = [
 ];
 
 const DEFAULT_GOALS = [
-  { id: "dg1", text: "Заробити $14,000 цього року", category: "income", done: false },
-  { id: "dg2", text: "Вивчити 20 AI-інструментів", category: "skills", done: false },
-  { id: "dg3", text: "Запустити перший digital product", category: "project", done: false },
+  { id: "dg1", text: "Заробити $14,000 цього року", priority: "important", done: false },
+  { id: "dg2", text: "Вивчити 20 AI-інструментів", priority: "important", done: false },
+  { id: "dg3", text: "Запустити перший digital product", priority: "normal", done: false },
+];
+
+const TASK_PRIORITIES = [
+  { id: "urgent",    label: "Термінові",  color: "#f43f5e", bg: "rgba(244,63,94,0.10)",  border: "rgba(244,63,94,0.30)",  fontWeight: 800 },
+  { id: "important", label: "Важливі",    color: "#c9a84c", bg: "rgba(201,168,76,0.08)", border: "rgba(201,168,76,0.28)", fontWeight: 700 },
+  { id: "normal",    label: "Звичайні",   color: "#8a9ab0", bg: "rgba(138,154,176,0.06)", border: "rgba(138,154,176,0.20)", fontWeight: 500 },
 ];
 
 const DEFAULT_PLAN = [
@@ -417,7 +423,9 @@ export default function AITracker() {
   const [notification, setNotification] = useState(null);
   const [unlockedAchievements, setUnlockedAchievements] = useState(saved?.unlockedAchievements ?? ["oxford_dev"]);
   const [goalInput, setGoalInput] = useState("");
-  const [goalCategory, setGoalCategory] = useState("income");
+  const [goalPriority, setGoalPriority] = useState("important");
+  const [goalEditId, setGoalEditId] = useState(null);
+  const [goalEditText, setGoalEditText] = useState("");
   const [planInput, setPlanInput] = useState("");
   const [planPriority, setPlanPriority] = useState("now");
 
@@ -889,25 +897,10 @@ export default function AITracker() {
 
         {/* Dashboard */}
         {activeTab === "dashboard" && (
-          <div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))", gap: 13, marginBottom: 20 }}>
-              {SKILLS.map(sk => {
-                const unlocked = skillData[sk.id].unlockedTools;
-                return (
-                  <div key={sk.id} onClick={() => { setSelectedSkill(sk); setActiveTab("skills"); }} className="skill-card" style={{ background: "rgba(5,3,1,0.76)", border: `1px solid ${unlocked.length > 0 ? sk.color + "33" : "rgba(201,168,76,0.12)"}`, borderRadius: 4, padding: 14, cursor: "pointer" }}>
-                    <div style={{ fontSize: 22, marginBottom: 6 }}>{sk.emoji}</div>
-                    <div style={{ fontSize: 13, color: "#9a8a60", marginBottom: 5, fontFamily: "'Exo 2',sans-serif", fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>{sk.name}</div>
-                    <div style={{ fontSize: 13, color: sk.color, marginBottom: 6, fontWeight: 700, fontFamily: "'Exo 2',sans-serif" }}>{unlocked.length}/{sk.tools.length} інстр.</div>
-                    <div style={{ height: 4, background: "rgba(201,168,76,0.18)", borderRadius: 2 }}>
-                      <div style={{ width: `${(unlocked.length / sk.tools.length) * 100}%`, height: "100%", background: sk.color, borderRadius: 2, transition: "width 0.5s" }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-            {/* Quick session check-in on dashboard */}
-            <div style={{ background: doneToday ? "rgba(201,168,76,0.06)" : "rgba(244,63,94,0.05)", border: `1px solid ${doneToday ? "rgba(201,168,76,0.30)" : "rgba(244,63,94,0.2)"}`, borderTop: doneToday ? "2px solid rgba(201,168,76,0.6)" : "2px solid rgba(244,63,94,0.5)", borderRadius: 4, padding: 16, marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            {/* Session check-in */}
+            <div style={{ background: doneToday ? "rgba(201,168,76,0.06)" : "rgba(244,63,94,0.05)", border: `1px solid ${doneToday ? "rgba(201,168,76,0.30)" : "rgba(244,63,94,0.2)"}`, borderTop: doneToday ? "2px solid rgba(201,168,76,0.6)" : "2px solid rgba(244,63,94,0.5)", borderRadius: 4, padding: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: doneToday ? "#c9a84c" : "#f43f5e", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>
                   {doneToday ? "✓ AI-сесія сьогодні виконана" : "⚡ Чи працював сьогодні з AI?"}
@@ -921,19 +914,81 @@ export default function AITracker() {
               )}
             </div>
 
+            {/* Priority tasks highlight */}
+            {(() => {
+              const activeTasks = goals.filter(g => !g.done);
+              const urgentTasks = activeTasks.filter(g => g.priority === "urgent");
+              const importantTasks = activeTasks.filter(g => g.priority === "important");
+              const topTasks = [...urgentTasks, ...importantTasks].slice(0, 5);
+              return (
+                <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                    <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2 }}>🎯 Пріоритети</div>
+                    <button onClick={() => setActiveTab("goals")} style={{ background: "none", border: "none", color: "#6a5f40", fontSize: 11, cursor: "pointer", fontFamily: "'Space Mono',monospace" }}>Всі задачі →</button>
+                  </div>
+                  {topTasks.length === 0 ? (
+                    <div style={{ fontSize: 12, color: "#6a5f40", textAlign: "center", padding: "12px 0" }}>
+                      Немає активних пріоритетних задач.{" "}
+                      <span onClick={() => setActiveTab("goals")} style={{ color: "#c9a84c", cursor: "pointer" }}>Додати →</span>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {topTasks.map(g => {
+                        const pr = TASK_PRIORITIES.find(p => p.id === g.priority) ?? TASK_PRIORITIES[2];
+                        return (
+                          <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 10, background: pr.bg, border: `1px solid ${pr.border}`, borderRadius: 4, padding: "10px 14px" }}>
+                            <span style={{ width: 8, height: 8, borderRadius: "50%", background: pr.color, flexShrink: 0 }} />
+                            <span style={{ flex: 1, fontSize: 13, color: "#e0d8c0", fontWeight: pr.fontWeight }}>{g.text}</span>
+                            <span style={{ fontSize: 10, color: pr.color, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>{pr.label}</span>
+                          </div>
+                        );
+                      })}
+                      {activeTasks.length > topTasks.length && (
+                        <div onClick={() => setActiveTab("goals")} style={{ fontSize: 11, color: "#6a5f40", textAlign: "center", cursor: "pointer", paddingTop: 4 }}>
+                          + ще {activeTasks.length - topTasks.length} задач →
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Skills grid */}
             <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18 }}>
-              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 14 }}>🎯 Швидкі дії</div>
+              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 14 }}>🧠 Навички</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))", gap: 10 }}>
+                {SKILLS.map(sk => {
+                  const unlocked = skillData[sk.id].unlockedTools;
+                  return (
+                    <div key={sk.id} onClick={() => { setSelectedSkill(sk); setActiveTab("skills"); }} className="skill-card" style={{ background: "rgba(3,2,0,0.6)", border: `1px solid ${unlocked.length > 0 ? sk.color + "33" : "rgba(201,168,76,0.10)"}`, borderRadius: 4, padding: 12, cursor: "pointer" }}>
+                      <div style={{ fontSize: 18, marginBottom: 5 }}>{sk.emoji}</div>
+                      <div style={{ fontSize: 11, color: "#9a8a60", marginBottom: 4, fontFamily: "'Exo 2',sans-serif", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.8 }}>{sk.name}</div>
+                      <div style={{ fontSize: 12, color: sk.color, marginBottom: 5, fontWeight: 700, fontFamily: "'Exo 2',sans-serif" }}>{unlocked.length}/{sk.tools.length}</div>
+                      <div style={{ height: 3, background: "rgba(201,168,76,0.18)", borderRadius: 2 }}>
+                        <div style={{ width: `${(unlocked.length / sk.tools.length) * 100}%`, height: "100%", background: sk.color, borderRadius: 2, transition: "width 0.5s" }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Quick actions */}
+            <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18 }}>
+              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 14 }}>⚡ Швидкі дії</div>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 {[
                   { label: "+ Вивчити інструмент", color: "#00ff88", rgb: "0,255,136", tab: "skills" },
                   { label: "+ Записати дохід", color: "#f59e0b", rgb: "245,158,11", tab: "finances" },
                   { label: "+ Новий проект", color: "#6366f1", rgb: "99,102,241", tab: "projects" },
+                  { label: "+ Нова задача", color: "#f43f5e", rgb: "244,63,94", tab: "goals" },
                 ].map(btn => (
                   <button key={btn.tab} className="act-btn" onClick={() => setActiveTab(btn.tab)} style={{ background: `rgba(${btn.rgb},0.1)`, border: `1px solid ${btn.color}`, color: btn.color, padding: "10px 16px", borderRadius: 4, cursor: "pointer", fontSize: 12, fontFamily: "'Space Mono',monospace", fontWeight: 700 }}>{btn.label}</button>
                 ))}
               </div>
-              <div style={{ marginTop: 16, padding: "12px 14px", background: "rgba(0,255,136,0.05)", border: "1px solid rgba(0,255,136,0.15)", borderRadius: 10 }}>
-                <span style={{ fontSize: 12, color: "#8a7850" }}>🏅 Розблоковано досягнень: </span>
+              <div style={{ marginTop: 14, padding: "10px 14px", background: "rgba(0,255,136,0.05)", border: "1px solid rgba(0,255,136,0.15)", borderRadius: 4, display: "flex", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 12, color: "#8a7850" }}>🏅 Досягнення</span>
                 <span style={{ fontSize: 13, color: "#00ff88", fontWeight: 700 }}>{unlockedAchievements.length} / {ACHIEVEMENTS.length}</span>
               </div>
             </div>
@@ -1159,80 +1214,80 @@ export default function AITracker() {
         {/* Goals */}
         {activeTab === "goals" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {/* Summary */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))", gap: 12 }}>
-              {[
-                { label: "Загальний дохід", val: `$${totalIncome.toFixed(0)}`, icon: "💰", color: "#f59e0b" },
-                { label: "Інструментів", val: `${totalTools}/${TOTAL_TOOLS}`, icon: "🧠", color: "#00ff88" },
-                { label: "Проектів", val: projects.length, icon: "🚀", color: "#6366f1" },
-                { label: "AI-сесій", val: sessions.dates.length, icon: "⚡", color: "#f43f5e" },
-              ].map(s => (
-                <div key={s.label} style={{ background: "rgba(6,4,1,0.72)", border: `1px solid ${s.color}22`, borderRadius: 4, padding: "14px 16px", textAlign: "center" }}>
-                  <div style={{ fontSize: 22, marginBottom: 4 }}>{s.icon}</div>
-                  <div style={{ fontSize: 26, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif" }}>{s.val}</div>
-                  <div style={{ fontSize: 12, color: "#9a8a60", marginTop: 2, textTransform: "uppercase", letterSpacing: 1 }}>{s.label}</div>
-                </div>
-              ))}
-            </div>
 
-            {/* Add goal */}
+            {/* Add task */}
             <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 16 }}>
-              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 12 }}>+ Нова ціль</div>
+              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 12 }}>+ Нова задача</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <input
                   value={goalInput}
                   onChange={e => setGoalInput(e.target.value)}
                   onKeyDown={e => {
                     if (e.key === "Enter" && goalInput.trim()) {
-                      setGoals(prev => [...prev, { id: `g${Date.now()}`, text: goalInput.trim(), category: goalCategory, done: false }]);
+                      setGoals(prev => [...prev, { id: `g${Date.now()}`, text: goalInput.trim(), priority: goalPriority, done: false, createdAt: new Date().toISOString() }]);
                       setGoalInput("");
                     }
                   }}
-                  placeholder="Опиши ціль..."
+                  placeholder="Опиши задачу..."
                   style={{ flex: 1, minWidth: 180, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "9px 14px", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace" }}
                 />
                 <select
-                  value={goalCategory}
-                  onChange={e => setGoalCategory(e.target.value)}
-                  style={{ background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "9px 12px", color: "#6a5f40", fontSize: 12, cursor: "pointer" }}
+                  value={goalPriority}
+                  onChange={e => setGoalPriority(e.target.value)}
+                  style={{ background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "9px 12px", color: "#c0b090", fontSize: 12, cursor: "pointer" }}
                 >
-                  {GOAL_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
+                  {TASK_PRIORITIES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
                 </select>
                 <button className="act-btn" onClick={() => {
                   if (!goalInput.trim()) return;
-                  setGoals(prev => [...prev, { id: `g${Date.now()}`, text: goalInput.trim(), category: goalCategory, done: false }]);
+                  setGoals(prev => [...prev, { id: `g${Date.now()}`, text: goalInput.trim(), priority: goalPriority, done: false, createdAt: new Date().toISOString() }]);
                   setGoalInput("");
                 }} style={{ background: "#00ff88", color: "#000", border: "none", padding: "9px 16px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 12 }}>Додати</button>
               </div>
             </div>
 
-            {/* Goals list by category */}
-            {GOAL_CATEGORIES.map(cat => {
-              const catGoals = goals.filter(g => g.category === cat.id);
-              if (!catGoals.length) return null;
+            {/* Tasks by priority */}
+            {TASK_PRIORITIES.map(pr => {
+              const prTasks = goals.filter(g => !g.done && (g.priority ?? "normal") === pr.id);
+              if (!prTasks.length) return null;
               return (
-                <div key={cat.id}>
-                  <div style={{ fontSize: 12, color: cat.color, fontWeight: 700, marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>{cat.icon} {cat.label}</div>
+                <div key={pr.id} style={{ background: "rgba(5,3,1,0.76)", border: `1px solid ${pr.border}`, borderLeft: `3px solid ${pr.color}`, borderRadius: 4, padding: 16 }}>
+                  <div style={{ fontSize: 12, color: pr.color, fontWeight: 800, marginBottom: 10, textTransform: "uppercase", letterSpacing: 1.5 }}>{pr.label}</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {catGoals.map(g => (
-                      <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 12, background: g.done ? "rgba(0,255,136,0.05)" : "rgba(5,3,1,0.76)", border: `1px solid ${g.done ? "rgba(0,255,136,0.2)" : "rgba(201,168,76,0.18)"}`, borderRadius: 4, padding: "12px 16px" }}>
+                    {prTasks.map(g => (
+                      <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 10, background: pr.bg, borderRadius: 4, padding: "10px 12px" }}>
                         <button onClick={() => setGoals(prev => prev.map(x => {
                           if (x.id !== g.id) return x;
-                          if (!x.done && !x.xpAwarded) {
-                            gainXP(100, "(ціль виконано)");
-                            return { ...x, done: true, xpAwarded: true };
-                          }
+                          if (!x.done && !x.xpAwarded) { gainXP(100, "(задачу виконано)"); return { ...x, done: true, xpAwarded: true }; }
                           return { ...x, done: !x.done };
-                        }))}
-                          style={{ width: 22, height: 22, borderRadius: "50%", border: `2px solid ${g.done ? "#00ff88" : "rgba(255,255,255,0.2)"}`, background: g.done ? "#00ff88" : "transparent", cursor: "pointer", flexShrink: 0, fontSize: 11, color: "#000", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
-                          {g.done ? "✓" : ""}
-                        </button>
-                        <span style={{ flex: 1, color: g.done ? "#9a8a60" : "#e0d8c0", fontSize: 13, textDecoration: g.done ? "line-through" : "none" }}>{g.text}</span>
-                        {!g.done && !g.xpAwarded && (
-                          <span style={{ fontSize: 12, color: "#00ff88", background: "rgba(0,255,136,0.1)", border: "1px solid rgba(0,255,136,0.2)", padding: "2px 7px", borderRadius: 3, whiteSpace: "nowrap" }}>+100 XP</span>
+                        }))} style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${pr.color}66`, background: "transparent", cursor: "pointer", flexShrink: 0, fontSize: 10, color: pr.color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }} />
+                        {goalEditId === g.id ? (
+                          <input
+                            autoFocus
+                            value={goalEditText}
+                            onChange={e => setGoalEditText(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === "Enter") { setGoals(prev => prev.map(x => x.id === g.id ? { ...x, text: goalEditText.trim() || x.text } : x)); setGoalEditId(null); }
+                              if (e.key === "Escape") setGoalEditId(null);
+                            }}
+                            onBlur={() => { setGoals(prev => prev.map(x => x.id === g.id ? { ...x, text: goalEditText.trim() || x.text } : x)); setGoalEditId(null); }}
+                            style={{ flex: 1, background: "rgba(8,5,2,0.9)", border: `1px solid ${pr.color}66`, borderRadius: 3, padding: "4px 10px", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace" }}
+                          />
+                        ) : (
+                          <span style={{ flex: 1, color: "#e0d8c0", fontSize: 13, fontWeight: pr.fontWeight }}>{g.text}</span>
                         )}
+                        {/* Priority change */}
+                        <select
+                          value={g.priority ?? "normal"}
+                          onChange={e => setGoals(prev => prev.map(x => x.id === g.id ? { ...x, priority: e.target.value } : x))}
+                          style={{ background: "rgba(8,5,2,0.68)", border: `1px solid ${pr.color}44`, borderRadius: 3, padding: "3px 6px", color: pr.color, fontSize: 10, cursor: "pointer", maxWidth: 90 }}
+                        >
+                          {TASK_PRIORITIES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                        </select>
+                        <button onClick={() => { setGoalEditId(g.id); setGoalEditText(g.text); }}
+                          style={{ background: "none", border: "none", color: "#6a5f40", cursor: "pointer", fontSize: 13, padding: "0 3px" }} title="Редагувати">✎</button>
                         <button onClick={() => setGoals(prev => prev.filter(x => x.id !== g.id))}
-                          style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 16, padding: "0 4px" }}>×</button>
+                          style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 16, padding: "0 3px" }}>×</button>
                       </div>
                     ))}
                   </div>
@@ -1240,8 +1295,30 @@ export default function AITracker() {
               );
             })}
 
-            {goals.filter(g => g.done).length > 0 && goals.filter(g => !g.done).length === 0 && (
-              <div style={{ textAlign: "center", padding: 24, color: "#00ff88", fontSize: 13 }}>🎉 Всі цілі виконано!</div>
+            {/* Done tasks */}
+            {(() => {
+              const doneTasks = goals.filter(g => g.done);
+              if (!doneTasks.length) return null;
+              return (
+                <div style={{ background: "rgba(5,3,1,0.60)", border: "1px solid rgba(0,255,136,0.15)", borderRadius: 4, padding: 16 }}>
+                  <div style={{ fontSize: 12, color: "#00ff88", fontWeight: 700, marginBottom: 10, textTransform: "uppercase", letterSpacing: 1.5 }}>✓ Виконано ({doneTasks.length})</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {doneTasks.map(g => (
+                      <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px" }}>
+                        <button onClick={() => setGoals(prev => prev.map(x => x.id === g.id ? { ...x, done: false } : x))}
+                          style={{ width: 20, height: 20, borderRadius: "50%", border: "2px solid #00ff88", background: "#00ff88", cursor: "pointer", flexShrink: 0, fontSize: 10, color: "#000", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>✓</button>
+                        <span style={{ flex: 1, color: "#6a7060", fontSize: 12, textDecoration: "line-through" }}>{g.text}</span>
+                        <button onClick={() => setGoals(prev => prev.filter(x => x.id !== g.id))}
+                          style={{ background: "none", border: "none", color: "#4a4030", cursor: "pointer", fontSize: 15, padding: "0 3px" }}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {goals.length === 0 && (
+              <div style={{ textAlign: "center", padding: 32, color: "#6a5f40", fontSize: 13 }}>Ще немає задач. Додай першу!</div>
             )}
           </div>
         )}
