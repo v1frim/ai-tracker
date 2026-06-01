@@ -2412,7 +2412,7 @@ export default function AITracker() {
           {aiModelOpen && aiDropPos && (
             <div style={{ position: "fixed", bottom: aiDropPos.bottom, right: aiDropPos.right, background: "rgba(10,7,2,0.99)", border: "1px solid rgba(201,168,76,0.35)", borderRadius: 6, overflowY: "auto", maxHeight: "min(280px, calc(100vh - 140px))", minWidth: 165, zIndex: 10001, boxShadow: "0 -6px 28px rgba(0,0,0,0.85)" }}
               onMouseLeave={() => setAiModelOpen(false)}>
-              {["openai","anthropic","gemini"].map(prov => (
+              {["gemini","openai","anthropic"].map(prov => (
                 <div key={prov}>
                   <div style={{ fontSize: 9, color: "#5a4a30", padding: "6px 12px 2px", textTransform: "uppercase", letterSpacing: 1.5 }}>{{ openai:"OpenAI", anthropic:"Anthropic", gemini:"Google" }[prov]}</div>
                   {AI_MODELS.filter(m => m.provider === prov).map(m => (
