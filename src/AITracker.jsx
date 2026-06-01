@@ -397,6 +397,7 @@ export default function AITracker() {
   const [showSubForm, setShowSubForm] = useState(false);
   const [journalOpen, setJournalOpen] = useState(true);
   const [revokeConfirm, setRevokeConfirm] = useState(null); // { id, name, xp }
+  const [toolRevokeConfirm, setToolRevokeConfirm] = useState(null); // { skillId, tool }
   const [projects, setProjects] = useState(saved?.projects ?? DEFAULT_PROJECTS);
   const [projectInput, setProjectInput] = useState("");
   const [sessions, setSessions] = useState(saved?.sessions ?? DEFAULT_SESSIONS);
@@ -1025,7 +1026,7 @@ export default function AITracker() {
                       {sk.tools.map(tool => {
                         const done = unlocked.includes(tool);
                         return (
-                          <button key={tool} className="tool-chip" disabled={done} onClick={() => learnTool(sk.id, tool)} style={{ padding: "7px 14px", borderRadius: 3, fontSize: 13, cursor: done ? "default" : "pointer", background: done ? `${sk.color}20` : "rgba(6,4,1,0.72)", border: `1px solid ${done ? sk.color : "rgba(201,168,76,0.25)"}`, color: done ? sk.color : "#6a5f40", fontFamily: "'Space Mono',monospace", textDecoration: done ? "line-through" : "none" }}>
+                          <button key={tool} className="tool-chip" onClick={() => done ? setToolRevokeConfirm({ skillId: sk.id, tool }) : learnTool(sk.id, tool)} style={{ padding: "7px 14px", borderRadius: 3, fontSize: 13, cursor: "pointer", background: done ? `${sk.color}20` : "rgba(6,4,1,0.72)", border: `1px solid ${done ? sk.color : "rgba(201,168,76,0.25)"}`, color: done ? sk.color : "#6a5f40", fontFamily: "'Space Mono',monospace", textDecoration: done ? "line-through" : "none" }}>
                             {done ? "✓ " : ""}{tool}
                           </button>
                         );
@@ -1035,6 +1036,29 @@ export default function AITracker() {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* Revoke tool confirmation modal */}
+        {toolRevokeConfirm && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.80)", zIndex: 9995, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+            <div className="wf-panel" style={{ maxWidth: 360, width: "100%", padding: 24 }}>
+              <div style={{ fontSize: 22, marginBottom: 12, textAlign: "center" }}>🔧</div>
+              <div className="wf-sec" style={{ textAlign: "center", marginBottom: 8 }}>Зняти інструмент?</div>
+              <div style={{ fontSize: 14, color: "#e0d8c0", textAlign: "center", marginBottom: 6, fontFamily: "'Space Mono',monospace", fontWeight: 700 }}>{toolRevokeConfirm.tool}</div>
+              <div style={{ fontSize: 12, color: "#f43f5e", textAlign: "center", marginBottom: 20, fontFamily: "'Space Mono',monospace" }}>−100 XP</div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => {
+                  setSkillData(prev => {
+                    const updated = { ...prev, [toolRevokeConfirm.skillId]: { unlockedTools: prev[toolRevokeConfirm.skillId].unlockedTools.filter(t => t !== toolRevokeConfirm.tool) } };
+                    return updated;
+                  });
+                  setTotalXP(prev => Math.max(0, prev - 100));
+                  setToolRevokeConfirm(null);
+                }} style={{ flex: 1, background: "rgba(244,63,94,0.15)", border: "1px solid rgba(244,63,94,0.5)", color: "#f43f5e", padding: "10px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 13 }}>Так, зняти</button>
+                <button onClick={() => setToolRevokeConfirm(null)} style={{ flex: 1, background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.3)", color: "#c9a84c", padding: "10px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>Залишити</button>
+              </div>
+            </div>
           </div>
         )}
 
