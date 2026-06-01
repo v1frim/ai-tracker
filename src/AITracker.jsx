@@ -1831,11 +1831,7 @@ export default function AITracker() {
                 <div style={{ fontSize: 12, color: "#5a4a30", textAlign: "center", padding: "14px 0" }}>Немає активних підписок</div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {[...subscriptions].sort((a, b) => {
-                    const ta = a.id?.match(/\d{10,}/)?.[0] ?? "0";
-                    const tb = b.id?.match(/\d{10,}/)?.[0] ?? "0";
-                    return parseInt(tb) - parseInt(ta);
-                  }).slice(0, showAllSubs ? undefined : 7).map(sub => {
+                  {[...subscriptions].sort((a, b) => (b.startDate ?? "").localeCompare(a.startDate ?? "")).slice(0, showAllSubs ? undefined : 7).map(sub => {
                     const amtUSD = sub.currency === "UAH" ? sub.amount / uahRate : sub.amount;
                     const isActive = sub.active !== false;
                     const cat = expenseCats.find(c => c.id === sub.catId);
