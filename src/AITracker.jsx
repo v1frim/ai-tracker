@@ -429,15 +429,25 @@ export default function AITracker() {
   const fetchRate = useCallback(async () => {
     setRateFetching(true);
     try {
-      const res = await fetch("https://api.privatbank.ua/p24api/pubinfo?json&exchange&coursid=5");
+      // Primary: open.er-api.com (free, no auth, CORS-friendly)
+      const res = await fetch("https://open.er-api.com/v6/latest/USD");
       const data = await res.json();
-      const usd = data.find(x => x.ccy === "USD");
-      if (usd) {
-        const rate = +((parseFloat(usd.buy) + parseFloat(usd.sale)) / 2).toFixed(2);
-        setUahRate(rate);
+      if (data?.rates?.UAH) {
+        setUahRate(+data.rates.UAH.toFixed(2));
+        setUahRateUpdatedAt(new Date().toISOString());
+        setRateFetching(false);
+        return;
+      }
+    } catch (_) {}
+    try {
+      // Fallback: frankfurter.app
+      const res2 = await fetch("https://api.frankfurter.app/latest?to=UAH");
+      const data2 = await res2.json();
+      if (data2?.rates?.UAH) {
+        setUahRate(+data2.rates.UAH.toFixed(2));
         setUahRateUpdatedAt(new Date().toISOString());
       }
-    } catch (_) { /* silent fail */ }
+    } catch (_) {}
     setRateFetching(false);
   }, []);
 
@@ -752,7 +762,7 @@ export default function AITracker() {
         <div key={notification.id} style={{ position: "fixed", top: 16, right: 16, zIndex: 9999, background: "linear-gradient(135deg,rgba(40,28,4,0.98),rgba(18,12,2,0.98))", color: "#c9a84c", padding: "12px 22px", borderRadius: 3, fontWeight: 700, fontSize: 12, border: "1px solid rgba(201,168,76,0.55)", borderTop: "2px solid #c9a84c", boxShadow: "0 0 30px rgba(201,168,76,0.30), 0 6px 24px rgba(0,0,0,0.7)", animation: "slideIn 0.3s ease", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 2 }}>{notification.msg}</div>
       )}
 
-      <div style={{ position: "relative", zIndex: 1, maxWidth: 920, margin: "0 auto", padding: "20px 14px" }}>
+      <div style={{ position: "relative", zIndex: 1, maxWidth: "min(1400px, 92vw)", margin: "0 auto", padding: "20px 14px" }}>
 
         {/* Header */}
         <div style={{ marginBottom: 24, paddingBottom: 20, borderBottom: "1px solid rgba(201,168,76,0.30)" }}>
