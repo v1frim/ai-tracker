@@ -426,6 +426,7 @@ export default function AITracker() {
   const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
   const [aiAttachments, setAiAttachments] = useState([]);
   const [aiModelOpen, setAiModelOpen] = useState(false);
+  const [aiDropPos, setAiDropPos] = useState(null);
 
   const TAB_IDS = ["dashboard", "sessions", "skills", "achievements", "goals", "plan", "finances", "projects"];
 
@@ -2310,24 +2311,10 @@ export default function AITracker() {
               <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderBottom: "1px solid rgba(201,168,76,0.15)", background: "rgba(201,168,76,0.04)" }}>
                 <span style={{ fontSize: 15 }}>🤖</span>
                 <span style={{ fontSize: 12, color: "#c9a84c", fontWeight: 700, letterSpacing: 1 }}>AI АСИСТЕНТ</span>
-                <div style={{ position: "relative", marginLeft: "auto" }}>
-                  <button onClick={() => setAiModelOpen(v => !v)} style={{ background: "rgba(201,168,76,0.08)", border: "1px solid rgba(201,168,76,0.22)", color: "#9a8a60", padding: "3px 8px", borderRadius: 3, cursor: "pointer", fontSize: 10, fontFamily: "'Space Mono',monospace" }}>
+                <div style={{ marginLeft: "auto" }}>
+                  <button onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setAiDropPos({ bottom: window.innerHeight - r.top + 6, right: window.innerWidth - r.right }); setAiModelOpen(v => !v); }} style={{ background: "rgba(201,168,76,0.08)", border: "1px solid rgba(201,168,76,0.22)", color: "#9a8a60", padding: "3px 8px", borderRadius: 3, cursor: "pointer", fontSize: 10, fontFamily: "'Space Mono',monospace" }}>
                     {curModel.icon} {curModel.label} ▾
                   </button>
-                  {aiModelOpen && (
-                    <div style={{ position: "absolute", bottom: "100%", right: 0, marginBottom: 4, background: "rgba(10,7,2,0.99)", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 4, overflowY: "auto", maxHeight: 280, minWidth: 160, zIndex: 100, boxShadow: "0 -4px 24px rgba(0,0,0,0.8)" }}>
-                      {["openai","anthropic","gemini"].map(prov => (
-                        <div key={prov}>
-                          <div style={{ fontSize: 9, color: "#5a4a30", padding: "5px 10px 2px", textTransform: "uppercase", letterSpacing: 1 }}>{{ openai:"OpenAI", anthropic:"Anthropic", gemini:"Google" }[prov]}</div>
-                          {AI_MODELS.filter(m => m.provider === prov).map(m => (
-                            <button key={m.id} onClick={() => { setAiModel(m.id); setAiModelOpen(false); }} style={{ display: "block", width: "100%", textAlign: "left", padding: "6px 12px", background: m.id === aiModel ? "rgba(201,168,76,0.12)" : "none", border: "none", color: m.id === aiModel ? "#c9a84c" : "#9a8a60", cursor: "pointer", fontSize: 11, fontFamily: "'Space Mono',monospace" }}>
-                              {m.icon} {m.label}{m.id === aiModel ? " ✓" : ""}
-                            </button>
-                          ))}
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
                 <button onClick={() => setAiSettingsOpen(v => !v)} title="API ключі" style={{ background: aiSettingsOpen ? "rgba(201,168,76,0.12)" : "none", border: "none", color: "#6a5840", cursor: "pointer", fontSize: 14, padding: "2px 5px", borderRadius: 3 }}>⚙</button>
                 <button onClick={() => setAiMessages([])} title="Очистити" style={{ background: "none", border: "none", color: "#5a3a30", cursor: "pointer", fontSize: 13, padding: "2px 4px" }}>🗑</button>
@@ -2407,6 +2394,24 @@ export default function AITracker() {
                   ▶
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* Model dropdown — fixed, outside panel so it's never clipped */}
+          {aiModelOpen && aiDropPos && (
+            <div style={{ position: "fixed", bottom: aiDropPos.bottom, right: aiDropPos.right, background: "rgba(10,7,2,0.99)", border: "1px solid rgba(201,168,76,0.35)", borderRadius: 6, overflowY: "auto", maxHeight: "min(280px, calc(100vh - 140px))", minWidth: 165, zIndex: 10001, boxShadow: "0 -6px 28px rgba(0,0,0,0.85)" }}
+              onMouseLeave={() => setAiModelOpen(false)}>
+              {["openai","anthropic","gemini"].map(prov => (
+                <div key={prov}>
+                  <div style={{ fontSize: 9, color: "#5a4a30", padding: "6px 12px 2px", textTransform: "uppercase", letterSpacing: 1.5 }}>{{ openai:"OpenAI", anthropic:"Anthropic", gemini:"Google" }[prov]}</div>
+                  {AI_MODELS.filter(m => m.provider === prov).map(m => (
+                    <button key={m.id} onClick={() => { setAiModel(m.id); setAiModelOpen(false); }}
+                      style={{ display: "block", width: "100%", textAlign: "left", padding: "7px 14px", background: m.id === aiModel ? "rgba(201,168,76,0.14)" : "none", border: "none", color: m.id === aiModel ? "#c9a84c" : "#9a8a60", cursor: "pointer", fontSize: 11, fontFamily: "'Space Mono',monospace" }}>
+                      {m.icon} {m.label}{m.id === aiModel ? " ✓" : ""}
+                    </button>
+                  ))}
+                </div>
+              ))}
             </div>
           )}
 
