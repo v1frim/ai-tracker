@@ -401,6 +401,7 @@ export default function AITracker() {
   const [projectDeleteConfirm, setProjectDeleteConfirm] = useState(null); // index
   const [projects, setProjects] = useState(saved?.projects ?? DEFAULT_PROJECTS);
   const [projectInput, setProjectInput] = useState("");
+  const [projectCompletionXP, setProjectCompletionXP] = useState(200);
   const [sessions, setSessions] = useState(saved?.sessions ?? DEFAULT_SESSIONS);
   const [goals, setGoals] = useState(saved?.goals ?? DEFAULT_GOALS);
   const [plan, setPlan] = useState(saved?.plan ?? DEFAULT_PLAN);
@@ -620,9 +621,11 @@ export default function AITracker() {
 
   const addProject = useCallback(() => {
     if (!projectInput.trim()) return;
-    const newProjects = [...projects, { name: projectInput.trim(), date: new Date().toLocaleDateString("uk-UA"), status: "done" }];
+    const cxp = Math.max(0, parseInt(projectCompletionXP) || 0);
+    const newProjects = [...projects, { name: projectInput.trim(), date: new Date().toLocaleDateString("uk-UA"), status: "in_progress", creationXP: 100, completionXP: cxp, completionXPPaid: false }];
     setProjects(newProjects);
-    gainXP(200, `(${projectInput.trim()})`);
+    gainXP(100, `(${projectInput.trim()})`);
+    setProjectCompletionXP(200);
     setProjectInput("");
     setUnlockedAchievements(ua => {
       checkAchievements(totalTools, totalIncome, newProjects.length, skillData, ua, streak, sessions.dates.length);
@@ -1958,11 +1961,17 @@ export default function AITracker() {
               <div style={{ fontSize: 22, marginBottom: 12, textAlign: "center" }}>🗑</div>
               <div className="wf-sec" style={{ textAlign: "center", marginBottom: 8 }}>Видалити проект?</div>
               <div style={{ fontSize: 13, color: "#e0d8c0", textAlign: "center", marginBottom: 6, fontFamily: "'Exo 2',sans-serif", fontWeight: 700 }}>«{projects[projectDeleteConfirm]?.name}»</div>
-              <div style={{ fontSize: 12, color: "#f43f5e", textAlign: "center", marginBottom: 20, fontFamily: "'Space Mono',monospace" }}>−200 XP</div>
+              {(() => {
+                const dp = projects[projectDeleteConfirm];
+                const totalDeduct = (dp?.creationXP ?? 200) + (dp?.completionXPPaid ? (dp?.completionXP ?? 0) : 0);
+                return <div style={{ fontSize: 12, color: "#f43f5e", textAlign: "center", marginBottom: 20, fontFamily: "'Space Mono',monospace" }}>−{totalDeduct} XP</div>;
+              })()}
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={() => {
+                  const dp = projects[projectDeleteConfirm];
+                  const totalDeduct = (dp?.creationXP ?? 200) + (dp?.completionXPPaid ? (dp?.completionXP ?? 0) : 0);
                   setProjects(prev => prev.filter((_, idx) => idx !== projectDeleteConfirm));
-                  setTotalXP(prev => Math.max(0, prev - 200));
+                  setTotalXP(prev => Math.max(0, prev - totalDeduct));
                   setProjectDeleteConfirm(null);
                 }} style={{ flex: 1, background: "rgba(244,63,94,0.15)", border: "1px solid rgba(244,63,94,0.5)", color: "#f43f5e", padding: "10px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 13 }}>Так, видалити</button>
                 <button onClick={() => setProjectDeleteConfirm(null)} style={{ flex: 1, background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.3)", color: "#c9a84c", padding: "10px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>Скасувати</button>
@@ -1982,7 +1991,16 @@ export default function AITracker() {
                 placeholder="Назва проекту..."
                 style={{ flex: 1, minWidth: 200, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "10px 14px", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace" }}
               />
-              <button className="act-btn" onClick={addProject} style={{ background: "#6366f1", color: "#fff", border: "none", padding: "10px 18px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>+ Додати (+200 XP)</button>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: "6px 12px" }}>
+                <span style={{ fontSize: 11, color: "#6a5a40", whiteSpace: "nowrap" }}>XP за виконання:</span>
+                <input
+                  type="number" min="0" max="9999"
+                  value={projectCompletionXP}
+                  onChange={e => setProjectCompletionXP(Math.max(0, parseInt(e.target.value) || 0))}
+                  style={{ width: 60, background: "none", border: "none", color: "#c9a84c", fontSize: 13, fontFamily: "'Space Mono',monospace", fontWeight: 700, outline: "none", textAlign: "center" }}
+                />
+              </div>
+              <button className="act-btn" onClick={addProject} style={{ background: "#6366f1", color: "#fff", border: "none", padding: "10px 18px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 13, whiteSpace: "nowrap" }}>+ Додати (+100 XP)</button>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {projects.map((p, i) => {
@@ -1992,17 +2010,37 @@ export default function AITracker() {
                   in_progress: { label: "🔄 в процесі",  color: "#f59e0b", bg: "rgba(245,158,11,0.10)", border: "rgba(245,158,11,0.30)" },
                   cancelled:   { label: "✕ скасовано",  color: "#6a5a40", bg: "rgba(106,90,64,0.10)",  border: "rgba(106,90,64,0.25)" },
                 }[status];
+                const cxp = p.completionXP ?? 0;
                 const cycleStatus = () => {
-                  const next = status === "done" ? "in_progress" : status === "in_progress" ? "done" : "done";
-                  setProjects(prev => prev.map((x, idx) => idx === i ? { ...x, status: next } : x));
+                  const next = status === "done" ? "in_progress" : "done";
+                  setProjects(prev => prev.map((x, idx) => {
+                    if (idx !== i) return x;
+                    const paid = x.completionXPPaid ?? false;
+                    if (next === "done" && !paid && cxp > 0) {
+                      gainXP(cxp, `🚀 ${x.name}`);
+                      return { ...x, status: next, completionXPPaid: true };
+                    }
+                    if (next === "in_progress" && paid && cxp > 0) {
+                      setTotalXP(p2 => Math.max(0, p2 - cxp));
+                      return { ...x, status: next, completionXPPaid: false };
+                    }
+                    return { ...x, status: next };
+                  }));
                 };
                 const cardBorder = status === "done" ? "rgba(99,102,241,0.30)" : status === "in_progress" ? "rgba(245,158,11,0.30)" : "rgba(106,90,64,0.20)";
                 const cardBg = status === "done" ? "rgba(99,102,241,0.07)" : status === "in_progress" ? "rgba(245,158,11,0.06)" : "rgba(20,15,5,0.5)";
                 return (
                   <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, background: cardBg, border: `1px solid ${cardBorder}`, borderLeft: `3px solid ${statusCfg.color}`, borderRadius: 4, padding: "13px 16px", opacity: status === "cancelled" ? 0.6 : 1 }}>
                     <span style={{ fontSize: 20 }}>{status === "in_progress" ? "⚙️" : status === "cancelled" ? "📦" : "🚀"}</span>
-                    <span style={{ flex: 1, color: status === "cancelled" ? "#6a5a40" : "#e0d8c0", fontSize: 13, fontFamily: "'Exo 2',sans-serif", fontWeight: 600, textDecoration: status === "cancelled" ? "line-through" : "none" }}>{p.name}</span>
-                    <span style={{ color: "#6a5a40", fontSize: 11, fontFamily: "'Space Mono',monospace", marginRight: 4 }}>{p.date}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ color: status === "cancelled" ? "#6a5a40" : "#e0d8c0", fontSize: 13, fontFamily: "'Exo 2',sans-serif", fontWeight: 600, textDecoration: status === "cancelled" ? "line-through" : "none" }}>{p.name}</div>
+                      {cxp > 0 && (
+                        <div style={{ fontSize: 11, color: status === "done" ? "#c9a84c" : "#5a4a20", fontFamily: "'Space Mono',monospace", marginTop: 2 }}>
+                          {status === "done" ? `✓ +${cxp} XP за виконання` : `🔒 +${cxp} XP при завершенні`}
+                        </div>
+                      )}
+                    </div>
+                    <span style={{ color: "#6a5a40", fontSize: 11, fontFamily: "'Space Mono',monospace", flexShrink: 0 }}>{p.date}</span>
                     <button onClick={cycleStatus} title="Змінити статус" style={{ fontSize: 11, padding: "4px 10px", borderRadius: 3, border: `1px solid ${statusCfg.border}`, background: statusCfg.bg, color: statusCfg.color, cursor: "pointer", fontWeight: 700, whiteSpace: "nowrap", fontFamily: "'Exo 2',sans-serif" }}>{statusCfg.label}</button>
                     <button onClick={() => setProjectDeleteConfirm(i)} title="Видалити проект" style={{ background: "none", border: "none", color: "#5a3a30", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "2px 4px", transition: "color 0.15s" }} onMouseEnter={e => e.target.style.color="#f43f5e"} onMouseLeave={e => e.target.style.color="#5a3a30"}>×</button>
                   </div>
