@@ -390,6 +390,7 @@ export default function AITracker() {
   const [pendingDelete, setPendingDelete] = useState(null); // { id, type, entry, xpPaid, timerId }
   const [expandedCatRows, setExpandedCatRows] = useState({});
   const [analyticsYear, setAnalyticsYear] = useState(new Date().getFullYear());
+  const [chartTooltip, setChartTooltip] = useState(null);
   const [subscriptions, setSubscriptions] = useState(saved?.subscriptions ?? []);
   const [subCheckedMonth, setSubCheckedMonth] = useState(saved?.subCheckedMonth ?? null);
   const [subPrompt, setSubPrompt] = useState(null); // { items: [{...sub, checked: bool}] }
@@ -1897,44 +1898,134 @@ export default function AITracker() {
                   { label: `Витрати ${chartYear}`, val: `$${yearExp.toFixed(0)}`, color: "#f43f5e" },
                   { label: "Різниця", val: `${yearNet >= 0 ? "+" : ""}$${yearNet.toFixed(0)}`, color: yearNet >= 0 ? "#00ff88" : "#f43f5e" },
                 ].map(s => (
-                  <div key={s.label} style={{ background: "rgba(8,5,2,0.5)", border: `1px solid ${s.color}22`, borderRadius: 4, padding: "10px 12px", textAlign: "center" }}>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif" }}>{s.val}</div>
-                    <div style={{ fontSize: 10, color: "#9a8a60", marginTop: 3, textTransform: "uppercase", letterSpacing: 1 }}>{s.label}</div>
+                  <div key={s.label} style={{ background: "rgba(8,5,2,0.65)", border: `1px solid ${s.color}30`, borderLeft: `3px solid ${s.color}90`, borderRadius: 4, padding: "12px 14px", textAlign: "center", boxShadow: `0 0 18px ${s.color}0a, inset 0 0 30px rgba(0,0,0,0.3)` }}>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif", textShadow: `0 0 14px ${s.color}55`, letterSpacing: "-0.5px" }}>{s.val}</div>
+                    <div style={{ fontSize: 9, color: "#6a5a40", marginTop: 4, textTransform: "uppercase", letterSpacing: 1.5 }}>{s.label}</div>
                   </div>
                 ))}
               </div>
 
               {/* SVG line chart */}
-              <div style={{ background: "rgba(5,3,1,0.5)", borderRadius: 4, padding: "8px 4px 4px", border: "1px solid rgba(201,168,76,0.12)" }}>
-                <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: "block" }}>
+              <div style={{ background: "rgba(5,3,1,0.5)", borderRadius: 4, padding: "8px 4px 4px", border: "1px solid rgba(201,168,76,0.12)", position: "relative" }}>
+                <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: "block" }}
+                  onMouseLeave={() => setChartTooltip(null)}>
                   <defs>
                     <clipPath id="posClip"><rect x={PL} y={PT} width={cW} height={Math.max(0, zeroY - PT)} /></clipPath>
                     <clipPath id="negClip"><rect x={PL} y={zeroY} width={cW} height={Math.max(0, PT + cH - zeroY)} /></clipPath>
                   </defs>
                   {/* Grid lines */}
                   {[0.25,0.5,0.75,1].map(p => (
-                    <line key={p} x1={PL} y1={PT + cH*(1-p)} x2={W-PR} y2={PT + cH*(1-p)} stroke="rgba(201,168,76,0.08)" strokeWidth="1" />
+                    <line key={p} x1={PL} y1={PT + cH*(1-p)} x2={W-PR} y2={PT + cH*(1-p)} stroke="rgba(201,168,76,0.07)" strokeWidth="1" />
                   ))}
                   {/* Zero line */}
                   <line x1={PL} y1={zeroY} x2={W-PR} y2={zeroY} stroke="rgba(201,168,76,0.35)" strokeWidth="1" strokeDasharray="4,3" />
-                  {/* Area fills: green above zero, red below */}
+                  {/* Area fills */}
                   <path d={netAreaPath} fill="rgba(16,185,129,0.22)" clipPath="url(#posClip)" />
                   <path d={netAreaPath} fill="rgba(244,63,94,0.22)" clipPath="url(#negClip)" />
-                  {/* Net line — gold */}
+                  {/* Net line */}
                   <path d={netLinePath} fill="none" stroke="#c9a84c" strokeWidth="2" strokeLinejoin="round" />
-                  {/* Dots colored by sign */}
+                  {/* Hovered column highlight */}
+                  {chartTooltip !== null && (() => {
+                    const colW2 = cW / 11;
+                    return <rect x={Math.max(PL, px(chartTooltip) - colW2/2)} y={PT} width={colW2} height={cH} fill="rgba(201,168,76,0.07)" rx={2} />;
+                  })()}
+                  {/* Dots */}
                   {chartNet.map((v, i) => (v !== 0 &&
-                    <circle key={i} cx={px(i)} cy={pyNet(v)} r="3" fill={v >= 0 ? "#10b981" : "#f43f5e"} />
+                    <circle key={i} cx={px(i)} cy={pyNet(v)} r={chartTooltip === i ? 4.5 : 3}
+                      fill={v >= 0 ? "#10b981" : "#f43f5e"}
+                      stroke={chartTooltip === i ? (v >= 0 ? "#10b981" : "#f43f5e") : "none"}
+                      strokeWidth="2" strokeOpacity="0.4" />
                   ))}
+                  {/* Invisible hover column areas (on top of dots) */}
+                  {chartNet.map((v, i) => {
+                    const colW2 = cW / 11;
+                    return (
+                      <rect key={`h${i}`} x={Math.max(PL, px(i) - colW2/2)} y={PT} width={colW2} height={cH}
+                        fill="transparent" style={{ cursor: "crosshair" }}
+                        onMouseEnter={() => setChartTooltip(i)} />
+                    );
+                  })}
                   {/* Month labels */}
                   {MONTH_NAMES.map((name, i) => (
-                    <text key={i} x={px(i)} y={H-5} textAnchor="middle" fill="rgba(154,138,96,0.7)" fontSize="9" fontFamily="monospace">{name}</text>
+                    <text key={i} x={px(i)} y={H-5} textAnchor="middle"
+                      fill={chartTooltip === i ? "rgba(201,168,76,0.95)" : "rgba(154,138,96,0.6)"}
+                      fontSize="9" fontFamily="monospace" fontWeight={chartTooltip === i ? "700" : "400"}>{name}</text>
                   ))}
-                  {/* Y-axis: only show distinct values (avoid overlap when min=0 or max=0) */}
-                  {[...(maxNet > 0.5 ? [[maxNet, PT]] : []), [0, zeroY], ...(minNet < -0.5 ? [[minNet, PT+cH]] : [])].map(([val, yPos]) => (
-                    <text key={val} x={PL-4} y={yPos+3} textAnchor="end" fill={val === 0 ? "rgba(201,168,76,0.7)" : val > 0 ? "rgba(16,185,129,0.7)" : "rgba(244,63,94,0.7)"} fontSize="8" fontFamily="monospace">{val > 0 ? `+$${Math.round(val)}` : val < 0 ? `-$${Math.round(Math.abs(val))}` : "$0"}</text>
+                  {/* Y-axis main labels: max, 0, min */}
+                  {[
+                    ...(maxNet > 0.5 ? [[maxNet, PT, "#10b981"]] : []),
+                    [0, zeroY, "#c9a84c"],
+                    ...(minNet < -0.5 ? [[minNet, PT+cH, "#f43f5e"]] : [])
+                  ].map(([val, yPos, col]) => (
+                    <g key={`lbl${val}`}>
+                      <rect x={1} y={yPos-7} width={PL-5} height={13} rx={2} fill="rgba(6,4,1,0.8)" />
+                      <text x={PL-5} y={yPos+4} textAnchor="end" fill={col} fontSize="9" fontFamily="monospace" fontWeight="700">
+                        {val > 0 ? `+$${Math.round(val)}` : val < 0 ? `-$${Math.round(Math.abs(val))}` : "$0"}
+                      </text>
+                    </g>
+                  ))}
+                  {/* 50% midpoint labels */}
+                  {[
+                    ...(maxNet > 25 ? [[maxNet/2, pyNet(maxNet/2), "#10b981"]] : []),
+                    ...(minNet < -25 ? [[minNet/2, pyNet(minNet/2), "#f43f5e"]] : [])
+                  ].map(([val, yPos, col]) => (
+                    <g key={`mid${val}`}>
+                      <rect x={1} y={yPos-5} width={PL-5} height={10} rx={2} fill="rgba(6,4,1,0.65)" />
+                      <text x={PL-5} y={yPos+3.5} textAnchor="end" fill={col} fillOpacity="0.55" fontSize="7.5" fontFamily="monospace">
+                        {val > 0 ? `+$${Math.round(val)}` : `-$${Math.round(Math.abs(val))}`}
+                      </text>
+                    </g>
                   ))}
                 </svg>
+
+                {/* HTML tooltip overlay */}
+                {chartTooltip !== null && (() => {
+                  const i = chartTooltip;
+                  const inc = chartInc[i];
+                  const exp = chartExp[i];
+                  const net = chartNet[i];
+                  const leftPct = px(i) / W * 100;
+                  const flipLeft = i >= 9;
+                  const fmtAmt = (v) => `$${Math.round(Math.abs(v))}`;
+                  return (
+                    <div style={{
+                      position: "absolute", top: 6,
+                      left: `${leftPct}%`,
+                      transform: flipLeft ? "translateX(-108%)" : "translateX(6%)",
+                      background: "linear-gradient(160deg,rgba(16,11,4,0.98),rgba(8,5,2,0.98))",
+                      border: "1px solid rgba(201,168,76,0.4)",
+                      borderTop: "2px solid rgba(201,168,76,0.65)",
+                      borderRadius: 5,
+                      padding: "8px 12px",
+                      minWidth: 138,
+                      boxShadow: "0 6px 24px rgba(0,0,0,0.75), 0 0 16px rgba(201,168,76,0.06)",
+                      pointerEvents: "none",
+                      zIndex: 10,
+                      fontFamily: "'Space Mono',monospace",
+                    }}>
+                      <div style={{ fontSize: 10, color: "#c9a84c", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 7, fontFamily: "'Exo 2',sans-serif", borderBottom: "1px solid rgba(201,168,76,0.2)", paddingBottom: 5 }}>
+                        {MONTH_NAMES[i]} {chartYear}
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                          <span style={{ fontSize: 9, color: "#4a7a5a", letterSpacing: 0.5 }}>📈 дохід</span>
+                          <span style={{ fontSize: 11, color: "#10b981", fontWeight: 700 }}>{fmtAmt(inc)}</span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                          <span style={{ fontSize: 9, color: "#7a3a4a", letterSpacing: 0.5 }}>📉 витрати</span>
+                          <span style={{ fontSize: 11, color: "#f43f5e", fontWeight: 700 }}>{fmtAmt(exp)}</span>
+                        </div>
+                        <div style={{ borderTop: "1px solid rgba(201,168,76,0.18)", marginTop: 2, paddingTop: 4, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                          <span style={{ fontSize: 9, color: "#8a7a50" }}>різниця</span>
+                          <span style={{ fontSize: 12, color: net >= 0 ? "#00ff88" : "#f43f5e", fontWeight: 800, textShadow: `0 0 8px ${net >= 0 ? "#00ff88" : "#f43f5e"}60` }}>
+                            {net >= 0 ? "+" : "-"}{fmtAmt(net)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 <div style={{ display: "flex", gap: 16, justifyContent: "center", paddingTop: 6, paddingBottom: 4 }}>
                   <span style={{ fontSize: 10, color: "#10b981", fontFamily: "'Space Mono',monospace" }}>■ профіцит</span>
                   <span style={{ fontSize: 10, color: "#f43f5e", fontFamily: "'Space Mono',monospace" }}>■ дефіцит</span>
