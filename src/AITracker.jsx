@@ -396,6 +396,7 @@ export default function AITracker() {
   const [subForm, setSubForm] = useState({ name: "", catId: "exp_other", amount: "", currency: "USD", billingDay: 1 });
   const [showSubForm, setShowSubForm] = useState(false);
   const [journalOpen, setJournalOpen] = useState(true);
+  const [revokeConfirm, setRevokeConfirm] = useState(null); // { id, name, xp }
   const [projects, setProjects] = useState(saved?.projects ?? DEFAULT_PROJECTS);
   const [projectInput, setProjectInput] = useState("");
   const [sessions, setSessions] = useState(saved?.sessions ?? DEFAULT_SESSIONS);
@@ -1037,6 +1038,27 @@ export default function AITracker() {
           </div>
         )}
 
+        {/* Revoke achievement confirmation modal */}
+        {revokeConfirm && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.80)", zIndex: 9995, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+            <div className="wf-panel" style={{ maxWidth: 380, width: "100%", padding: 24 }}>
+              <div style={{ fontSize: 22, marginBottom: 12, textAlign: "center" }}>🔓</div>
+              <div className="wf-sec" style={{ textAlign: "center", marginBottom: 8 }}>Скасувати досягнення?</div>
+              <div style={{ fontSize: 13, color: "#e0d8c0", textAlign: "center", marginBottom: 6, fontFamily: "'Exo 2',sans-serif", fontWeight: 700 }}>«{revokeConfirm.name}»</div>
+              <div style={{ fontSize: 12, color: "#f43f5e", textAlign: "center", marginBottom: 20, fontFamily: "'Space Mono',monospace" }}>−{revokeConfirm.xp} XP</div>
+              <div style={{ fontSize: 11, color: "#6a5a40", textAlign: "center", marginBottom: 20 }}>Досягнення буде знято, XP відніметься. Його можна отримати знову, якщо умова буде виконана повторно.</div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => {
+                  setUnlockedAchievements(prev => prev.filter(id => id !== revokeConfirm.id));
+                  setTotalXP(prev => Math.max(0, prev - revokeConfirm.xp));
+                  setRevokeConfirm(null);
+                }} style={{ flex: 1, background: "rgba(244,63,94,0.15)", border: "1px solid rgba(244,63,94,0.5)", color: "#f43f5e", padding: "10px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 13 }}>Так, скасувати</button>
+                <button onClick={() => setRevokeConfirm(null)} style={{ flex: 1, background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.3)", color: "#c9a84c", padding: "10px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>Залишити</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Achievements */}
         {activeTab === "achievements" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 26 }}>
@@ -1055,13 +1077,16 @@ export default function AITracker() {
                       const done = unlockedAchievements.includes(a.id);
                       const tier = TIERS[a.tier];
                       return (
-                        <div key={a.id} className={done ? "wf-card" : ""} style={{ background: done ? `linear-gradient(160deg, ${tier.color}26, rgba(10,7,2,0.95))` : "rgba(14,10,4,0.88)", border: `1px solid ${done ? tier.color + "55" : "rgba(201,168,76,0.22)"}`, borderTop: `2px solid ${done ? tier.color : "rgba(201,168,76,0.30)"}`, borderRadius: 4, padding: 16, boxShadow: done ? `0 0 18px ${tier.glow}` : "none" }}>
+                        <div key={a.id} className={done ? "wf-card" : ""} style={{ position: "relative", background: done ? `linear-gradient(160deg, ${tier.color}30, rgba(10,7,2,0.92))` : "rgba(14,10,4,0.88)", border: `1px solid ${done ? tier.color + "70" : "rgba(201,168,76,0.22)"}`, borderTop: `2px solid ${done ? tier.color : "rgba(201,168,76,0.30)"}`, borderRadius: 4, padding: 16, boxShadow: done ? `0 0 24px ${tier.glow}, inset 0 0 40px ${tier.color}08` : "none" }}>
+                          {done && (
+                            <button onClick={() => setRevokeConfirm({ id: a.id, name: a.name, xp: a.xp })} title="Скасувати досягнення" style={{ position: "absolute", top: 8, right: 8, background: "rgba(244,63,94,0.0)", border: "none", color: "rgba(244,63,94,0.25)", cursor: "pointer", fontSize: 15, lineHeight: 1, padding: "2px 4px", borderRadius: 3, transition: "all 0.15s" }} onMouseEnter={e => { e.currentTarget.style.background="rgba(244,63,94,0.15)"; e.currentTarget.style.color="#f43f5e"; }} onMouseLeave={e => { e.currentTarget.style.background="rgba(244,63,94,0)"; e.currentTarget.style.color="rgba(244,63,94,0.25)"; }}>🔓</button>
+                          )}
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                            <div style={{ fontSize: 28, filter: done ? "none" : "grayscale(1) brightness(0.55)" }}>{a.icon}</div>
+                            <div style={{ fontSize: done ? 36 : 28, filter: done ? `drop-shadow(0 0 8px ${tier.color}99)` : "grayscale(1) brightness(0.45)", transition: "font-size 0.2s" }}>{a.icon}</div>
                             <span style={{ fontSize: 9, fontWeight: 800, color: done ? tier.color : "#6a5a38", border: `1px solid ${done ? tier.color + "66" : "rgba(201,168,76,0.22)"}`, borderRadius: 2, padding: "2px 7px", textTransform: "uppercase", letterSpacing: 1.5, fontFamily: "'Exo 2',sans-serif", whiteSpace: "nowrap" }}>{tier.label}</span>
                           </div>
                           <div style={{ fontSize: 14, fontWeight: 800, color: done ? tier.color : "#9a8a60", marginBottom: 6, fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>{a.name}</div>
-                          <div style={{ fontSize: 12, color: done ? "#9a8a60" : "#7a6a48", marginBottom: 10, lineHeight: 1.5 }}>{a.desc}</div>
+                          <div style={{ fontSize: 12, color: done ? "#b0a080" : "#7a6a48", marginBottom: 10, lineHeight: 1.5 }}>{a.desc}</div>
                           <div style={{ fontSize: 12, color: done ? tier.color : "#6a5a38", fontFamily: "'Space Mono',monospace", letterSpacing: 1 }}>+{a.xp} XP {done ? "✓" : "🔒"}</div>
                         </div>
                       );
@@ -1506,7 +1531,7 @@ export default function AITracker() {
                                       <div style={{ fontSize: 13, color: "#a07040", marginTop: 2 }}>≈ ${amtUSD.toFixed(2)}</div>
                                     )}
                                   </div>
-                                  <button onClick={() => startDelete(tx.id, tx.txType)} style={{ background: "none", border: "none", color: "#5a3a30", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "4px 6px", flexShrink: 0, transition: "color 0.15s" }} onMouseEnter={e => e.target.style.color="#f43f5e"} onMouseLeave={e => e.target.style.color="#5a3a30"}>×</button>
+                                  <button onClick={() => isInc ? refundIncomeEntry(tx.id) : startDelete(tx.id, "expense")} style={{ background: "none", border: "none", color: "#5a3a30", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "4px 6px", flexShrink: 0, transition: "color 0.15s" }} onMouseEnter={e => e.target.style.color="#f43f5e"} onMouseLeave={e => e.target.style.color="#5a3a30"}>×</button>
                                 </div>
                               );
                             })}
