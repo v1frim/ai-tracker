@@ -427,6 +427,7 @@ export default function AITracker() {
   const [aiAttachments, setAiAttachments] = useState([]);
   const [aiModelOpen, setAiModelOpen] = useState(false);
   const [aiDropPos, setAiDropPos] = useState(null);
+  const [aiAvailModels, setAiAvailModels] = useState(null);
 
   const TAB_IDS = ["dashboard", "sessions", "skills", "achievements", "goals", "plan", "finances", "projects"];
 
@@ -2190,9 +2191,10 @@ export default function AITracker() {
         { id: "claude-haiku-4-5-20251001",label: "Claude Haiku",   provider: "anthropic", icon: "🟠" },
         { id: "claude-sonnet-4-6",        label: "Claude Sonnet",  provider: "anthropic", icon: "🟠" },
         { id: "claude-opus-4-8",          label: "Claude Opus",    provider: "anthropic", icon: "🟠" },
-        { id: "gemini-2.5-flash-preview-05-20", label: "Gemini 2.5 Flash ✓free", provider: "gemini", icon: "🔵" },
-        { id: "gemini-2.0-flash",              label: "Gemini 2.0 Flash ✓free", provider: "gemini", icon: "🔵" },
-        { id: "gemini-2.5-pro-preview-06-05",  label: "Gemini 2.5 Pro $",       provider: "gemini", icon: "🔵" },
+        { id: "gemini-2.5-flash",         label: "Gemini 2.5 Flash", provider: "gemini",  icon: "🔵" },
+        { id: "gemini-2.0-flash",         label: "Gemini 2.0 Flash", provider: "gemini",  icon: "🔵" },
+        { id: "gemini-1.5-flash",         label: "Gemini 1.5 Flash", provider: "gemini",  icon: "🔵" },
+        { id: "gemini-2.5-pro",           label: "Gemini 2.5 Pro",   provider: "gemini",  icon: "🔵" },
       ];
       const isCustomModel = !AI_MODELS.find(m => m.id === aiModel);
       const curModel = AI_MODELS.find(m => m.id === aiModel) ?? { id: aiModel, label: aiModel, provider: "openai", icon: "🟢" };
@@ -2343,6 +2345,33 @@ export default function AITracker() {
                         style={{ background: "rgba(8,5,2,0.8)", border: "1px solid rgba(201,168,76,0.2)", color: "#c9a84c", padding: "5px 8px", borderRadius: 3, fontSize: 11, fontFamily: "'Space Mono',monospace", outline: "none" }} />
                     </div>
                   ))}
+                  {/* Check available Gemini models */}
+                  <button onClick={async () => {
+                    if (!aiApiKeys.gemini) { setAiAvailModels(["⚠ спочатку введи Gemini ключ"]); return; }
+                    setAiAvailModels(["⏳ завантаження…"]);
+                    try {
+                      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${aiApiKeys.gemini}`);
+                      const d = await r.json();
+                      if (d.error) { setAiAvailModels([`❌ ${d.error.message}`]); return; }
+                      const list = (d.models ?? [])
+                        .filter(m => m.supportedGenerationMethods?.includes("generateContent"))
+                        .map(m => m.name.replace("models/", ""))
+                        .filter(n => n.startsWith("gemini"));
+                      setAiAvailModels(list.length ? list : ["(порожньо)"]);
+                    } catch (e) { setAiAvailModels([`❌ ${e.message}`]); }
+                  }} style={{ background: "rgba(70,90,201,0.12)", border: "1px solid rgba(100,120,220,0.35)", color: "#8ea0e0", padding: "6px", borderRadius: 3, cursor: "pointer", fontSize: 10, fontFamily: "'Space Mono',monospace", marginTop: 2 }}>
+                    🔵 Перевірити доступні Gemini-моделі
+                  </button>
+                  {aiAvailModels && (
+                    <div style={{ fontSize: 10, color: "#8a7a50", fontFamily: "'Space Mono',monospace", background: "rgba(8,5,2,0.6)", border: "1px solid rgba(201,168,76,0.15)", borderRadius: 3, padding: "6px 8px", maxHeight: 110, overflowY: "auto", lineHeight: 1.5 }}>
+                      {aiAvailModels.map((m, i) => (
+                        <div key={i} onClick={() => { if (m.startsWith("gemini")) { setAiModel(m); setAiAvailModels(null); } }}
+                          style={{ cursor: m.startsWith("gemini") ? "pointer" : "default", color: m === aiModel ? "#c9a84c" : undefined, padding: "1px 0" }}>
+                          {m.startsWith("gemini") ? `• ${m}${m === aiModel ? " ✓" : ""}` : m}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
