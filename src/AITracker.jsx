@@ -429,6 +429,7 @@ export default function AITracker() {
   const [aiDropPos, setAiDropPos] = useState(null);
   const [aiAvailModels, setAiAvailModels] = useState(null);
   const [aiPanelHovered, setAiPanelHovered] = useState(false);
+  const aiMsgsRef = useRef(null);
 
   const TAB_IDS = ["dashboard", "sessions", "skills", "achievements", "goals", "plan", "finances", "projects"];
 
@@ -516,6 +517,12 @@ export default function AITracker() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [aiOpen]);
+
+  useEffect(() => {
+    if (aiOpen && aiMsgsRef.current) {
+      aiMsgsRef.current.scrollTop = aiMsgsRef.current.scrollHeight;
+    }
+  }, [aiOpen, aiMessages]);
 
   const totalLevel = calcLevel(totalXP);
   const curLevelXP = xpForLevel(totalLevel);
@@ -2390,7 +2397,7 @@ export default function AITracker() {
               )}
 
               {/* Messages */}
-              <div style={{ flex: 1, maxHeight: 380, overflowY: "auto", padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8, opacity: aiPanelHovered ? 1 : 0.18, transition: "opacity 0.3s ease" }}>
+              <div ref={aiMsgsRef} style={{ flex: 1, maxHeight: 380, overflowY: "auto", padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8, opacity: aiPanelHovered ? 1 : 0.18, transition: "opacity 0.3s ease" }}>
                 {aiMessages.length === 0 ? (
                   <div style={{ fontSize: 12, color: "#4a3a20", textAlign: "center", padding: "24px 0" }}>
                     Привіт! Я знаю твій прогрес і готовий допомогти.<br />
