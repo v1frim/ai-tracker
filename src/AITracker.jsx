@@ -1317,19 +1317,29 @@ export default function AITracker() {
                           return { ...x, done: !x.done };
                         }))} style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${pr.color}66`, background: "transparent", cursor: "pointer", flexShrink: 0, fontSize: 10, color: pr.color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }} />
                         {goalEditId === g.id ? (
-                          <input
-                            autoFocus
-                            value={goalEditText}
-                            onChange={e => setGoalEditText(e.target.value)}
-                            onKeyDown={e => {
-                              if (e.key === "Enter") { setGoals(prev => prev.map(x => x.id === g.id ? { ...x, text: goalEditText.trim() || x.text } : x)); setGoalEditId(null); }
-                              if (e.key === "Escape") setGoalEditId(null);
-                            }}
-                            onBlur={() => { setGoals(prev => prev.map(x => x.id === g.id ? { ...x, text: goalEditText.trim() || x.text } : x)); setGoalEditId(null); }}
-                            style={{ flex: 1, background: "rgba(8,5,2,0.9)", border: `1px solid ${pr.color}66`, borderRadius: 3, padding: "4px 10px", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace" }}
-                          />
+                          <div style={{ flex: 1, display: "flex", gap: 6 }}>
+                            <input
+                              autoFocus
+                              value={goalEditText}
+                              onChange={e => setGoalEditText(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === "Enter") { setGoals(prev => prev.map(x => x.id === g.id ? { ...x, text: goalEditText.trim() || x.text, xp: goalEditXP } : x)); setGoalEditId(null); }
+                                if (e.key === "Escape") setGoalEditId(null);
+                              }}
+                              onBlur={() => { setGoals(prev => prev.map(x => x.id === g.id ? { ...x, text: goalEditText.trim() || x.text, xp: goalEditXP } : x)); setGoalEditId(null); }}
+                              style={{ flex: 1, background: "rgba(8,5,2,0.9)", border: `1px solid ${pr.color}66`, borderRadius: 3, padding: "4px 10px", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace" }}
+                            />
+                            <div style={{ display: "flex", alignItems: "center", gap: 3, background: "rgba(8,5,2,0.9)", border: `1px solid ${pr.color}44`, borderRadius: 3, padding: "0 8px" }}>
+                              <span style={{ fontSize: 10, color: "#6a5f40" }}>XP</span>
+                              <input type="number" min="0" max="9999" value={goalEditXP} onChange={e => setGoalEditXP(Math.max(0, parseInt(e.target.value) || 0))}
+                                style={{ width: 44, background: "transparent", border: "none", color: "#00ff88", fontSize: 12, fontFamily: "'Space Mono',monospace", textAlign: "center", padding: "4px 0" }} />
+                            </div>
+                          </div>
                         ) : (
                           <span style={{ flex: 1, color: "#e0d8c0", fontSize: 13, fontWeight: pr.fontWeight }}>{g.text}</span>
+                        )}
+                        {goalEditId !== g.id && (
+                          <span style={{ fontSize: 11, color: "#00ff88", background: "rgba(0,255,136,0.08)", border: "1px solid rgba(0,255,136,0.2)", padding: "2px 7px", borderRadius: 3, whiteSpace: "nowrap", flexShrink: 0 }}>+{g.xp ?? 100} XP</span>
                         )}
                         {/* Priority change */}
                         <select
@@ -1339,7 +1349,7 @@ export default function AITracker() {
                         >
                           {TASK_PRIORITIES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
                         </select>
-                        <button onClick={() => { setGoalEditId(g.id); setGoalEditText(g.text); }}
+                        <button onClick={() => { setGoalEditId(g.id); setGoalEditText(g.text); setGoalEditXP(g.xp ?? 100); }}
                           style={{ background: "none", border: "none", color: "#6a5f40", cursor: "pointer", fontSize: 13, padding: "0 3px" }} title="Редагувати">✎</button>
                         <button onClick={() => setGoals(prev => prev.filter(x => x.id !== g.id))}
                           style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 16, padding: "0 3px" }}>×</button>
@@ -1374,6 +1384,132 @@ export default function AITracker() {
 
             {goals.length === 0 && (
               <div style={{ textAlign: "center", padding: 32, color: "#6a5f40", fontSize: 13 }}>Ще немає задач. Додай першу!</div>
+            )}
+          </div>
+        )}
+
+        {/* Long-term Goals = Цілі */}
+        {activeTab === "longgoals" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+            {/* Add goal */}
+            <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 16 }}>
+              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 12 }}>+ Нова ціль</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <input
+                  value={longGoalInput}
+                  onChange={e => setLongGoalInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === "Enter" && longGoalInput.trim()) {
+                      setLongGoals(prev => [...prev, { id: `lg${Date.now()}`, text: longGoalInput.trim(), period: longGoalPeriod, customXP: longGoalXP, done: false, createdAt: new Date().toISOString() }]);
+                      setLongGoalInput("");
+                    }
+                  }}
+                  placeholder="Опиши ціль..."
+                  style={{ flex: 1, minWidth: 200, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "9px 14px", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace" }}
+                />
+                <select
+                  value={longGoalPeriod}
+                  onChange={e => setLongGoalPeriod(e.target.value)}
+                  style={{ background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "9px 12px", color: "#c0b090", fontSize: 12, cursor: "pointer" }}
+                >
+                  {GOAL_PERIODS.map(p => <option key={p.id} value={p.id}>{p.icon} {p.label}</option>)}
+                </select>
+                <div style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "0 10px" }}>
+                  <span style={{ fontSize: 11, color: "#6a5f40" }}>XP</span>
+                  <input type="number" min="0" max="99999" value={longGoalXP} onChange={e => setLongGoalXP(Math.max(0, parseInt(e.target.value) || 0))}
+                    style={{ width: 60, background: "transparent", border: "none", color: "#00ff88", fontSize: 13, fontFamily: "'Space Mono',monospace", textAlign: "center", padding: "9px 0" }} />
+                </div>
+                <button className="act-btn" onClick={() => {
+                  if (!longGoalInput.trim()) return;
+                  setLongGoals(prev => [...prev, { id: `lg${Date.now()}`, text: longGoalInput.trim(), period: longGoalPeriod, customXP: longGoalXP, done: false, createdAt: new Date().toISOString() }]);
+                  setLongGoalInput("");
+                }} style={{ background: "#00ff88", color: "#000", border: "none", padding: "9px 16px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 12 }}>Додати</button>
+              </div>
+            </div>
+
+            {/* Goals by period */}
+            {GOAL_PERIODS.map(per => {
+              const perGoals = longGoals.filter(g => !g.done && g.period === per.id);
+              if (!perGoals.length) return null;
+              return (
+                <div key={per.id} style={{ background: "rgba(5,3,1,0.76)", border: `1px solid ${per.color}33`, borderLeft: `3px solid ${per.color}`, borderRadius: 4, padding: 16 }}>
+                  <div style={{ fontSize: 12, color: per.color, fontWeight: 800, marginBottom: 10, textTransform: "uppercase", letterSpacing: 1.5 }}>{per.icon} {per.label}</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {perGoals.map(g => (
+                      <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 10, background: `${per.color}08`, borderRadius: 4, padding: "10px 12px" }}>
+                        <button onClick={() => setLongGoals(prev => prev.map(x => {
+                          if (x.id !== g.id) return x;
+                          if (!x.done && !x.xpAwarded) { gainXP(x.customXP ?? 200, "(ціль досягнута)"); return { ...x, done: true, xpAwarded: true }; }
+                          return { ...x, done: !x.done };
+                        }))} style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${per.color}66`, background: "transparent", cursor: "pointer", flexShrink: 0, fontSize: 10, color: per.color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }} />
+                        {longGoalEditId === g.id ? (
+                          <div style={{ flex: 1, display: "flex", gap: 6 }}>
+                            <input
+                              autoFocus
+                              value={longGoalEditText}
+                              onChange={e => setLongGoalEditText(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === "Enter") { setLongGoals(prev => prev.map(x => x.id === g.id ? { ...x, text: longGoalEditText.trim() || x.text, customXP: longGoalEditXP } : x)); setLongGoalEditId(null); }
+                                if (e.key === "Escape") setLongGoalEditId(null);
+                              }}
+                              onBlur={() => { setLongGoals(prev => prev.map(x => x.id === g.id ? { ...x, text: longGoalEditText.trim() || x.text, customXP: longGoalEditXP } : x)); setLongGoalEditId(null); }}
+                              style={{ flex: 1, background: "rgba(8,5,2,0.9)", border: `1px solid ${per.color}66`, borderRadius: 3, padding: "4px 10px", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace" }}
+                            />
+                            <div style={{ display: "flex", alignItems: "center", gap: 3, background: "rgba(8,5,2,0.9)", border: `1px solid ${per.color}44`, borderRadius: 3, padding: "0 8px" }}>
+                              <span style={{ fontSize: 10, color: "#6a5f40" }}>XP</span>
+                              <input type="number" min="0" max="99999" value={longGoalEditXP} onChange={e => setLongGoalEditXP(Math.max(0, parseInt(e.target.value) || 0))}
+                                style={{ width: 52, background: "transparent", border: "none", color: "#00ff88", fontSize: 12, fontFamily: "'Space Mono',monospace", textAlign: "center", padding: "4px 0" }} />
+                            </div>
+                          </div>
+                        ) : (
+                          <span style={{ flex: 1, color: "#e0d8c0", fontSize: 13, fontWeight: 600 }}>{g.text}</span>
+                        )}
+                        {longGoalEditId !== g.id && (
+                          <span style={{ fontSize: 11, color: per.color, background: `${per.color}14`, border: `1px solid ${per.color}33`, padding: "2px 7px", borderRadius: 3, whiteSpace: "nowrap", flexShrink: 0 }}>+{g.customXP ?? 200} XP</span>
+                        )}
+                        <select
+                          value={g.period}
+                          onChange={e => setLongGoals(prev => prev.map(x => x.id === g.id ? { ...x, period: e.target.value } : x))}
+                          style={{ background: "rgba(8,5,2,0.68)", border: `1px solid ${per.color}44`, borderRadius: 3, padding: "3px 6px", color: per.color, fontSize: 10, cursor: "pointer", maxWidth: 110 }}
+                        >
+                          {GOAL_PERIODS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                        </select>
+                        <button onClick={() => { setLongGoalEditId(g.id); setLongGoalEditText(g.text); setLongGoalEditXP(g.customXP ?? 200); }}
+                          style={{ background: "none", border: "none", color: "#6a5f40", cursor: "pointer", fontSize: 13, padding: "0 3px" }} title="Редагувати">✎</button>
+                        <button onClick={() => setLongGoals(prev => prev.filter(x => x.id !== g.id))}
+                          style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 16, padding: "0 3px" }}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Done goals */}
+            {(() => {
+              const doneGoals = longGoals.filter(g => g.done);
+              if (!doneGoals.length) return null;
+              return (
+                <div style={{ background: "rgba(5,3,1,0.60)", border: "1px solid rgba(0,255,136,0.15)", borderRadius: 4, padding: 16 }}>
+                  <div style={{ fontSize: 12, color: "#00ff88", fontWeight: 700, marginBottom: 10, textTransform: "uppercase", letterSpacing: 1.5 }}>✓ Досягнуто ({doneGoals.length})</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {doneGoals.map(g => (
+                      <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px" }}>
+                        <button onClick={() => setLongGoals(prev => prev.map(x => x.id === g.id ? { ...x, done: false } : x))}
+                          style={{ width: 20, height: 20, borderRadius: "50%", border: "2px solid #00ff88", background: "#00ff88", cursor: "pointer", flexShrink: 0, fontSize: 10, color: "#000", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>✓</button>
+                        <span style={{ flex: 1, color: "#6a7060", fontSize: 12, textDecoration: "line-through" }}>{g.text}</span>
+                        <button onClick={() => setLongGoals(prev => prev.filter(x => x.id !== g.id))}
+                          style={{ background: "none", border: "none", color: "#4a4030", cursor: "pointer", fontSize: 15, padding: "0 3px" }}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {longGoals.length === 0 && (
+              <div style={{ textAlign: "center", padding: 32, color: "#6a5f40", fontSize: 13 }}>Ще немає цілей. Додай першу!</div>
             )}
           </div>
         )}
