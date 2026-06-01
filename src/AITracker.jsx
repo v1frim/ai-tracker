@@ -2182,6 +2182,10 @@ export default function AITracker() {
         { id: "gpt-4o-mini",              label: "GPT-4o mini",    provider: "openai",    icon: "🟢" },
         { id: "gpt-4o",                   label: "GPT-4o",         provider: "openai",    icon: "🟢" },
         { id: "gpt-4.5-preview",          label: "GPT-4.5",        provider: "openai",    icon: "🟢" },
+        { id: "gpt-4.1",                  label: "GPT-4.1",        provider: "openai",    icon: "🟢" },
+        { id: "gpt-4.1-mini",             label: "GPT-4.1 mini",   provider: "openai",    icon: "🟢" },
+        { id: "o3",                       label: "o3",             provider: "openai",    icon: "🟢" },
+        { id: "o3-mini",                  label: "o3-mini",        provider: "openai",    icon: "🟢" },
         { id: "o4-mini",                  label: "o4-mini",        provider: "openai",    icon: "🟢" },
         { id: "claude-haiku-4-5-20251001",label: "Claude Haiku",   provider: "anthropic", icon: "🟠" },
         { id: "claude-sonnet-4-6",        label: "Claude Sonnet",  provider: "anthropic", icon: "🟠" },
@@ -2189,7 +2193,8 @@ export default function AITracker() {
         { id: "gemini-2.0-flash",         label: "Gemini Flash",   provider: "gemini",    icon: "🔵" },
         { id: "gemini-1.5-pro",           label: "Gemini Pro",     provider: "gemini",    icon: "🔵" },
       ];
-      const curModel = AI_MODELS.find(m => m.id === aiModel) ?? AI_MODELS[0];
+      const isCustomModel = !AI_MODELS.find(m => m.id === aiModel);
+      const curModel = AI_MODELS.find(m => m.id === aiModel) ?? { id: aiModel, label: aiModel, provider: "openai", icon: "🟢" };
 
       const buildSystemPrompt = () => {
         const level = Math.floor(Math.sqrt(totalXP / 80));
@@ -2412,6 +2417,15 @@ export default function AITracker() {
                   ))}
                 </div>
               ))}
+              <div style={{ borderTop: "1px solid rgba(201,168,76,0.15)", padding: "6px 10px 8px" }}>
+                <div style={{ fontSize: 9, color: "#5a4a30", marginBottom: 4, textTransform: "uppercase", letterSpacing: 1 }}>Свій model ID</div>
+                <input
+                  placeholder="напр. gpt-5, chatgpt-4o-latest…"
+                  defaultValue={isCustomModel ? aiModel : ""}
+                  onKeyDown={e => { if (e.key === "Enter" && e.target.value.trim()) { setAiModel(e.target.value.trim()); setAiModelOpen(false); } }}
+                  onBlur={e => { if (e.target.value.trim()) { setAiModel(e.target.value.trim()); } }}
+                  style={{ width: "100%", background: "rgba(8,5,2,0.9)", border: "1px solid rgba(201,168,76,0.25)", color: "#c9a84c", padding: "4px 8px", borderRadius: 3, fontSize: 10, fontFamily: "'Space Mono',monospace", outline: "none", boxSizing: "border-box" }} />
+              </div>
             </div>
           )}
 
