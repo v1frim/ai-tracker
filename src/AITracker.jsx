@@ -2190,9 +2190,9 @@ export default function AITracker() {
         { id: "claude-haiku-4-5-20251001",label: "Claude Haiku",   provider: "anthropic", icon: "🟠" },
         { id: "claude-sonnet-4-6",        label: "Claude Sonnet",  provider: "anthropic", icon: "🟠" },
         { id: "claude-opus-4-8",          label: "Claude Opus",    provider: "anthropic", icon: "🟠" },
-        { id: "gemini-2.5-flash",         label: "Gemini 2.5 Flash", provider: "gemini",  icon: "🔵" },
-        { id: "gemini-2.5-pro",           label: "Gemini 2.5 Pro",   provider: "gemini",  icon: "🔵" },
-        { id: "gemini-2.0-flash",         label: "Gemini 2.0 Flash", provider: "gemini",  icon: "🔵" },
+        { id: "gemini-2.5-flash-preview-05-20", label: "Gemini 2.5 Flash ✓free", provider: "gemini", icon: "🔵" },
+        { id: "gemini-2.0-flash",              label: "Gemini 2.0 Flash ✓free", provider: "gemini", icon: "🔵" },
+        { id: "gemini-2.5-pro-preview-06-05",  label: "Gemini 2.5 Pro $",       provider: "gemini", icon: "🔵" },
       ];
       const isCustomModel = !AI_MODELS.find(m => m.id === aiModel);
       const curModel = AI_MODELS.find(m => m.id === aiModel) ?? { id: aiModel, label: aiModel, provider: "openai", icon: "🟢" };
@@ -2264,10 +2264,15 @@ export default function AITracker() {
             const data = await res.json();
             setAiMessages(prev => [...prev, { role: "assistant", content: data.content?.[0]?.text ?? "Порожня відповідь", ts: Date.now() }]);
           } else if (provider === "gemini") {
-            const contents = newMsgs.map(m => ({
-              role: m.role === "assistant" ? "model" : "user",
-              parts: [...(m.attachments ?? []).map(a => ({ inlineData: { mimeType: a.type, data: a.data } })), { text: m.content || "" }]
-            }));
+            const contents = newMsgs
+              .map(m => ({
+                role: m.role === "assistant" ? "model" : "user",
+                parts: [
+                  ...(m.attachments ?? []).filter(a => a.type && a.data).map(a => ({ inlineData: { mimeType: a.type, data: a.data } })),
+                  ...(m.content?.trim() ? [{ text: m.content }] : [])
+                ]
+              }))
+              .filter(m => m.parts.length > 0);
             const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${aiModel}:generateContent?key=${key}`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
