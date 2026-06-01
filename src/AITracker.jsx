@@ -765,7 +765,7 @@ export default function AITracker() {
         <div key={notification.id} style={{ position: "fixed", top: 16, right: 16, zIndex: 9999, background: "linear-gradient(135deg,rgba(40,28,4,0.98),rgba(18,12,2,0.98))", color: "#c9a84c", padding: "12px 22px", borderRadius: 3, fontWeight: 700, fontSize: 12, border: "1px solid rgba(201,168,76,0.55)", borderTop: "2px solid #c9a84c", boxShadow: "0 0 30px rgba(201,168,76,0.30), 0 6px 24px rgba(0,0,0,0.7)", animation: "slideIn 0.3s ease", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 2 }}>{notification.msg}</div>
       )}
 
-      <div style={{ position: "relative", zIndex: 1, maxWidth: "min(1400px, 92vw)", margin: "0 auto", padding: "20px 14px" }}>
+      <div style={{ position: "relative", zIndex: 1, maxWidth: "min(1200px, 92vw)", margin: "0 auto", padding: "20px 14px" }}>
 
         {/* Header */}
         <div style={{ marginBottom: 24, paddingBottom: 20, borderBottom: "1px solid rgba(201,168,76,0.30)" }}>
@@ -1110,7 +1110,7 @@ export default function AITracker() {
                     <span>{g.label}</span>
                     <span style={{ color: doneCount === items.length ? "#c9a84c" : "#9a8a60", fontFamily: "'Space Mono',monospace", letterSpacing: 1 }}>{doneCount}/{items.length}</span>
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))", gap: 13 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 13 }}>
                     {items.map(a => {
                       const done = unlockedAchievements.includes(a.id);
                       const tier = TIERS[a.tier];
