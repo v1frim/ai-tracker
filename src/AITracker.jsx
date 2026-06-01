@@ -2190,8 +2190,9 @@ export default function AITracker() {
         { id: "claude-haiku-4-5-20251001",label: "Claude Haiku",   provider: "anthropic", icon: "🟠" },
         { id: "claude-sonnet-4-6",        label: "Claude Sonnet",  provider: "anthropic", icon: "🟠" },
         { id: "claude-opus-4-8",          label: "Claude Opus",    provider: "anthropic", icon: "🟠" },
-        { id: "gemini-2.0-flash",         label: "Gemini Flash",   provider: "gemini",    icon: "🔵" },
-        { id: "gemini-1.5-pro",           label: "Gemini Pro",     provider: "gemini",    icon: "🔵" },
+        { id: "gemini-2.5-flash",         label: "Gemini 2.5 Flash", provider: "gemini",  icon: "🔵" },
+        { id: "gemini-2.5-pro",           label: "Gemini 2.5 Pro",   provider: "gemini",  icon: "🔵" },
+        { id: "gemini-2.0-flash",         label: "Gemini 2.0 Flash", provider: "gemini",  icon: "🔵" },
       ];
       const isCustomModel = !AI_MODELS.find(m => m.id === aiModel);
       const curModel = AI_MODELS.find(m => m.id === aiModel) ?? { id: aiModel, label: aiModel, provider: "openai", icon: "🟢" };
