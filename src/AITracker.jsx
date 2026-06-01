@@ -2315,7 +2315,7 @@ export default function AITracker() {
                     {curModel.icon} {curModel.label} ▾
                   </button>
                   {aiModelOpen && (
-                    <div style={{ position: "absolute", top: "100%", right: 0, marginTop: 4, background: "rgba(10,7,2,0.99)", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 4, overflow: "auto", minWidth: 160, zIndex: 100, boxShadow: "0 8px 24px rgba(0,0,0,0.8)" }}>
+                    <div style={{ position: "absolute", bottom: "100%", right: 0, marginBottom: 4, background: "rgba(10,7,2,0.99)", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 4, overflowY: "auto", maxHeight: 280, minWidth: 160, zIndex: 100, boxShadow: "0 -4px 24px rgba(0,0,0,0.8)" }}>
                       {["openai","anthropic","gemini"].map(prov => (
                         <div key={prov}>
                           <div style={{ fontSize: 9, color: "#5a4a30", padding: "5px 10px 2px", textTransform: "uppercase", letterSpacing: 1 }}>{{ openai:"OpenAI", anthropic:"Anthropic", gemini:"Google" }[prov]}</div>
