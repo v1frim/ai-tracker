@@ -407,6 +407,11 @@ export default function AITracker() {
   const [sessions, setSessions] = useState(saved?.sessions ?? DEFAULT_SESSIONS);
   const [goals, setGoals] = useState(saved?.goals ?? DEFAULT_GOALS);
   const [plan, setPlan] = useState(saved?.plan ?? DEFAULT_PLAN);
+  const [progressLog, setProgressLog] = useState(saved?.progressLog ?? []);
+  const [progressInput, setProgressInput] = useState("");
+  const [progressDate, setProgressDate] = useState(todayStr());
+  const [progressTags, setProgressTags] = useState([]);
+  const [progressShowAll, setProgressShowAll] = useState(false);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [selectedSkill, setSelectedSkill] = useState(null);
   const [notification, setNotification] = useState(null);
@@ -430,12 +435,12 @@ export default function AITracker() {
   const [aiAvailModels, setAiAvailModels] = useState(null);
   const aiMsgsRef = useRef(null);
 
-  const TAB_IDS = ["dashboard", "sessions", "skills", "achievements", "goals", "plan", "finances", "projects"];
+  const TAB_IDS = ["dashboard", "sessions", "skills", "achievements", "goals", "plan", "finances", "projects", "progress"];
 
   useEffect(() => {
-    const state = { skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, goals, plan, aiMessages, aiModel, aiApiKeys };
+    const state = { skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, goals, plan, aiMessages, aiModel, aiApiKeys, progressLog };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, goals, plan, aiMessages, aiModel, aiApiKeys]);
+  }, [skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, goals, plan, aiMessages, aiModel, aiApiKeys, progressLog]);
 
   // Computed totals in USD
   const toUSD = useCallback((amount, currency) => currency === "UAH" ? amount / uahRate : amount, [uahRate]);
@@ -683,6 +688,7 @@ export default function AITracker() {
     { id: "plan", label: "📋 План дій" },
     { id: "finances", label: "💸 Фінанси" },
     { id: "projects", label: "🚀 Проекти" },
+    { id: "progress", label: "📝 Прогрес" },
   ];
 
   // Heatmap: group days into weeks
@@ -2183,6 +2189,103 @@ export default function AITracker() {
           </div>
         )}
       </div>
+
+        {activeTab === "progress" && (() => {
+          const PRESET_TAGS = ["AI-інструмент", "проект", "навичка", "дохід", "ідея", "перемога", "урок"];
+          const addEntry = () => {
+            if (!progressInput.trim()) return;
+            const entry = { id: `pr_${Date.now()}`, date: progressDate, text: progressInput.trim(), tags: progressTags };
+            setProgressLog(prev => [entry, ...prev]);
+            setProgressInput("");
+            setProgressTags([]);
+            setProgressDate(todayStr());
+          };
+          const grouped = progressLog.reduce((acc, e) => {
+            (acc[e.date] = acc[e.date] ?? []).push(e);
+            return acc;
+          }, {});
+          const sortedDates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+          const visibleDates = progressShowAll ? sortedDates : sortedDates.slice(0, 7);
+          const fmtDate = (ds) => {
+            const d = new Date(ds + "T00:00:00");
+            const today = todayStr();
+            const yest = (() => { const x = new Date(); x.setDate(x.getDate()-1); return x.toISOString().slice(0,10); })();
+            if (ds === today) return "Сьогодні";
+            if (ds === yest) return "Вчора";
+            return d.toLocaleDateString("uk-UA", { day: "numeric", month: "long", year: "numeric" });
+          };
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {/* Input card */}
+              <div className="wf-panel" style={{ padding: 16 }}>
+                <div className="wf-sec">✍️ Що зробив сьогодні?</div>
+                <textarea value={progressInput} onChange={e => setProgressInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter" && e.ctrlKey) addEntry(); }}
+                  placeholder="Опиши свій прогрес, досягнення або відкриття…"
+                  rows={3} style={{ width: "100%", background: "rgba(8,5,2,0.7)", border: "1px solid rgba(201,168,76,0.25)", color: "#e0d8c0", padding: "10px 12px", borderRadius: 4, fontSize: 13, fontFamily: "'Exo 2',sans-serif", resize: "vertical", outline: "none", boxSizing: "border-box", lineHeight: 1.5, colorScheme: "dark", marginBottom: 10 }} />
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+                  {PRESET_TAGS.map(tag => {
+                    const active = progressTags.includes(tag);
+                    return (
+                      <button key={tag} onClick={() => setProgressTags(p => active ? p.filter(t=>t!==tag) : [...p, tag])}
+                        style={{ fontSize: 11, padding: "3px 10px", borderRadius: 12, border: `1px solid ${active ? "rgba(201,168,76,0.6)" : "rgba(201,168,76,0.2)"}`, background: active ? "rgba(201,168,76,0.18)" : "none", color: active ? "#c9a84c" : "#6a5840", cursor: "pointer", fontFamily: "'Space Mono',monospace" }}>
+                        {tag}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  <input type="date" value={progressDate} onChange={e => setProgressDate(e.target.value)}
+                    style={{ background: "rgba(8,5,2,0.7)", border: "1px solid rgba(201,168,76,0.25)", color: "#9a8a60", padding: "6px 10px", borderRadius: 4, fontSize: 12, fontFamily: "'Space Mono',monospace", outline: "none", colorScheme: "dark" }} />
+                  <button onClick={addEntry} disabled={!progressInput.trim()}
+                    style={{ marginLeft: "auto", background: progressInput.trim() ? "#c9a84c" : "rgba(201,168,76,0.1)", border: "none", color: progressInput.trim() ? "#000" : "#5a4a30", padding: "8px 20px", borderRadius: 4, cursor: progressInput.trim() ? "pointer" : "default", fontWeight: 800, fontSize: 13, fontFamily: "'Exo 2',sans-serif" }}>
+                    + Додати
+                  </button>
+                </div>
+              </div>
+
+              {/* Log */}
+              {sortedDates.length === 0 ? (
+                <div className="wf-panel" style={{ padding: 24, textAlign: "center", color: "#4a3a20", fontSize: 13 }}>
+                  Ще немає записів — зроби перший! 🚀
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {visibleDates.map(ds => (
+                    <div key={ds}>
+                      <div style={{ fontSize: 11, color: "#6a5a40", textTransform: "uppercase", letterSpacing: 1.5, fontFamily: "'Space Mono',monospace", marginBottom: 6, paddingLeft: 2 }}>
+                        {fmtDate(ds)}
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {grouped[ds].map(entry => (
+                          <div key={entry.id} className="wf-panel" style={{ padding: "12px 14px", position: "relative" }}>
+                            <button onClick={() => setProgressLog(p => p.filter(e => e.id !== entry.id))}
+                              style={{ position: "absolute", top: 8, right: 10, background: "none", border: "none", color: "#4a3a25", cursor: "pointer", fontSize: 16, lineHeight: 1, padding: "2px 4px" }}
+                              onMouseEnter={e => e.target.style.color="#f43f5e"} onMouseLeave={e => e.target.style.color="#4a3a25"}>×</button>
+                            <div style={{ fontSize: 13, color: "#e0d8c0", lineHeight: 1.6, fontFamily: "'Exo 2',sans-serif", paddingRight: 20, whiteSpace: "pre-wrap" }}>{entry.text}</div>
+                            {entry.tags?.length > 0 && (
+                              <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 8 }}>
+                                {entry.tags.map(tag => (
+                                  <span key={tag} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.25)", color: "#8a7a50", fontFamily: "'Space Mono',monospace" }}>{tag}</span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  {sortedDates.length > 7 && (
+                    <button onClick={() => setProgressShowAll(v => !v)}
+                      style={{ background: "none", border: "1px solid rgba(201,168,76,0.2)", color: "#6a5840", padding: "8px", borderRadius: 3, cursor: "pointer", fontSize: 11, fontFamily: "'Space Mono',monospace" }}>
+                      {progressShowAll ? "▲ Сховати" : `▼ Показати всі (${sortedDates.length} днів)`}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
       {/* ── AI Chat Widget ── */}
     {(() => {
