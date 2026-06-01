@@ -2304,7 +2304,7 @@ export default function AITracker() {
       return (
         <div style={{ position: "fixed", bottom: 20, right: 20, zIndex: 9999, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 10 }}>
           {aiOpen && (
-            <div style={{ width: 360, maxWidth: "calc(100vw - 40px)", background: "linear-gradient(180deg,rgba(12,8,3,0.97),rgba(7,5,1,0.98))", border: "1px solid rgba(201,168,76,0.3)", borderTop: "2px solid rgba(201,168,76,0.55)", borderRadius: 8, boxShadow: "0 12px 48px rgba(0,0,0,0.8)", display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: "'Exo 2',sans-serif" }}>
+            <div style={{ width: 360, maxWidth: "calc(100vw - 40px)", maxHeight: "min(520px, calc(100vh - 110px))", background: "linear-gradient(180deg,rgba(12,8,3,0.97),rgba(7,5,1,0.98))", border: "1px solid rgba(201,168,76,0.3)", borderTop: "2px solid rgba(201,168,76,0.55)", borderRadius: 8, boxShadow: "0 12px 48px rgba(0,0,0,0.8)", display: "flex", flexDirection: "column", fontFamily: "'Exo 2',sans-serif" }}>
 
               {/* Header */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderBottom: "1px solid rgba(201,168,76,0.15)", background: "rgba(201,168,76,0.04)" }}>
@@ -2315,7 +2315,7 @@ export default function AITracker() {
                     {curModel.icon} {curModel.label} ▾
                   </button>
                   {aiModelOpen && (
-                    <div style={{ position: "absolute", bottom: "100%", right: 0, marginBottom: 4, background: "rgba(10,7,2,0.99)", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 4, overflow: "hidden", minWidth: 160, zIndex: 20 }}>
+                    <div style={{ position: "absolute", top: "100%", right: 0, marginTop: 4, background: "rgba(10,7,2,0.99)", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 4, overflow: "auto", minWidth: 160, zIndex: 100, boxShadow: "0 8px 24px rgba(0,0,0,0.8)" }}>
                       {["openai","anthropic","gemini"].map(prov => (
                         <div key={prov}>
                           <div style={{ fontSize: 9, color: "#5a4a30", padding: "5px 10px 2px", textTransform: "uppercase", letterSpacing: 1 }}>{{ openai:"OpenAI", anthropic:"Anthropic", gemini:"Google" }[prov]}</div>
