@@ -395,6 +395,7 @@ export default function AITracker() {
   const [subPrompt, setSubPrompt] = useState(null); // { items: [{...sub, checked: bool}] }
   const [subForm, setSubForm] = useState({ name: "", catId: "exp_other", amount: "", currency: "USD", billingDay: 1 });
   const [showSubForm, setShowSubForm] = useState(false);
+  const [journalOpen, setJournalOpen] = useState(true);
   const [projects, setProjects] = useState(saved?.projects ?? DEFAULT_PROJECTS);
   const [projectInput, setProjectInput] = useState("");
   const [sessions, setSessions] = useState(saved?.sessions ?? DEFAULT_SESSIONS);
@@ -1376,6 +1377,144 @@ export default function AITracker() {
                 </div>
               ))}
             </div>
+
+            {/* ── Transaction journal ── */}
+            {(() => {
+              const now2 = new Date();
+              const todayStr2 = now2.toISOString().slice(0, 10);
+              const yesterday2 = (() => { const d = new Date(now2); d.setDate(d.getDate() - 1); return d.toISOString().slice(0, 10); })();
+              const currentYM2 = now2.toISOString().slice(0, 7);
+              const todayDay2 = now2.getDate();
+              const daysInMonth2 = new Date(now2.getFullYear(), now2.getMonth() + 1, 0).getDate();
+
+              const txDateLabel = (ds) => {
+                if (ds === todayStr2) return "Сьогодні";
+                if (ds === yesterday2) return "Вчора";
+                const d = new Date(ds + "T00:00:00");
+                return d.toLocaleDateString("uk-UA", { day: "numeric", month: "long", year: "numeric" });
+              };
+
+              const allTx = [
+                ...incomeEntries.map(e => ({ ...e, txType: "income" })),
+                ...expenseEntries.map(e => ({ ...e, txType: "expense" })),
+              ].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+
+              const dateGroups = [];
+              allTx.forEach(tx => {
+                const last = dateGroups[dateGroups.length - 1];
+                if (last && last.date === tx.date) last.items.push(tx);
+                else dateGroups.push({ date: tx.date, items: [tx] });
+              });
+
+              const upcoming = subscriptions
+                .filter(s => {
+                  if (s.active === false) return false;
+                  const effDay = Math.min(s.billingDay ?? 1, daysInMonth2);
+                  return effDay >= todayDay2 && s.lastBilledYM !== currentYM2;
+                })
+                .sort((a, b) => (a.billingDay ?? 1) - (b.billingDay ?? 1));
+
+              const upcomingLabel = (sub) => {
+                const day = Math.min(sub.billingDay ?? 1, daysInMonth2);
+                if (day === todayDay2) return "Сьогодні";
+                if (day === todayDay2 + 1) return "Завтра";
+                const d = new Date(now2.getFullYear(), now2.getMonth(), day);
+                return d.toLocaleDateString("uk-UA", { day: "numeric", month: "long" });
+              };
+
+              const rowStyle = { display: "flex", alignItems: "center", gap: 12, padding: "11px 0", borderBottom: "1px solid rgba(201,168,76,0.07)" };
+              const iconBox = (icon, bg) => (
+                <div style={{ width: 38, height: 38, borderRadius: "50%", background: bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>{icon}</div>
+              );
+
+              return (
+                <div className="wf-panel" style={{ padding: 16 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: journalOpen ? 14 : 0, cursor: "pointer" }} onClick={() => setJournalOpen(v => !v)}>
+                    <span className="wf-sec" style={{ marginBottom: 0, paddingBottom: 0, border: "none" }}>📋 Журнал операцій</span>
+                    <span style={{ marginLeft: "auto", color: "#9a8a60", fontSize: 14 }}>{journalOpen ? "▲" : "▼"}</span>
+                  </div>
+
+                  {journalOpen && (
+                    <div>
+                      {/* Upcoming payments */}
+                      {upcoming.length > 0 && (
+                        <div style={{ marginBottom: 10 }}>
+                          <div style={{ fontSize: 11, color: "#f59e0b", textTransform: "uppercase", letterSpacing: 2, marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
+                            ⏰ Майбутні платежі
+                            <span style={{ color: "#5a4a20", fontWeight: 400 }}>· {upcoming.length} цього місяця</span>
+                          </div>
+                          {upcoming.map(sub => {
+                            const cat = expenseCats.find(c => c.id === sub.catId);
+                            const amtUSD = sub.currency === "UAH" ? sub.amount / uahRate : sub.amount;
+                            return (
+                              <div key={sub.id} style={{ ...rowStyle, opacity: 0.8 }}>
+                                {iconBox(cat?.icon ?? "💸", "rgba(245,158,11,0.15)")}
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ color: "#e0d8c0", fontFamily: "'Exo 2',sans-serif", fontWeight: 600, fontSize: 13 }}>{sub.name}</div>
+                                  <div style={{ fontSize: 11, color: "#9a8a60", marginTop: 1 }}>
+                                    {cat?.name} · 🗓 {upcomingLabel(sub)}
+                                  </div>
+                                </div>
+                                <div style={{ textAlign: "right" }}>
+                                  <div style={{ color: "#f43f5e", fontFamily: "'Space Mono',monospace", fontWeight: 700, fontSize: 13 }}>
+                                    −{sub.currency === "UAH" ? `${sub.amount} грн` : `$${sub.amount}`}
+                                  </div>
+                                  {sub.currency === "UAH" && <div style={{ fontSize: 10, color: "#5a4a30" }}>~${amtUSD.toFixed(1)}</div>}
+                                </div>
+                              </div>
+                            );
+                          })}
+                          <div style={{ height: 1, background: "rgba(201,168,76,0.15)", margin: "10px 0" }} />
+                        </div>
+                      )}
+
+                      {/* Date-grouped feed */}
+                      {dateGroups.length === 0 && (
+                        <div style={{ fontSize: 12, color: "#5a4a30", textAlign: "center", padding: "20px 0" }}>Ще немає записів</div>
+                      )}
+                      {dateGroups.map(group => {
+                        const cats = group.items[0].txType === "income" ? incomeCats : expenseCats;
+                        return (
+                          <div key={group.date}>
+                            <div style={{ fontSize: 11, color: "#9a8a60", textTransform: "uppercase", letterSpacing: 2, padding: "10px 0 6px", fontFamily: "'Space Mono',monospace" }}>
+                              {txDateLabel(group.date)}
+                            </div>
+                            {group.items.map(tx => {
+                              const catList = tx.txType === "income" ? incomeCats : expenseCats;
+                              const cat = catList.find(c => c.id === tx.catId);
+                              const isInc = tx.txType === "income";
+                              const amtUSD = toUSD(tx.amount, tx.currency);
+                              const bg = isInc ? "rgba(16,185,129,0.12)" : "rgba(244,63,94,0.10)";
+                              return (
+                                <div key={tx.id} style={rowStyle}>
+                                  {iconBox(cat?.icon ?? (isInc ? "📈" : "💸"), bg)}
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ color: "#e0d8c0", fontFamily: "'Exo 2',sans-serif", fontWeight: 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                      {tx.note || cat?.name || (isInc ? "Дохід" : "Витрата")}
+                                    </div>
+                                    <div style={{ fontSize: 11, color: "#6a5a40", marginTop: 1 }}>
+                                      {cat?.name}{tx.recurring && <span style={{ color: "#f59e0b", marginLeft: 6 }}>🔄</span>}
+                                    </div>
+                                  </div>
+                                  <div style={{ textAlign: "right", flexShrink: 0 }}>
+                                    <div style={{ color: isInc ? "#10b981" : "#f43f5e", fontFamily: "'Space Mono',monospace", fontWeight: 700, fontSize: 13 }}>
+                                      {isInc ? "+" : "−"}{tx.currency === "UAH" ? `${tx.amount} грн` : `$${tx.amount}`}
+                                    </div>
+                                    {tx.currency === "UAH" && (
+                                      <div style={{ fontSize: 10, color: "#5a4a30" }}>~${amtUSD.toFixed(1)}</div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Income table */}
             <div className="wf-panel" style={{ padding: 16 }}>
