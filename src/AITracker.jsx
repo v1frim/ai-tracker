@@ -219,6 +219,20 @@ function sessionsThisMonth(dates) {
   return dates.filter(d => d.startsWith(ym)).length;
 }
 
+function calcLongestStreak(dates) {
+  if (!dates.length) return 0;
+  const sorted = [...new Set(dates)].sort();
+  let max = 1, cur = 1;
+  for (let i = 1; i < sorted.length; i++) {
+    const diff = (new Date(sorted[i]) - new Date(sorted[i - 1])) / 86400000;
+    if (diff === 1) { cur++; if (cur > max) max = cur; }
+    else cur = 1;
+  }
+  return max;
+}
+
+const APP_START_DATE = "2026-06-01";
+
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -411,6 +425,7 @@ export default function AITracker() {
   const [projectInput, setProjectInput] = useState("");
   const [projectCompletionXP, setProjectCompletionXP] = useState(200);
   const [sessions, setSessions] = useState(saved?.sessions ?? DEFAULT_SESSIONS);
+  const [activeDays, setActiveDays] = useState(saved?.activeDays ?? []);
   const [goals, setGoals] = useState(saved?.goals ?? DEFAULT_GOALS);
   const [plan, setPlan] = useState(saved?.plan ?? DEFAULT_PLAN);
   const [progressLog, setProgressLog] = useState(saved?.progressLog ?? []);
@@ -446,9 +461,9 @@ export default function AITracker() {
   const TAB_IDS = ["dashboard", "sessions", "skills", "achievements", "goals", "plan", "finances", "projects", "progress"];
 
   useEffect(() => {
-    const state = { skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, goals, plan, aiMessages, aiModel, aiApiKeys, progressLog };
+    const state = { skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, activeDays, goals, plan, aiMessages, aiModel, aiApiKeys, progressLog };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, goals, plan, aiMessages, aiModel, aiApiKeys, progressLog]);
+  }, [skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, activeDays, goals, plan, aiMessages, aiModel, aiApiKeys, progressLog]);
 
   // Computed totals in USD
   const toUSD = useCallback((amount, currency) => currency === "UAH" ? amount / uahRate : amount, [uahRate]);
@@ -524,6 +539,12 @@ export default function AITracker() {
     }
   }, [aiOpen, aiMessages]);
 
+  // Auto-record every day the app is opened
+  useEffect(() => {
+    const today = todayStr();
+    setActiveDays(prev => prev.includes(today) ? prev : [...prev, today]);
+  }, []);
+
   const totalLevel = calcLevel(totalXP);
   const curLevelXP = xpForLevel(totalLevel);
   const nextLevelXP = xpForLevel(totalLevel + 1);
@@ -531,10 +552,17 @@ export default function AITracker() {
   const totalTools = Object.values(skillData).flatMap(s => s.unlockedTools).length;
 
   const streak = useMemo(() => calcStreak(sessions.dates), [sessions.dates]);
+  const longestStreak = useMemo(() => calcLongestStreak(sessions.dates), [sessions.dates]);
   const monthSessions = useMemo(() => sessionsThisMonth(sessions.dates), [sessions.dates]);
   const doneToday = sessions.dates.includes(todayStr());
   const heatmapDays = useMemo(() => lastNDays(56), []);
   const sessionSet = useMemo(() => new Set(sessions.dates), [sessions.dates]);
+  const totalActiveDays = activeDays.length;
+  const daysSinceStart = useMemo(() => {
+    const diff = new Date(todayStr()) - new Date(APP_START_DATE);
+    return Math.max(1, Math.floor(diff / 86400000) + 1);
+  }, []);
+  const daysPassedThisMonth = new Date().getDate();
 
   const showNotif = useCallback((msg, type = "xp") => {
     setNotification({ msg, type, id: Date.now() });
@@ -822,9 +850,7 @@ export default function AITracker() {
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                 <span style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 22, fontWeight: 800, color: "#e0d8c0", letterSpacing: 3, textTransform: "uppercase" }}>ViFrim</span>
                 <span style={{ background: `${lc}1a`, border: `1px solid ${lc}99`, color: lc, padding: "3px 10px", borderRadius: 3, fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>{lg.name} ліга</span>
-                {streak > 0 && (
-                  <span style={{ background: `${lc}14`, border: `1px solid ${lc}80`, color: lc, padding: "3px 10px", borderRadius: 3, fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>🔥 {streak} дн.</span>
-                )}
+                <span style={{ background: `${lc}14`, border: `1px solid ${lc}80`, color: lc, padding: "3px 10px", borderRadius: 3, fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>🔥 {totalActiveDays} дн.</span>
               </div>
               <div style={{ fontSize: 11, color: `${lc}80`, marginTop: 4, textTransform: "uppercase", letterSpacing: 3 }}>AI Progress Tracker</div>
             </div>
@@ -1022,9 +1048,9 @@ export default function AITracker() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))", gap: 12 }}>
               {[
                 { label: "Стрік", val: `${streak} дн.`, icon: "🔥", color: "#f59e0b", sub: streak >= 7 ? "Топ!" : "Тримай!" },
-                { label: "Цього місяця", val: `${monthSessions}/${sessions.monthlyTarget}`, icon: "📅", color: "#00ff88", sub: `${Math.round(monthSessions / sessions.monthlyTarget * 100)}%` },
-                { label: "Всього сесій", val: sessions.dates.length, icon: "⚡", color: "#6366f1", sub: `+50 XP кожна` },
-                { label: "Найдовший стрік", val: `${Math.max(streak, 0)} дн.`, icon: "🏅", color: "#ec4899", sub: "личний рекорд" },
+                { label: "Цього місяця", val: `${monthSessions}/${sessions.monthlyTarget}`, icon: "📅", color: "#00ff88", sub: `${daysPassedThisMonth} дн. пройшло` },
+                { label: "Активних днів", val: totalActiveDays, icon: "📆", color: "#6366f1", sub: `з ${daysSinceStart} дн.` },
+                { label: "Найдовший стрік", val: `${longestStreak} дн.`, icon: "🏅", color: "#ec4899", sub: "особистий рекорд" },
               ].map(s => (
                 <div key={s.label} style={{ background: "rgba(5,3,1,0.76)", border: `1px solid ${s.color}22`, borderRadius: 4, padding: "14px 16px", textAlign: "center" }}>
                   <div style={{ fontSize: 22, marginBottom: 6 }}>{s.icon}</div>
