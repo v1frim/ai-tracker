@@ -847,17 +847,17 @@ export default function AITracker() {
         </div>
 
         {/* Tabs — Warframe underline style */}
-        <div style={{ display: "flex", gap: 0, marginBottom: 24, flexWrap: "wrap", borderBottom: "1px solid rgba(201,168,76,0.28)" }}>
+        <div style={{ display: "flex", gap: 0, marginBottom: 24, borderBottom: "1px solid rgba(201,168,76,0.28)", overflowX: "auto", flexShrink: 0 }}>
           {tabs.map(t => (
-            <button key={t.id} className="tab-btn" onClick={() => setActiveTab(t.id)} style={{ padding: "11px 16px", borderRadius: 0, fontSize: 13, cursor: "pointer", background: "transparent", color: activeTab === t.id ? "#d4b040" : "#6a5f40", border: "none", borderBottom: activeTab === t.id ? "2px solid #d4b040" : "2px solid transparent", marginBottom: -1, fontWeight: activeTab === t.id ? 800 : 600, fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: "3px" }}>{t.label}</button>
+            <button key={t.id} className="tab-btn" onClick={() => setActiveTab(t.id)} style={{ padding: "11px 13px", borderRadius: 0, fontSize: 12, cursor: "pointer", background: "transparent", color: activeTab === t.id ? "#d4b040" : "#6a5f40", border: "none", borderBottom: activeTab === t.id ? "2px solid #d4b040" : "2px solid transparent", marginBottom: -1, fontWeight: activeTab === t.id ? 800 : 600, fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: "1.5px", whiteSpace: "nowrap" }}>{t.label}</button>
           ))}
         </div>
 
         {/* Dashboard */}
         {activeTab === "dashboard" && (
           <div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(170px,1fr))", gap: 13, marginBottom: 20 }}>
-              {SKILLS.slice(0, 6).map(sk => {
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))", gap: 13, marginBottom: 20 }}>
+              {SKILLS.map(sk => {
                 const unlocked = skillData[sk.id].unlockedTools;
                 return (
                   <div key={sk.id} onClick={() => { setSelectedSkill(sk); setActiveTab("skills"); }} className="skill-card" style={{ background: "rgba(5,3,1,0.76)", border: `1px solid ${unlocked.length > 0 ? sk.color + "33" : "rgba(201,168,76,0.12)"}`, borderRadius: 4, padding: 14, cursor: "pointer" }}>
