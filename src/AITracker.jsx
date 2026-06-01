@@ -796,97 +796,89 @@ export default function AITracker() {
       <div style={{ position: "relative", zIndex: 1, maxWidth: "min(1200px, 92vw)", margin: "0 auto", padding: "20px 14px" }}>
 
         {/* Header */}
-        <div style={{ marginBottom: 24, paddingBottom: 20, borderBottom: "1px solid rgba(201,168,76,0.30)" }}>
+        {(() => {
+          const lg = getLeague(totalLevel);
+          const lc = lg.color;
+          const lglow = lg.glow;
+          const lbg = lg.bg.replace("135deg", "90deg");
+          return (
+        <div style={{ marginBottom: 24, paddingBottom: 20, borderBottom: `1px solid ${lc}44` }}>
+
           {/* Top row: avatar + name + stats */}
           <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>
             <div style={{ position: "relative", flexShrink: 0 }}>
-              <div style={{ width: 58, height: 58, borderRadius: 4, background: "linear-gradient(145deg,#3a2808,#7a5818)", border: `2px solid ${getLeague(totalLevel).color}`, boxShadow: `0 0 22px ${getLeague(totalLevel).glow}, inset 0 0 16px rgba(201,168,76,0.08)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 800, color: "#c9a84c", fontFamily: "'Exo 2',sans-serif", letterSpacing: -1 }}>Vi</div>
+              <div style={{ width: 58, height: 58, borderRadius: 4, background: "linear-gradient(145deg,#1a1210,#2a1e14)", border: `2px solid ${lc}`, boxShadow: `0 0 22px ${lglow}, inset 0 0 16px ${lc}14`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 800, color: lc, fontFamily: "'Exo 2',sans-serif", letterSpacing: -1 }}>Vi</div>
               <div style={{ position: "absolute", bottom: -8, right: -10 }}><LeagueBadge level={totalLevel} size={30} /></div>
             </div>
             <div style={{ flex: 1, minWidth: 160 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                 <span style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 22, fontWeight: 800, color: "#e0d8c0", letterSpacing: 3, textTransform: "uppercase" }}>ViFrim</span>
-                <span style={{ background: `${getLeague(totalLevel).color}22`, border: `1px solid ${getLeague(totalLevel).color}88`, color: getLeague(totalLevel).color, padding: "3px 10px", borderRadius: 3, fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>{getLeague(totalLevel).name} ліга</span>
+                <span style={{ background: `${lc}1a`, border: `1px solid ${lc}99`, color: lc, padding: "3px 10px", borderRadius: 3, fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>{lg.name} ліга</span>
                 {streak > 0 && (
-                  <span style={{ background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.5)", color: "#c9a84c", padding: "3px 10px", borderRadius: 3, fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>🔥 {streak} дн.</span>
+                  <span style={{ background: `${lc}14`, border: `1px solid ${lc}80`, color: lc, padding: "3px 10px", borderRadius: 3, fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>🔥 {streak} дн.</span>
                 )}
               </div>
-              <div style={{ fontSize: 11, color: "#9a8a60", marginTop: 4, textTransform: "uppercase", letterSpacing: 3 }}>AI Progress Tracker</div>
+              <div style={{ fontSize: 11, color: `${lc}80`, marginTop: 4, textTransform: "uppercase", letterSpacing: 3 }}>AI Progress Tracker</div>
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {[
-                { label: "Дохід", val: `$${totalIncome.toFixed(0)}`, color: "#c9a84c" },
-                { label: "Проекти", val: projects.length, color: "#c9a84c" },
+                { label: "Дохід", val: `$${totalIncome.toFixed(0)}`, color: lc },
+                { label: "Проекти", val: projects.length, color: lc },
                 { label: "Інструменти", val: `${totalTools}/${TOTAL_TOOLS}`, color: "#00ff88" },
-                { label: "Сесій/міс", val: `${monthSessions}/${sessions.monthlyTarget}`, color: "#c9a84c" },
+                { label: "Сесій/міс", val: `${monthSessions}/${sessions.monthlyTarget}`, color: lc },
               ].map(s => (
-                <div key={s.label} className="wf-panel" style={{ textAlign: "center", padding: "10px 14px", minWidth: 84 }}>
-                  <div style={{ fontSize: 11, color: "#9a8a60", textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>{s.label}</div>
+                <div key={s.label} style={{ textAlign: "center", padding: "10px 14px", minWidth: 84, background: "rgba(8,5,2,0.55)", border: `1px solid ${lc}28`, borderTop: `2px solid ${lc}60`, borderRadius: 4, boxShadow: `0 0 12px ${lglow}` }}>
+                  <div style={{ fontSize: 11, color: `${lc}88`, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>{s.label}</div>
                   <div style={{ fontSize: 24, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif" }}>{s.val}</div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* XP Bar — Warframe Mastery Rank style */}
-          <div className="wf-panel" style={{ padding: "12px 16px" }}>
-            {/* Level labels + XP numbers */}
+          {/* XP Bar */}
+          <div style={{ padding: "12px 16px", background: "rgba(8,5,2,0.55)", border: `1px solid ${lc}28`, borderTop: `2px solid ${lc}60`, borderRadius: 4, boxShadow: `0 0 12px ${lglow}` }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ background: "linear-gradient(135deg,#7a5818,#c9a84c)", color: "#000", padding: "3px 12px", borderRadius: 3, fontSize: 12, fontWeight: 800, fontFamily: "'Exo 2',sans-serif", letterSpacing: 2, textTransform: "uppercase" }}>RANK {totalLevel}</span>
-                <span style={{ fontSize: 12, color: "#c9a84c", fontFamily: "'Space Mono',monospace", fontWeight: 700 }}>{totalXP.toLocaleString()} XP</span>
+                <span style={{ background: lbg, color: "#000", padding: "3px 12px", borderRadius: 3, fontSize: 12, fontWeight: 800, fontFamily: "'Exo 2',sans-serif", letterSpacing: 2, textTransform: "uppercase" }}>RANK {totalLevel}</span>
+                <span style={{ fontSize: 12, color: lc, fontFamily: "'Space Mono',monospace", fontWeight: 700 }}>{totalXP.toLocaleString()} XP</span>
               </div>
-              <div style={{ fontSize: 11, color: "#9a8a60", fontFamily: "'Space Mono',monospace" }}>
-                ще <span style={{ color: "#c9a84c", fontWeight: 700 }}>{(nextLevelXP - totalXP).toLocaleString()}</span> XP
+              <div style={{ fontSize: 11, color: `${lc}99`, fontFamily: "'Space Mono',monospace" }}>
+                ще <span style={{ color: lc, fontWeight: 700 }}>{(nextLevelXP - totalXP).toLocaleString()}</span> XP
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 12, color: "#9a8a60", fontFamily: "'Space Mono',monospace" }}>{nextLevelXP.toLocaleString()} XP</span>
-                <span style={{ background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.5)", color: "#c9a84c", padding: "3px 12px", borderRadius: 3, fontSize: 12, fontWeight: 800, fontFamily: "'Exo 2',sans-serif", letterSpacing: 2, textTransform: "uppercase" }}>RANK {totalLevel + 1}</span>
+                <span style={{ fontSize: 12, color: `${lc}80`, fontFamily: "'Space Mono',monospace" }}>{nextLevelXP.toLocaleString()} XP</span>
+                <span style={{ background: `${lc}18`, border: `1px solid ${lc}80`, color: lc, padding: "3px 12px", borderRadius: 3, fontSize: 12, fontWeight: 800, fontFamily: "'Exo 2',sans-serif", letterSpacing: 2, textTransform: "uppercase" }}>RANK {totalLevel + 1}</span>
               </div>
             </div>
-
-            {/* Bar track */}
-            <div style={{ position: "relative", height: 12, background: "rgba(20,14,4,0.80)", borderRadius: 2, overflow: "hidden", border: "1px solid rgba(201,168,76,0.20)" }}>
-              {/* Filled portion — gold gradient like Warframe capacity bar */}
-              <div style={{
-                width: `${Math.min(100, xpProgress)}%`,
-                height: "100%",
-                background: "linear-gradient(90deg, #4a3008 0%, #8a6020 30%, #c9a84c 70%, #e8c870 100%)",
-                borderRadius: 2,
-                transition: "width 0.7s ease",
-                boxShadow: "0 0 10px rgba(201,168,76,0.5), inset 0 1px 0 rgba(255,230,100,0.3)",
-                position: "relative",
-              }}>
-                <div style={{ position: "absolute", top: 1, left: 0, right: 0, height: 2, background: "rgba(255,230,100,0.35)", borderRadius: 2 }} />
+            <div style={{ position: "relative", height: 12, background: "rgba(20,14,4,0.80)", borderRadius: 2, overflow: "hidden", border: `1px solid ${lc}30` }}>
+              <div style={{ width: `${Math.min(100, xpProgress)}%`, height: "100%", background: lbg, borderRadius: 2, transition: "width 0.7s ease", boxShadow: `0 0 10px ${lglow}, inset 0 1px 0 rgba(255,255,255,0.15)`, position: "relative" }}>
+                <div style={{ position: "absolute", top: 1, left: 0, right: 0, height: 2, background: "rgba(255,255,255,0.2)", borderRadius: 2 }} />
               </div>
-              {/* Segment notches */}
               {[10,20,30,40,50,60,70,80,90].map(p => (
                 <div key={p} style={{ position: "absolute", top: 0, left: `${p}%`, width: 1, height: "100%", background: "rgba(0,0,0,0.50)", pointerEvents: "none" }} />
               ))}
             </div>
-
-            {/* Progress percent + league info */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 7, flexWrap: "wrap", gap: 6 }}>
-              <div style={{ fontSize: 11, color: "#9a8a60", fontFamily: "'Space Mono',monospace" }}>
-                {Math.round(xpProgress)}% до рівня {totalLevel + 1}
-              </div>
+              <div style={{ fontSize: 11, color: `${lc}88`, fontFamily: "'Space Mono',monospace" }}>{Math.round(xpProgress)}% до рівня {totalLevel + 1}</div>
               {(() => {
                 const cur = getLeague(totalLevel);
                 const nextLg = LEAGUES[LEAGUES.indexOf(cur) + 1];
-                if (!nextLg) return <span style={{ fontSize: 11, color: cur.color, fontFamily: "'Exo 2',sans-serif", fontWeight: 800, letterSpacing: 1, textTransform: "uppercase" }}>★ {cur.name} ліга — МАКС</span>;
+                if (!nextLg) return <span style={{ fontSize: 11, color: lc, fontFamily: "'Exo 2',sans-serif", fontWeight: 800, letterSpacing: 1, textTransform: "uppercase" }}>★ {cur.name} ліга — МАКС</span>;
                 const levelsLeft = nextLg.minLevel - totalLevel;
                 return (
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={{ fontSize: 11, color: cur.color, fontFamily: "'Exo 2',sans-serif", fontWeight: 700, textTransform: "uppercase" }}>{cur.name}</span>
                     <span style={{ fontSize: 11, color: "#5a4a30" }}>→</span>
                     <span style={{ fontSize: 11, color: nextLg.color, fontFamily: "'Exo 2',sans-serif", fontWeight: 700, textTransform: "uppercase" }}>{nextLg.name}</span>
-                    <span style={{ fontSize: 11, color: "#9a8a60", fontFamily: "'Space Mono',monospace" }}>ще {levelsLeft} рів.</span>
+                    <span style={{ fontSize: 11, color: `${lc}88`, fontFamily: "'Space Mono',monospace" }}>ще {levelsLeft} рів.</span>
                   </div>
                 );
               })()}
             </div>
           </div>
         </div>
+          );
+        })()}
 
         {/* Tabs — Warframe underline style */}
         <div style={{ display: "flex", gap: 0, marginBottom: 24, borderBottom: "1px solid rgba(201,168,76,0.28)", overflowX: "auto", flexShrink: 0 }}>
