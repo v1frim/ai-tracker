@@ -1809,7 +1809,7 @@ export default function AITracker() {
                       const daysInM = new Date(cur.getFullYear(), cur.getMonth() + 1, 0).getDate();
                       const effDay = Math.min(billingDay, daysInM);
                       const bd = new Date(cur.getFullYear(), cur.getMonth(), effDay);
-                      if (bd >= start && bd <= now) pastDates.push(bd.toISOString().slice(0, 10));
+                      if (bd >= start && bd <= now) pastDates.push(`${bd.getFullYear()}-${String(bd.getMonth()+1).padStart(2,'0')}-${String(bd.getDate()).padStart(2,'0')}`);
                       cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
                     }
                     if (pastDates.length > 0) {
