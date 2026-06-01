@@ -51,6 +51,7 @@ const ACHIEVEMENTS = [
   { id: "thousand_dollar",group: "income", tier: "rare",      name: "Перша тисяча",  desc: "Зароби $1,000 з AI",      xp: 700,  icon: "🏆", check: (t, i) => i >= 1000 },
   { id: "tenk_dollar",    group: "income", tier: "epic",      name: "П'ять нулів",   desc: "Зароби $10,000 з AI",     xp: 1500, icon: "💎", check: (t, i) => i >= 10000 },
   { id: "hundredk_dollar",group: "income", tier: "prime",     name: "Шестизначний",  desc: "Зароби $100,000 з AI",    xp: 5000, icon: "👑", check: (t, i) => i >= 100000 },
+  { id: "million_dollar",  group: "income", tier: "legendary", name: "Мільйонер",    desc: "Зароби $1,000,000 з AI",  xp: 15000, icon: "🤑", check: (t, i) => i >= 1000000 },
 
   // ── Проекти ──
   { id: "first_project",  group: "projects", tier: "common",    name: "Будівничий",       desc: "Заверши перший AI-проект", xp: 200,  icon: "🚀", check: (t, i, p) => p >= 1 },
@@ -94,15 +95,27 @@ const PLAN_PRIORITIES = [
 ];
 
 const DEFAULT_GOALS = [
-  { id: "dg1", text: "Заробити $14,000 цього року", priority: "important", done: false },
-  { id: "dg2", text: "Вивчити 20 AI-інструментів", priority: "important", done: false },
-  { id: "dg3", text: "Запустити перший digital product", priority: "normal", done: false },
+  { id: "dg1", text: "Навчитися та застосувати 3 нові AI-інструменти", priority: "important", xp: 150, done: false },
+  { id: "dg2", text: "Зробити перший продаж через AI", priority: "urgent", xp: 200, done: false },
+  { id: "dg3", text: "Написати пост про прогрес в AI", priority: "normal", xp: 50, done: false },
 ];
 
 const TASK_PRIORITIES = [
   { id: "urgent",    label: "Термінові",  color: "#f43f5e", bg: "rgba(244,63,94,0.10)",  border: "rgba(244,63,94,0.30)",  fontWeight: 800 },
   { id: "important", label: "Важливі",    color: "#c9a84c", bg: "rgba(201,168,76,0.08)", border: "rgba(201,168,76,0.28)", fontWeight: 700 },
   { id: "normal",    label: "Звичайні",   color: "#8a9ab0", bg: "rgba(138,154,176,0.06)", border: "rgba(138,154,176,0.20)", fontWeight: 500 },
+];
+
+const GOAL_PERIODS = [
+  { id: "month",    label: "Цього місяця", color: "#00ff88",  icon: "📅" },
+  { id: "year",     label: "Цього року",   color: "#f59e0b",  icon: "📆" },
+  { id: "longterm", label: "Довгострокова",color: "#a855f7",  icon: "🌟" },
+];
+
+const DEFAULT_LONG_GOALS = [
+  { id: "lg1", text: "Заробити $14,000 цього року", period: "year",     customXP: 500, done: false },
+  { id: "lg2", text: "Вивчити 20 AI-інструментів",  period: "year",     customXP: 300, done: false },
+  { id: "lg3", text: "Запустити перший digital product", period: "longterm", customXP: 400, done: false },
 ];
 
 const DEFAULT_PLAN = [
@@ -441,6 +454,15 @@ export default function AITracker() {
   const [goalPriority, setGoalPriority] = useState("important");
   const [goalEditId, setGoalEditId] = useState(null);
   const [goalEditText, setGoalEditText] = useState("");
+  const [goalXP, setGoalXP] = useState(100);
+  const [goalEditXP, setGoalEditXP] = useState(100);
+  const [longGoals, setLongGoals] = useState(saved?.longGoals ?? DEFAULT_LONG_GOALS);
+  const [longGoalInput, setLongGoalInput] = useState("");
+  const [longGoalPeriod, setLongGoalPeriod] = useState("month");
+  const [longGoalXP, setLongGoalXP] = useState(200);
+  const [longGoalEditId, setLongGoalEditId] = useState(null);
+  const [longGoalEditText, setLongGoalEditText] = useState("");
+  const [longGoalEditXP, setLongGoalEditXP] = useState(200);
   const [planInput, setPlanInput] = useState("");
   const [planPriority, setPlanPriority] = useState("now");
 
@@ -458,12 +480,12 @@ export default function AITracker() {
   const [aiAvailModels, setAiAvailModels] = useState(null);
   const aiMsgsRef = useRef(null);
 
-  const TAB_IDS = ["dashboard", "sessions", "skills", "achievements", "goals", "plan", "finances", "projects", "progress"];
+  const TAB_IDS = ["dashboard", "goals", "longgoals", "sessions", "skills", "achievements", "plan", "finances", "projects", "progress"];
 
   useEffect(() => {
-    const state = { skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, activeDays, goals, plan, aiMessages, aiModel, aiApiKeys, progressLog };
+    const state = { skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, activeDays, goals, longGoals, plan, aiMessages, aiModel, aiApiKeys, progressLog };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, activeDays, goals, plan, aiMessages, aiModel, aiApiKeys, progressLog]);
+  }, [skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, activeDays, goals, longGoals, plan, aiMessages, aiModel, aiApiKeys, progressLog]);
 
   // Computed totals in USD
   const toUSD = useCallback((amount, currency) => currency === "UAH" ? amount / uahRate : amount, [uahRate]);
@@ -716,15 +738,16 @@ export default function AITracker() {
   }, []);
 
   const tabs = [
-    { id: "dashboard", label: "🏠 Головна" },
-    { id: "sessions", label: "🔥 Сесії" },
-    { id: "skills", label: "🧩 Навички" },
+    { id: "dashboard",    label: "🏠 Головна" },
+    { id: "goals",        label: "✅ Задачі" },
+    { id: "longgoals",    label: "🎯 Цілі" },
+    { id: "sessions",     label: "🔥 Сесії" },
+    { id: "skills",       label: "🧩 Навички" },
     { id: "achievements", label: "🏆 Досягнення" },
-    { id: "goals", label: "🎯 Цілі" },
-    { id: "plan", label: "📋 План дій" },
-    { id: "finances", label: "💸 Фінанси" },
-    { id: "projects", label: "🚀 Проекти" },
-    { id: "progress", label: "📝 Прогрес" },
+    { id: "plan",         label: "📋 План дій" },
+    { id: "finances",     label: "💸 Фінанси" },
+    { id: "projects",     label: "🚀 Проекти" },
+    { id: "progress",     label: "📝 Прогрес" },
   ];
 
   // Heatmap: group days into weeks
@@ -1238,6 +1261,7 @@ export default function AITracker() {
         )}
 
         {/* Goals */}
+        {/* Goals = Задачі */}
         {activeTab === "goals" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
@@ -1250,7 +1274,7 @@ export default function AITracker() {
                   onChange={e => setGoalInput(e.target.value)}
                   onKeyDown={e => {
                     if (e.key === "Enter" && goalInput.trim()) {
-                      setGoals(prev => [...prev, { id: `g${Date.now()}`, text: goalInput.trim(), priority: goalPriority, done: false, createdAt: new Date().toISOString() }]);
+                      setGoals(prev => [...prev, { id: `g${Date.now()}`, text: goalInput.trim(), priority: goalPriority, xp: goalXP, done: false, createdAt: new Date().toISOString() }]);
                       setGoalInput("");
                     }
                   }}
@@ -1264,9 +1288,14 @@ export default function AITracker() {
                 >
                   {TASK_PRIORITIES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
                 </select>
+                <div style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "0 10px" }}>
+                  <span style={{ fontSize: 11, color: "#6a5f40" }}>XP</span>
+                  <input type="number" min="0" max="9999" value={goalXP} onChange={e => setGoalXP(Math.max(0, parseInt(e.target.value) || 0))}
+                    style={{ width: 52, background: "transparent", border: "none", color: "#00ff88", fontSize: 13, fontFamily: "'Space Mono',monospace", textAlign: "center", padding: "9px 0" }} />
+                </div>
                 <button className="act-btn" onClick={() => {
                   if (!goalInput.trim()) return;
-                  setGoals(prev => [...prev, { id: `g${Date.now()}`, text: goalInput.trim(), priority: goalPriority, done: false, createdAt: new Date().toISOString() }]);
+                  setGoals(prev => [...prev, { id: `g${Date.now()}`, text: goalInput.trim(), priority: goalPriority, xp: goalXP, done: false, createdAt: new Date().toISOString() }]);
                   setGoalInput("");
                 }} style={{ background: "#00ff88", color: "#000", border: "none", padding: "9px 16px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 12 }}>Додати</button>
               </div>
@@ -1284,7 +1313,7 @@ export default function AITracker() {
                       <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 10, background: pr.bg, borderRadius: 4, padding: "10px 12px" }}>
                         <button onClick={() => setGoals(prev => prev.map(x => {
                           if (x.id !== g.id) return x;
-                          if (!x.done && !x.xpAwarded) { gainXP(100, "(задачу виконано)"); return { ...x, done: true, xpAwarded: true }; }
+                          if (!x.done && !x.xpAwarded) { gainXP(g.xp ?? 100, "(задачу виконано)"); return { ...x, done: true, xpAwarded: true }; }
                           return { ...x, done: !x.done };
                         }))} style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${pr.color}66`, background: "transparent", cursor: "pointer", flexShrink: 0, fontSize: 10, color: pr.color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }} />
                         {goalEditId === g.id ? (
