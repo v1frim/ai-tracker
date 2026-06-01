@@ -397,6 +397,7 @@ export default function AITracker() {
   const [subForm, setSubForm] = useState({ name: "", catId: "exp_other", amount: "", currency: "USD", startDate: todayStr() });
   const [showSubForm, setShowSubForm] = useState(false);
   const [journalOpen, setJournalOpen] = useState(true);
+  const [showAllSubs, setShowAllSubs] = useState(false);
   const [revokeConfirm, setRevokeConfirm] = useState(null); // { id, name, xp }
   const [toolRevokeConfirm, setToolRevokeConfirm] = useState(null); // { skillId, tool }
   const [projectDeleteConfirm, setProjectDeleteConfirm] = useState(null); // index
@@ -1830,7 +1831,11 @@ export default function AITracker() {
                 <div style={{ fontSize: 12, color: "#5a4a30", textAlign: "center", padding: "14px 0" }}>Немає активних підписок</div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {subscriptions.map(sub => {
+                  {[...subscriptions].sort((a, b) => {
+                    const ta = a.id?.match(/\d{10,}/)?.[0] ?? "0";
+                    const tb = b.id?.match(/\d{10,}/)?.[0] ?? "0";
+                    return parseInt(tb) - parseInt(ta);
+                  }).slice(0, showAllSubs ? undefined : 7).map(sub => {
                     const amtUSD = sub.currency === "UAH" ? sub.amount / uahRate : sub.amount;
                     const isActive = sub.active !== false;
                     const cat = expenseCats.find(c => c.id === sub.catId);
@@ -1873,6 +1878,11 @@ export default function AITracker() {
                       </div>
                     );
                   })}
+                  {subscriptions.length > 7 && (
+                    <button onClick={() => setShowAllSubs(v => !v)} style={{ background: "none", border: "1px solid rgba(201,168,76,0.2)", color: "#9a8a60", padding: "6px", borderRadius: 3, cursor: "pointer", fontSize: 11, fontFamily: "'Space Mono',monospace", letterSpacing: 0.5 }}>
+                      {showAllSubs ? "▲ Сховати" : `▼ Ще ${subscriptions.length - 7} підписок`}
+                    </button>
+                  )}
                   <div style={{ fontSize: 11, color: "#5a4a60", textAlign: "right", paddingTop: 4, fontFamily: "'Space Mono',monospace" }}>
                     Щомісяця: <span style={{ color: "#f43f5e", fontWeight: 700 }}>${subscriptions.filter(s => s.active !== false).reduce((sum, s) => sum + (s.currency === "UAH" ? s.amount / uahRate : s.amount), 0).toFixed(2)}</span>
                   </div>
