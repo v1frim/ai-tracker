@@ -428,7 +428,6 @@ export default function AITracker() {
   const [aiModelOpen, setAiModelOpen] = useState(false);
   const [aiDropPos, setAiDropPos] = useState(null);
   const [aiAvailModels, setAiAvailModels] = useState(null);
-  const [aiPanelHovered, setAiPanelHovered] = useState(false);
   const aiMsgsRef = useRef(null);
 
   const TAB_IDS = ["dashboard", "sessions", "skills", "achievements", "goals", "plan", "finances", "projects"];
@@ -505,18 +504,6 @@ export default function AITracker() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
-
-  useEffect(() => {
-    if (!aiOpen) return;
-    const handler = (e) => {
-      if (!e.target.closest("[data-ai-chat]")) {
-        setAiOpen(false);
-        setAiModelOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [aiOpen]);
 
   useEffect(() => {
     if (aiOpen && aiMsgsRef.current) {
@@ -2338,8 +2325,7 @@ export default function AITracker() {
       return (
         <div data-ai-chat style={{ position: "fixed", bottom: 20, right: 20, zIndex: 9999, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 10 }}>
           {aiOpen && (
-            <div onMouseEnter={() => setAiPanelHovered(true)} onMouseLeave={() => setAiPanelHovered(false)}
-              style={{ width: 310, maxWidth: "calc(100vw - 40px)", maxHeight: "min(520px, calc(100vh - 110px))", background: "linear-gradient(180deg,rgba(12,8,3,0.97),rgba(7,5,1,0.98))", border: "1px solid rgba(201,168,76,0.3)", borderTop: "2px solid rgba(201,168,76,0.55)", borderRadius: 8, boxShadow: "0 12px 48px rgba(0,0,0,0.8)", display: "flex", flexDirection: "column", fontFamily: "'Exo 2',sans-serif" }}>
+            <div style={{ width: 310, maxWidth: "calc(100vw - 40px)", maxHeight: "min(520px, calc(100vh - 110px))", background: "linear-gradient(180deg,rgba(12,8,3,0.97),rgba(7,5,1,0.98))", border: "1px solid rgba(201,168,76,0.3)", borderTop: "2px solid rgba(201,168,76,0.55)", borderRadius: 8, boxShadow: "0 12px 48px rgba(0,0,0,0.8)", display: "flex", flexDirection: "column", fontFamily: "'Exo 2',sans-serif" }}>
 
               {/* Header */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderBottom: "1px solid rgba(201,168,76,0.15)", background: "rgba(201,168,76,0.04)" }}>
@@ -2397,7 +2383,7 @@ export default function AITracker() {
               )}
 
               {/* Messages */}
-              <div ref={aiMsgsRef} style={{ flex: 1, maxHeight: 380, overflowY: "auto", padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8, opacity: aiPanelHovered ? 1 : 0.18, transition: "opacity 0.3s ease" }}>
+              <div ref={aiMsgsRef} style={{ flex: 1, maxHeight: 380, overflowY: "auto", padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
                 {aiMessages.length === 0 ? (
                   <div style={{ fontSize: 12, color: "#4a3a20", textAlign: "center", padding: "24px 0" }}>
                     Привіт! Я знаю твій прогрес і готовий допомогти.<br />
