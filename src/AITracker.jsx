@@ -1394,10 +1394,12 @@ export default function AITracker() {
                 return d.toLocaleDateString("uk-UA", { day: "numeric", month: "long", year: "numeric" });
               };
 
+              // sort by date desc, then by numeric timestamp embedded in id
+              const getTxTime = (id) => { const m = id.match(/\d{10,}/); return m ? parseInt(m[0]) : 0; };
               const allTx = [
                 ...incomeEntries.map(e => ({ ...e, txType: "income" })),
                 ...expenseEntries.map(e => ({ ...e, txType: "expense" })),
-              ].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+              ].sort((a, b) => b.date.localeCompare(a.date) || getTxTime(b.id) - getTxTime(a.id));
 
               const dateGroups = [];
               allTx.forEach(tx => {
@@ -1422,15 +1424,16 @@ export default function AITracker() {
                 return d.toLocaleDateString("uk-UA", { day: "numeric", month: "long" });
               };
 
-              const rowStyle = { display: "flex", alignItems: "center", gap: 12, padding: "11px 0", borderBottom: "1px solid rgba(201,168,76,0.07)" };
+              const rowStyle = { display: "flex", alignItems: "center", gap: 14, padding: "13px 0", borderBottom: "1px solid rgba(201,168,76,0.08)" };
               const iconBox = (icon, bg) => (
-                <div style={{ width: 38, height: 38, borderRadius: "50%", background: bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>{icon}</div>
+                <div style={{ width: 44, height: 44, borderRadius: "50%", background: bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>{icon}</div>
               );
 
               return (
                 <div className="wf-panel" style={{ padding: 16 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: journalOpen ? 14 : 0, cursor: "pointer" }} onClick={() => setJournalOpen(v => !v)}>
                     <span className="wf-sec" style={{ marginBottom: 0, paddingBottom: 0, border: "none" }}>📋 Журнал операцій</span>
+                    <span style={{ fontSize: 12, color: "#5a4a30", marginLeft: 6 }}>{allTx.length} записів</span>
                     <span style={{ marginLeft: "auto", color: "#9a8a60", fontSize: 14 }}>{journalOpen ? "▲" : "▼"}</span>
                   </div>
 
@@ -1439,44 +1442,43 @@ export default function AITracker() {
                       {/* Upcoming payments */}
                       {upcoming.length > 0 && (
                         <div style={{ marginBottom: 10 }}>
-                          <div style={{ fontSize: 11, color: "#f59e0b", textTransform: "uppercase", letterSpacing: 2, marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
+                          <div style={{ fontSize: 12, color: "#f59e0b", textTransform: "uppercase", letterSpacing: 2, marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
                             ⏰ Майбутні платежі
-                            <span style={{ color: "#5a4a20", fontWeight: 400 }}>· {upcoming.length} цього місяця</span>
+                            <span style={{ color: "#5a4a20", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>· {upcoming.length} цього місяця</span>
                           </div>
                           {upcoming.map(sub => {
                             const cat = expenseCats.find(c => c.id === sub.catId);
                             const amtUSD = sub.currency === "UAH" ? sub.amount / uahRate : sub.amount;
                             return (
-                              <div key={sub.id} style={{ ...rowStyle, opacity: 0.8 }}>
+                              <div key={sub.id} style={{ ...rowStyle, opacity: 0.85 }}>
                                 {iconBox(cat?.icon ?? "💸", "rgba(245,158,11,0.15)")}
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{ color: "#e0d8c0", fontFamily: "'Exo 2',sans-serif", fontWeight: 600, fontSize: 13 }}>{sub.name}</div>
-                                  <div style={{ fontSize: 11, color: "#9a8a60", marginTop: 1 }}>
+                                  <div style={{ color: "#e0d8c0", fontFamily: "'Exo 2',sans-serif", fontWeight: 700, fontSize: 15 }}>{sub.name}</div>
+                                  <div style={{ fontSize: 12, color: "#9a8a60", marginTop: 2 }}>
                                     {cat?.name} · 🗓 {upcomingLabel(sub)}
                                   </div>
                                 </div>
                                 <div style={{ textAlign: "right" }}>
-                                  <div style={{ color: "#f43f5e", fontFamily: "'Space Mono',monospace", fontWeight: 700, fontSize: 13 }}>
+                                  <div style={{ color: "#f43f5e", fontFamily: "'Space Mono',monospace", fontWeight: 700, fontSize: 16 }}>
                                     −{sub.currency === "UAH" ? `${sub.amount} грн` : `$${sub.amount}`}
                                   </div>
-                                  {sub.currency === "UAH" && <div style={{ fontSize: 10, color: "#5a4a30" }}>~${amtUSD.toFixed(1)}</div>}
+                                  {sub.currency === "UAH" && <div style={{ fontSize: 13, color: "#a07040", marginTop: 2 }}>≈ ${amtUSD.toFixed(2)}</div>}
                                 </div>
                               </div>
                             );
                           })}
-                          <div style={{ height: 1, background: "rgba(201,168,76,0.15)", margin: "10px 0" }} />
+                          <div style={{ height: 1, background: "rgba(201,168,76,0.18)", margin: "12px 0" }} />
                         </div>
                       )}
 
-                      {/* Date-grouped feed */}
+                      {/* Date-grouped feed — scrollable, ~10 rows visible */}
                       {dateGroups.length === 0 && (
-                        <div style={{ fontSize: 12, color: "#5a4a30", textAlign: "center", padding: "20px 0" }}>Ще немає записів</div>
+                        <div style={{ fontSize: 13, color: "#5a4a30", textAlign: "center", padding: "24px 0" }}>Ще немає записів</div>
                       )}
-                      {dateGroups.map(group => {
-                        const cats = group.items[0].txType === "income" ? incomeCats : expenseCats;
-                        return (
+                      <div style={{ maxHeight: 580, overflowY: "auto", paddingRight: 4 }}>
+                        {dateGroups.map(group => (
                           <div key={group.date}>
-                            <div style={{ fontSize: 11, color: "#9a8a60", textTransform: "uppercase", letterSpacing: 2, padding: "10px 0 6px", fontFamily: "'Space Mono',monospace" }}>
+                            <div style={{ fontSize: 12, color: "#9a8a60", textTransform: "uppercase", letterSpacing: 2, padding: "12px 0 6px", fontFamily: "'Space Mono',monospace", position: "sticky", top: 0, background: "rgba(8,5,2,0.95)", zIndex: 1 }}>
                               {txDateLabel(group.date)}
                             </div>
                             {group.items.map(tx => {
@@ -1484,32 +1486,33 @@ export default function AITracker() {
                               const cat = catList.find(c => c.id === tx.catId);
                               const isInc = tx.txType === "income";
                               const amtUSD = toUSD(tx.amount, tx.currency);
-                              const bg = isInc ? "rgba(16,185,129,0.12)" : "rgba(244,63,94,0.10)";
+                              const bg = isInc ? "rgba(16,185,129,0.13)" : "rgba(244,63,94,0.11)";
                               return (
                                 <div key={tx.id} style={rowStyle}>
                                   {iconBox(cat?.icon ?? (isInc ? "📈" : "💸"), bg)}
                                   <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ color: "#e0d8c0", fontFamily: "'Exo 2',sans-serif", fontWeight: 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                    <div style={{ color: "#e0d8c0", fontFamily: "'Exo 2',sans-serif", fontWeight: 700, fontSize: 15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                       {tx.note || cat?.name || (isInc ? "Дохід" : "Витрата")}
                                     </div>
-                                    <div style={{ fontSize: 11, color: "#6a5a40", marginTop: 1 }}>
+                                    <div style={{ fontSize: 12, color: "#6a5a40", marginTop: 2 }}>
                                       {cat?.name}{tx.recurring && <span style={{ color: "#f59e0b", marginLeft: 6 }}>🔄</span>}
                                     </div>
                                   </div>
                                   <div style={{ textAlign: "right", flexShrink: 0 }}>
-                                    <div style={{ color: isInc ? "#10b981" : "#f43f5e", fontFamily: "'Space Mono',monospace", fontWeight: 700, fontSize: 13 }}>
+                                    <div style={{ color: isInc ? "#10b981" : "#f43f5e", fontFamily: "'Space Mono',monospace", fontWeight: 700, fontSize: 16 }}>
                                       {isInc ? "+" : "−"}{tx.currency === "UAH" ? `${tx.amount} грн` : `$${tx.amount}`}
                                     </div>
                                     {tx.currency === "UAH" && (
-                                      <div style={{ fontSize: 10, color: "#5a4a30" }}>~${amtUSD.toFixed(1)}</div>
+                                      <div style={{ fontSize: 13, color: "#a07040", marginTop: 2 }}>≈ ${amtUSD.toFixed(2)}</div>
                                     )}
                                   </div>
+                                  <button onClick={() => startDelete(tx.id, tx.txType)} style={{ background: "none", border: "none", color: "#5a3a30", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "4px 6px", flexShrink: 0, transition: "color 0.15s" }} onMouseEnter={e => e.target.style.color="#f43f5e"} onMouseLeave={e => e.target.style.color="#5a3a30"}>×</button>
                                 </div>
                               );
                             })}
                           </div>
-                        );
-                      })}
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
