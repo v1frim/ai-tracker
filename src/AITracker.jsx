@@ -21,7 +21,7 @@ const TIERS = {
   uncommon:  { label: "Uncommon",  color: "#a0b8c8", glow: "rgba(160,184,200,0.45)" },
   rare:      { label: "Rare",      color: "#4a9fd4", glow: "rgba(74,159,212,0.50)"  },
   epic:      { label: "Epic",      color: "#a855f7", glow: "rgba(168,85,247,0.55)"  },
-  legendary: { label: "Legendary", color: "#c9a84c", glow: "rgba(201,168,76,0.55)"  },
+  legendary: { label: "Legendary", color: "#ffb700", glow: "rgba(255,183,0,0.70)"   },
   prime:     { label: "Prime",     color: "#ef4444", glow: "rgba(239,68,68,0.60)"   },
 };
 
@@ -794,6 +794,13 @@ export default function AITracker() {
 
         @keyframes slideIn { from { transform: translateX(120px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         @keyframes wfPulse { 0%,100%{opacity:1;box-shadow:0 0 16px rgba(201,168,76,0.4)} 50%{opacity:0.85;box-shadow:0 0 28px rgba(201,168,76,0.7)} }
+        @keyframes legendaryGlow { 0%,100%{box-shadow:0 0 28px rgba(255,183,0,0.55),0 0 60px rgba(255,140,0,0.20),inset 0 0 30px rgba(255,183,0,0.06)} 50%{box-shadow:0 0 48px rgba(255,183,0,0.80),0 0 90px rgba(255,140,0,0.35),inset 0 0 50px rgba(255,183,0,0.12)} }
+        @keyframes legendaryShimmer { 0%{background-position:200% center} 100%{background-position:-200% center} }
+        @keyframes legendaryBorder { 0%,100%{border-color:rgba(255,183,0,0.60)} 33%{border-color:rgba(255,220,80,0.90)} 66%{border-color:rgba(255,140,0,0.70)} }
+        @keyframes legendaryStar { 0%,100%{opacity:0;transform:scale(0)} 50%{opacity:1;transform:scale(1)} }
+        .legendary-card { animation: legendaryGlow 2.8s ease-in-out infinite, legendaryBorder 3.5s ease-in-out infinite !important; }
+        .legendary-title { background: linear-gradient(90deg,#ffb700,#ffe566,#ff8c00,#ffb700); background-size:300% auto; -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; animation: legendaryShimmer 3s linear infinite; }
+        .legendary-badge { background: linear-gradient(90deg,#7a4a00,#ffb700,#7a4a00) !important; background-size:200% auto !important; animation: legendaryShimmer 2s linear infinite !important; color:#000 !important; border:none !important; }
 
         input::placeholder { color: #5a4a30; }
         input:focus { outline: none; border-color: rgba(201,168,76,0.6) !important; box-shadow: 0 0 0 1px rgba(201,168,76,0.25) !important; }
@@ -1249,16 +1256,37 @@ export default function AITracker() {
                     {items.map(a => {
                       const done = unlockedAchievements.includes(a.id);
                       const tier = TIERS[a.tier];
+                      const isLeg = a.tier === "legendary" && done;
                       return (
-                        <div key={a.id} className={done ? "wf-card" : ""} style={{ position: "relative", background: done ? `linear-gradient(160deg, ${tier.color}30, rgba(10,7,2,0.92))` : "rgba(14,10,4,0.88)", border: `1px solid ${done ? tier.color + "70" : "rgba(201,168,76,0.22)"}`, borderTop: `2px solid ${done ? tier.color : "rgba(201,168,76,0.30)"}`, borderRadius: 4, padding: 16, boxShadow: done ? `0 0 24px ${tier.glow}, inset 0 0 40px ${tier.color}08` : "none" }}>
+                        <div key={a.id} className={isLeg ? "legendary-card" : done ? "wf-card" : ""}
+                          style={{ position: "relative", overflow: "hidden",
+                            background: isLeg
+                              ? "linear-gradient(160deg,rgba(80,40,0,0.55),rgba(8,5,0,0.96),rgba(60,30,0,0.40))"
+                              : done ? `linear-gradient(160deg, ${tier.color}30, rgba(10,7,2,0.92))` : "rgba(14,10,4,0.88)",
+                            border: `1px solid ${done ? tier.color + "70" : "rgba(201,168,76,0.22)"}`,
+                            borderTop: `2px solid ${done ? tier.color : "rgba(201,168,76,0.30)"}`,
+                            borderRadius: 4, padding: 16,
+                            boxShadow: !isLeg && done ? `0 0 24px ${tier.glow}, inset 0 0 40px ${tier.color}08` : "none" }}>
+                          {isLeg && (
+                            <>
+                              {[0,1,2,3].map(i => (
+                                <div key={i} style={{ position:"absolute", width:3, height:3, borderRadius:"50%", background:"#ffb700",
+                                  top: i<2 ? 6 : "auto", bottom: i>=2 ? 6 : "auto",
+                                  left: i===0||i===2 ? 8 : "auto", right: i===1||i===3 ? 8 : "auto",
+                                  animation:`legendaryStar ${1.8+i*0.4}s ease-in-out ${i*0.5}s infinite`,
+                                  boxShadow:"0 0 6px #ffb700" }} />
+                              ))}
+                              <div style={{ position:"absolute", inset:0, background:"linear-gradient(105deg,transparent 40%,rgba(255,220,100,0.07) 50%,transparent 60%)", backgroundSize:"200% 100%", animation:"legendaryShimmer 2.5s linear infinite", pointerEvents:"none" }} />
+                            </>
+                          )}
                           {done && (
-                            <button onClick={() => setRevokeConfirm({ id: a.id, name: a.name, xp: a.xp })} title="Скасувати досягнення" style={{ position: "absolute", top: 8, right: 8, background: "rgba(244,63,94,0.0)", border: "none", color: "rgba(244,63,94,0.25)", cursor: "pointer", fontSize: 15, lineHeight: 1, padding: "2px 4px", borderRadius: 3, transition: "all 0.15s" }} onMouseEnter={e => { e.currentTarget.style.background="rgba(244,63,94,0.15)"; e.currentTarget.style.color="#f43f5e"; }} onMouseLeave={e => { e.currentTarget.style.background="rgba(244,63,94,0)"; e.currentTarget.style.color="rgba(244,63,94,0.25)"; }}>🔓</button>
+                            <button onClick={() => setRevokeConfirm({ id: a.id, name: a.name, xp: a.xp })} title="Скасувати досягнення" style={{ position: "absolute", top: 8, right: 8, background: "rgba(244,63,94,0.0)", border: "none", color: "rgba(244,63,94,0.25)", cursor: "pointer", fontSize: 15, lineHeight: 1, padding: "2px 4px", borderRadius: 3, transition: "all 0.15s", zIndex: 2 }} onMouseEnter={e => { e.currentTarget.style.background="rgba(244,63,94,0.15)"; e.currentTarget.style.color="#f43f5e"; }} onMouseLeave={e => { e.currentTarget.style.background="rgba(244,63,94,0)"; e.currentTarget.style.color="rgba(244,63,94,0.25)"; }}>🔓</button>
                           )}
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                            <div style={{ fontSize: done ? 36 : 28, filter: done ? `drop-shadow(0 0 8px ${tier.color}99)` : "grayscale(1) brightness(0.45)", transition: "font-size 0.2s" }}>{a.icon}</div>
-                            <span style={{ fontSize: 9, fontWeight: 800, color: done ? tier.color : "#6a5a38", border: `1px solid ${done ? tier.color + "66" : "rgba(201,168,76,0.22)"}`, borderRadius: 2, padding: "2px 7px", textTransform: "uppercase", letterSpacing: 1.5, fontFamily: "'Exo 2',sans-serif", whiteSpace: "nowrap" }}>{tier.label}</span>
+                            <div style={{ fontSize: done ? (isLeg ? 40 : 36) : 28, filter: done ? `drop-shadow(0 0 ${isLeg ? 14 : 8}px ${tier.color}bb)` : "grayscale(1) brightness(0.45)", transition: "font-size 0.2s" }}>{a.icon}</div>
+                            <span className={isLeg ? "legendary-badge" : ""} style={{ fontSize: 9, fontWeight: 800, color: done ? tier.color : "#6a5a38", border: `1px solid ${done ? tier.color + "66" : "rgba(201,168,76,0.22)"}`, borderRadius: 2, padding: "2px 7px", textTransform: "uppercase", letterSpacing: 1.5, fontFamily: "'Exo 2',sans-serif", whiteSpace: "nowrap" }}>{tier.label}</span>
                           </div>
-                          <div style={{ fontSize: 14, fontWeight: 800, color: done ? tier.color : "#9a8a60", marginBottom: 6, fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>{a.name}</div>
+                          <div className={isLeg ? "legendary-title" : ""} style={{ fontSize: 14, fontWeight: 800, color: isLeg ? undefined : done ? tier.color : "#9a8a60", marginBottom: 6, fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>{a.name}</div>
                           <div style={{ fontSize: 12, color: done ? "#b0a080" : "#7a6a48", marginBottom: 10, lineHeight: 1.5 }}>{a.desc}</div>
                           <div style={{ fontSize: 12, color: done ? tier.color : "#6a5a38", fontFamily: "'Space Mono',monospace", letterSpacing: 1 }}>+{a.xp} XP {done ? "✓" : "🔒"}</div>
                         </div>
