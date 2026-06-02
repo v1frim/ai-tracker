@@ -172,6 +172,7 @@ const ACH_GROUPS = [
   { id: "projects", label: "🚀 Проекти" },
   { id: "streak",   label: "🔥 Стріки" },
   { id: "sessions", label: "⚡ Сесії" },
+  { id: "learning", label: "📚 Вивчення ШІ" },
   { id: "special",  label: "🏅 Особливі" },
 ];
 
@@ -210,6 +211,14 @@ const ACHIEVEMENTS = [
   { id: "sessions_50",  group: "sessions", tier: "rare",      name: "50 сесій",    desc: "Проведи 50 AI-сесій",  xp: 500,  icon: "💪", check: (t, i, p, sd, streak, totalSess) => totalSess >= 50 },
   { id: "sessions_100", group: "sessions", tier: "epic",      name: "Сотня сесій", desc: "Проведи 100 AI-сесій", xp: 1200, icon: "🦾", check: (t, i, p, sd, streak, totalSess) => totalSess >= 100 },
   { id: "sessions_365", group: "sessions", tier: "legendary", name: "Рік з AI",    desc: "Проведи 365 AI-сесій", xp: 4000, icon: "🏵️", check: (t, i, p, sd, streak, totalSess) => totalSess >= 365 },
+
+  // ── Вивчення ШІ (годин) ──
+  { id: "learn_10",    group: "learning", tier: "common",    name: "Початківець",    desc: "10 годин вивчення ШІ",     xp: 200,   icon: "📖", check: (t, i, p, sd, st, ts, h) => h >= 10 },
+  { id: "learn_50",    group: "learning", tier: "uncommon",  name: "Учень",          desc: "50 годин вивчення ШІ",     xp: 500,   icon: "📗", check: (t, i, p, sd, st, ts, h) => h >= 50 },
+  { id: "learn_250",   group: "learning", tier: "rare",      name: "Студент ШІ",     desc: "250 годин вивчення ШІ",    xp: 1200,  icon: "📘", check: (t, i, p, sd, st, ts, h) => h >= 250 },
+  { id: "learn_1000",  group: "learning", tier: "epic",      name: "Експерт",        desc: "1,000 годин вивчення ШІ",  xp: 3000,  icon: "🎓", check: (t, i, p, sd, st, ts, h) => h >= 1000 },
+  { id: "learn_5000",  group: "learning", tier: "legendary", name: "Майстер ШІ",     desc: "5,000 годин вивчення ШІ",  xp: 8000,  icon: "🧠", check: (t, i, p, sd, st, ts, h) => h >= 5000 },
+  { id: "learn_10000", group: "learning", tier: "prime",     name: "10,000 годин",   desc: "10,000 годин — правило майстерності", xp: 20000, icon: "🏆", check: (t, i, p, sd, st, ts, h) => h >= 10000 },
 
   // ── Особливі ──
   { id: "oxford_dev", group: "special", tier: "epic", name: "Oxford Dev", desc: "Запущено! (Oxford_1000 вже є 🎉)", xp: 300, icon: "📚", check: () => true },
@@ -602,6 +611,8 @@ export default function AITracker() {
   const [selectedSkillTask, setSelectedSkillTask] = useState(null);
   const [skillTasksData, setSkillTasksData] = useState(saved?.skillTasksData ?? {});
   const [skillTaskInputs, setSkillTaskInputs] = useState({});
+  const [learnTime, setLearnTime] = useState(saved?.learnTime ?? { education: 0, business: 0 });
+  const [learnTimeInputs, setLearnTimeInputs] = useState({ education: "", business: "" });
   const [notification, setNotification] = useState(null);
   const [unlockedAchievements, setUnlockedAchievements] = useState(saved?.unlockedAchievements ?? ["oxford_dev"]);
   const [goalInput, setGoalInput] = useState("");
@@ -637,9 +648,9 @@ export default function AITracker() {
   const TAB_IDS = ["dashboard", "plan", "goals", "longgoals", "projects", "tools", "skillstasks", "achievements", "finances", "sessions", "progress", "stats"];
 
   useEffect(() => {
-    const state = { skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, activeDays, goals, longGoals, plan, aiMessages, aiModel, aiApiKeys, progressLog, todayXP, skillTasksData };
+    const state = { skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, activeDays, goals, longGoals, plan, aiMessages, aiModel, aiApiKeys, progressLog, todayXP, skillTasksData, learnTime };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, activeDays, goals, longGoals, plan, aiMessages, aiModel, aiApiKeys, progressLog, todayXP, skillTasksData]);
+  }, [skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, activeDays, goals, longGoals, plan, aiMessages, aiModel, aiApiKeys, progressLog, todayXP, skillTasksData, learnTime]);
 
   // Computed totals in USD
   const toUSD = useCallback((amount, currency) => currency === "UAH" ? amount / uahRate : amount, [uahRate]);
@@ -748,12 +759,17 @@ export default function AITracker() {
     setTimeout(() => setNotification(null), 2800);
   }, []);
 
+  const learnTimeRef = useRef(learnTime);
+  useEffect(() => { learnTimeRef.current = learnTime; }, [learnTime]);
+
   const checkAchievements = useCallback((tools, inc, proj, sd, currentUnlocked, currentStreak, totalSessions) => {
+    const lt = learnTimeRef.current;
+    const learnHours = ((lt.education ?? 0) + (lt.business ?? 0)) * 0.5;
     const newlyUnlocked = [];
     let bonusXP = 0;
     ACHIEVEMENTS.forEach(a => {
       if (currentUnlocked.includes(a.id)) return;
-      if (a.check(tools, inc, proj, sd, currentStreak, totalSessions)) {
+      if (a.check(tools, inc, proj, sd, currentStreak, totalSessions, learnHours)) {
         newlyUnlocked.push(a.id);
         bonusXP += a.xp;
       }
@@ -810,7 +826,36 @@ export default function AITracker() {
       const existing = prev[key] || { count: 0, claimed: [] };
       return { ...prev, [key]: { ...existing, count: Math.max(0, existing.count + delta) } };
     });
-  }, []);
+    if (delta > 0) recordActiveDay();
+  }, [recordActiveDay]);
+
+  const addLearnTime = useCallback((kind, delta) => {
+    setLearnTime(prev => {
+      const next = { ...prev, [kind]: Math.max(0, (prev[kind] ?? 0) + delta) };
+      if (delta > 0) {
+        recordActiveDay();
+        setUnlockedAchievements(ua => {
+          const learnHours = ((next.education ?? 0) + (next.business ?? 0)) * 0.5;
+          const toUnlock = [];
+          let bonus = 0;
+          ACHIEVEMENTS.forEach(a => {
+            if (a.group !== "learning" || ua.includes(a.id)) return;
+            if (a.check(0, 0, 0, {}, 0, 0, learnHours)) { toUnlock.push(a.id); bonus += a.xp; }
+          });
+          if (toUnlock.length) {
+            setTotalXP(p => p + bonus);
+            toUnlock.forEach((id, idx) => {
+              const a = ACHIEVEMENTS.find(x => x.id === id);
+              setTimeout(() => showNotif(`🏆 ${a.name} розблоковано!`, "achievement"), 600 + idx * 900);
+            });
+            return [...ua, ...toUnlock];
+          }
+          return ua;
+        });
+      }
+      return next;
+    });
+  }, [recordActiveDay, showNotif]);
 
   const setProgressiveCount = useCallback((catId, taskId, value) => {
     const key = `${catId}_${taskId}`;
@@ -1207,6 +1252,56 @@ export default function AITracker() {
               )}
             </div>
 
+            {/* AI learning time */}
+            <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2 }}>⏱️ Час на вивчення ШІ</div>
+                <span style={{ fontSize: 11, color: "#6a5f40", fontFamily: "'Space Mono',monospace" }}>1 раз = 30 хв</span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {[
+                  { kind: "education", label: "Навчання", sub: "Education", emoji: "📚", color: "#06b6d4" },
+                  { kind: "business",  label: "Бізнес",   sub: "Business",  emoji: "💼", color: "#f59e0b" },
+                ].map(item => {
+                  const count = learnTime[item.kind] ?? 0;
+                  const inputVal = learnTimeInputs[item.kind] ?? "";
+                  const handleAdd = (sign) => {
+                    const n = parseInt(inputVal) || 1;
+                    addLearnTime(item.kind, sign * n);
+                    setLearnTimeInputs(prev => ({ ...prev, [item.kind]: "" }));
+                  };
+                  return (
+                    <div key={item.kind} style={{ background: `${item.color}0d`, border: `1px solid ${item.color}33`, borderLeft: `3px solid ${item.color}`, borderRadius: 4, padding: "12px 14px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 18 }}>{item.emoji}</span>
+                        <div style={{ flex: 1, minWidth: 100 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: "#e0d8c0", fontFamily: "'Exo 2',sans-serif" }}>{item.label} <span style={{ color: "#6a5f40", fontSize: 11, fontWeight: 400 }}>· {item.sub}</span></div>
+                        </div>
+                        <div style={{ textAlign: "right" }}>
+                          <span style={{ fontSize: 18, fontWeight: 800, color: item.color, fontFamily: "'Space Mono',monospace" }}>{count}</span>
+                          <span style={{ fontSize: 11, color: "#6a5f40", marginLeft: 5, fontFamily: "'Space Mono',monospace" }}>× ({(count * 0.5).toLocaleString()} год)</span>
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                        <button onClick={() => addLearnTime(item.kind, 1)} style={{ padding: "4px 12px", borderRadius: 4, fontSize: 16, fontWeight: 800, cursor: "pointer", background: `${item.color}18`, border: `1px solid ${item.color}66`, color: item.color, lineHeight: 1 }}>+</button>
+                        <button onClick={() => addLearnTime(item.kind, -1)} style={{ padding: "4px 12px", borderRadius: 4, fontSize: 16, fontWeight: 800, cursor: "pointer", background: "rgba(244,63,94,0.12)", border: "1px solid rgba(244,63,94,0.4)", color: "#f43f5e", lineHeight: 1 }}>−</button>
+                        <input
+                          type="number"
+                          placeholder="N"
+                          value={inputVal}
+                          onChange={e => setLearnTimeInputs(prev => ({ ...prev, [item.kind]: e.target.value }))}
+                          onKeyDown={e => e.key === "Enter" && handleAdd(1)}
+                          style={{ width: 52, background: "rgba(0,0,0,0.4)", border: `1px solid ${item.color}33`, color: "#c8b89a", padding: "4px 6px", borderRadius: 4, fontFamily: "'Space Mono',monospace", fontSize: 12, textAlign: "center" }}
+                        />
+                        <button onClick={() => handleAdd(1)} style={{ padding: "4px 10px", borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: "pointer", background: `${item.color}18`, border: `1px solid ${item.color}44`, color: `${item.color}cc` }}>+N</button>
+                        <button onClick={() => handleAdd(-1)} style={{ padding: "4px 10px", borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: "pointer", background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.3)", color: "#f43f5e" }}>−N</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Priority tasks highlight */}
             {(() => {
               const activeTasks = goals.filter(g => !g.done);
@@ -1491,9 +1586,9 @@ export default function AITracker() {
                               const taskState = skillTasksData[key] || { count: 0, claimed: [] };
                               const inputKey = `${cat.id}_${task.id}`;
                               const inputVal = skillTaskInputs[inputKey] ?? "";
-                              const handleAdd = () => {
+                              const handleAdd = (sign) => {
                                 const n = parseInt(inputVal) || 1;
-                                addProgressiveCount(cat.id, task.id, n);
+                                addProgressiveCount(cat.id, task.id, sign * n);
                                 setSkillTaskInputs(prev => ({ ...prev, [inputKey]: "" }));
                               };
                               return (
@@ -1501,15 +1596,17 @@ export default function AITracker() {
                                   <div style={{ fontSize: 13, color: "#c8b89a", fontFamily: "'Space Mono',monospace" }}>{task.label}</div>
                                   <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                                     <button onClick={() => addProgressiveCount(cat.id, task.id, 1)} style={{ padding: "4px 12px", borderRadius: 4, fontSize: 16, fontWeight: 800, cursor: "pointer", background: `${cat.color}18`, border: `1px solid ${cat.color}66`, color: cat.color, lineHeight: 1 }}>+</button>
+                                    <button onClick={() => addProgressiveCount(cat.id, task.id, -1)} style={{ padding: "4px 12px", borderRadius: 4, fontSize: 16, fontWeight: 800, cursor: "pointer", background: "rgba(244,63,94,0.12)", border: "1px solid rgba(244,63,94,0.4)", color: "#f43f5e", lineHeight: 1 }}>−</button>
                                     <input
                                       type="number"
                                       placeholder="N"
                                       value={inputVal}
                                       onChange={e => setSkillTaskInputs(prev => ({ ...prev, [inputKey]: e.target.value }))}
-                                      onKeyDown={e => e.key === "Enter" && handleAdd()}
+                                      onKeyDown={e => e.key === "Enter" && handleAdd(1)}
                                       style={{ width: 52, background: "rgba(0,0,0,0.4)", border: `1px solid ${cat.color}33`, color: "#c8b89a", padding: "4px 6px", borderRadius: 4, fontFamily: "'Space Mono',monospace", fontSize: 12, textAlign: "center" }}
                                     />
-                                    <button onClick={handleAdd} style={{ padding: "4px 10px", borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: "pointer", background: `${cat.color}18`, border: `1px solid ${cat.color}44`, color: `${cat.color}cc` }}>+N</button>
+                                    <button onClick={() => handleAdd(1)} style={{ padding: "4px 10px", borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: "pointer", background: `${cat.color}18`, border: `1px solid ${cat.color}44`, color: `${cat.color}cc` }}>+N</button>
+                                    <button onClick={() => handleAdd(-1)} style={{ padding: "4px 10px", borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: "pointer", background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.3)", color: "#f43f5e" }}>−N</button>
                                     <span style={{ fontSize: 12, color: cat.color, fontFamily: "'Space Mono',monospace", fontWeight: 700, marginLeft: 2 }}>Всього: {taskState.count}</span>
                                   </div>
                                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -2961,6 +3058,28 @@ export default function AITracker() {
                     <div key={s.label} className="wf-card" style={{ padding: "18px 16px", textAlign: "center", border: `1px solid ${s.color}33`, borderTop: `2px solid ${s.color}` }}>
                       <div style={{ fontSize: 11, color: "#9a8a60", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 2, marginBottom: 8 }}>{s.label}</div>
                       <div style={{ fontSize: 22, fontWeight: 800, color: s.color, fontFamily: "'Space Mono',monospace" }}>{s.value}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* Час на вивчення ШІ */}
+              <div>
+                <div className="wf-sec" style={{ marginBottom: 16 }}>⏱️ Час на вивчення ШІ <span style={{ fontSize: 11, color: "#6a5f40", fontWeight: 400 }}>· 1 раз = 30 хв</span></div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
+                  {(() => {
+                    const eduH = (learnTime.education ?? 0) * 0.5;
+                    const bizH = (learnTime.business ?? 0) * 0.5;
+                    const totalH = eduH + bizH;
+                    return [
+                      { label: "Навчання", emoji: "📚", count: learnTime.education ?? 0, hours: eduH, color: "#06b6d4" },
+                      { label: "Бізнес",   emoji: "💼", count: learnTime.business ?? 0, hours: bizH, color: "#f59e0b" },
+                      { label: "Всього",   emoji: "🎯", count: (learnTime.education ?? 0) + (learnTime.business ?? 0), hours: totalH, color: "#00ff88" },
+                    ];
+                  })().map(s => (
+                    <div key={s.label} className="wf-card" style={{ padding: "18px 16px", textAlign: "center", border: `1px solid ${s.color}33`, borderTop: `2px solid ${s.color}` }}>
+                      <div style={{ fontSize: 11, color: "#9a8a60", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 2, marginBottom: 8 }}>{s.emoji} {s.label}</div>
+                      <div style={{ fontSize: 22, fontWeight: 800, color: s.color, fontFamily: "'Space Mono',monospace" }}>{s.hours.toLocaleString()} <span style={{ fontSize: 13 }}>год</span></div>
+                      <div style={{ fontSize: 11, color: "#6a5f40", fontFamily: "'Space Mono',monospace", marginTop: 4 }}>{s.count} сесій × 30 хв</div>
                     </div>
                   ))}
                 </div>
