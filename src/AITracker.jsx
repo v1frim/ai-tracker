@@ -1510,15 +1510,19 @@ export default function AITracker() {
                                     <button onClick={handleAdd} style={{ padding: "4px 10px", borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: "pointer", background: `${cat.color}18`, border: `1px solid ${cat.color}44`, color: `${cat.color}cc` }}>+N</button>
                                     <span style={{ fontSize: 12, color: cat.color, fontFamily: "'Space Mono',monospace", fontWeight: 700, marginLeft: 2 }}>Всього: {taskState.count}</span>
                                   </div>
-                                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                  <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 0, background: "rgba(0,0,0,0.25)", border: "1px solid rgba(201,168,76,0.15)", borderRadius: 4, overflow: "hidden" }}>
                                     {task.milestones.map((m, idx) => {
                                       const claimed = taskState.claimed.includes(idx);
                                       const reached = taskState.count >= m.count;
                                       const canClaim = reached && !claimed;
+                                      const isLast = idx === task.milestones.length - 1;
                                       return (
-                                        <button key={idx} onClick={() => claimed ? revokeProgressiveMilestone(cat.id, task.id, idx, m.xp) : canClaim ? claimProgressiveMilestone(cat.id, task.id, idx, m.xp) : null} style={{ padding: "4px 10px", borderRadius: 3, fontSize: 11, fontWeight: 700, fontFamily: "'Space Mono',monospace", cursor: claimed || canClaim ? "pointer" : "default", background: claimed ? `${cat.color}22` : canClaim ? `${cat.color}18` : "rgba(0,0,0,0.3)", border: `1px solid ${claimed ? cat.color : canClaim ? cat.color + "88" : "rgba(201,168,76,0.2)"}`, color: claimed ? cat.color : canClaim ? cat.color + "cc" : "#6a5f40", textDecoration: claimed ? "line-through" : "none", opacity: claimed ? 0.7 : 1 }}>
-                                          {claimed ? "✓ " : canClaim ? "▶ " : ""}×{m.count} <span style={{ color: claimed ? cat.color + "99" : canClaim ? "#00ff88" : "#6a5f40" }}>+{m.xp}</span>
-                                        </button>
+                                        <React.Fragment key={idx}>
+                                          <button onClick={() => claimed ? revokeProgressiveMilestone(cat.id, task.id, idx, m.xp) : canClaim ? claimProgressiveMilestone(cat.id, task.id, idx, m.xp) : null} style={{ padding: "6px 12px", fontSize: 11, fontWeight: 700, fontFamily: "'Space Mono',monospace", cursor: claimed || canClaim ? "pointer" : "default", background: claimed ? `${cat.color}20` : canClaim ? `${cat.color}14` : "transparent", border: "none", color: claimed ? cat.color : canClaim ? cat.color + "cc" : "#4a4030", whiteSpace: "nowrap", transition: "background 0.15s" }}>
+                                            {claimed ? "✓ " : canClaim ? "▶ " : ""}×{m.count} <span style={{ color: claimed ? cat.color + "aa" : canClaim ? "#00ff88" : "#3a3828" }}>+{m.xp} XP</span>
+                                          </button>
+                                          {!isLast && <span style={{ color: "rgba(201,168,76,0.2)", fontSize: 13, userSelect: "none" }}>/</span>}
+                                        </React.Fragment>
                                       );
                                     })}
                                   </div>
