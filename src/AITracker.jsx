@@ -491,7 +491,7 @@ export default function AITracker() {
   const [aiAvailModels, setAiAvailModels] = useState(null);
   const aiMsgsRef = useRef(null);
 
-  const TAB_IDS = ["dashboard", "goals", "longgoals", "sessions", "skills", "achievements", "plan", "finances", "projects", "progress"];
+  const TAB_IDS = ["dashboard", "plan", "goals", "longgoals", "projects", "skills", "achievements", "finances", "sessions", "progress"];
 
   useEffect(() => {
     const state = { skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, activeDays, goals, longGoals, plan, aiMessages, aiModel, aiApiKeys, progressLog, todayXP };
@@ -765,14 +765,14 @@ export default function AITracker() {
 
   const tabs = [
     { id: "dashboard",    label: "🏠 Головна" },
+    { id: "plan",         label: "📋 План дій" },
     { id: "goals",        label: "✅ Задачі" },
     { id: "longgoals",    label: "🎯 Цілі" },
-    { id: "sessions",     label: "🔥 Сесії" },
+    { id: "projects",     label: "🚀 Проекти" },
     { id: "skills",       label: "🧩 Навички" },
     { id: "achievements", label: "🏆 Досягнення" },
-    { id: "plan",         label: "📋 План дій" },
     { id: "finances",     label: "💸 Фінанси" },
-    { id: "projects",     label: "🚀 Проекти" },
+    { id: "sessions",     label: "🔥 Сесії" },
     { id: "progress",     label: "📝 Прогрес" },
   ];
 
