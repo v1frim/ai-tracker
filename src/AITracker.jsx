@@ -446,6 +446,12 @@ export default function AITracker() {
   const [progressDate, setProgressDate] = useState(todayStr());
   const [progressTags, setProgressTags] = useState([]);
   const [progressShowAll, setProgressShowAll] = useState(false);
+  const [progressEditId, setProgressEditId] = useState(null);
+  const [progressEditText, setProgressEditText] = useState("");
+  const [todayXP, setTodayXP] = useState(() => {
+    const s = saved?.todayXP;
+    return (s?.date === todayStr()) ? s : { date: todayStr(), total: 0 };
+  });
   const [activeTab, setActiveTab] = useState("dashboard");
   const [selectedSkill, setSelectedSkill] = useState(null);
   const [notification, setNotification] = useState(null);
@@ -483,9 +489,9 @@ export default function AITracker() {
   const TAB_IDS = ["dashboard", "goals", "longgoals", "sessions", "skills", "achievements", "plan", "finances", "projects", "progress"];
 
   useEffect(() => {
-    const state = { skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, activeDays, goals, longGoals, plan, aiMessages, aiModel, aiApiKeys, progressLog };
+    const state = { skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, activeDays, goals, longGoals, plan, aiMessages, aiModel, aiApiKeys, progressLog, todayXP };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, activeDays, goals, longGoals, plan, aiMessages, aiModel, aiApiKeys, progressLog]);
+  }, [skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, activeDays, goals, longGoals, plan, aiMessages, aiModel, aiApiKeys, progressLog, todayXP]);
 
   // Computed totals in USD
   const toUSD = useCallback((amount, currency) => currency === "UAH" ? amount / uahRate : amount, [uahRate]);
@@ -561,10 +567,10 @@ export default function AITracker() {
     }
   }, [aiOpen, aiMessages]);
 
-  // Auto-record every day the app is opened
+  // On mount: clean up any data before APP_START_DATE (reset to fresh start)
   useEffect(() => {
-    const today = todayStr();
-    setActiveDays(prev => prev.includes(today) ? prev : [...prev, today]);
+    setSessions(prev => ({ ...prev, dates: prev.dates.filter(d => d >= APP_START_DATE) }));
+    setActiveDays(prev => prev.filter(d => d >= APP_START_DATE));
   }, []);
 
   const totalLevel = calcLevel(totalXP);
@@ -585,6 +591,7 @@ export default function AITracker() {
     return Math.max(1, Math.floor(diff / 86400000) + 1);
   }, []);
   const daysPassedThisMonth = new Date().getDate();
+  const daysInCurrentMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
 
   const showNotif = useCallback((msg, type = "xp") => {
     setNotification({ msg, type, id: Date.now() });
@@ -613,8 +620,14 @@ export default function AITracker() {
 
   const gainXP = useCallback((amount, label = "") => {
     setTotalXP(prev => prev + amount);
+    setTodayXP(prev => prev.date === todayStr() ? { ...prev, total: prev.total + amount } : { date: todayStr(), total: amount });
     showNotif(`+${amount} XP ${label}`, "xp");
   }, [showNotif]);
+
+  const recordActiveDay = useCallback(() => {
+    const today = todayStr();
+    setActiveDays(prev => prev.includes(today) ? prev : [...prev, today]);
+  }, []);
 
   const learnTool = useCallback((skillId, tool) => {
     setSkillData(prev => {
@@ -623,13 +636,14 @@ export default function AITracker() {
       const updated = { ...prev, [skillId]: { unlockedTools: [...current, tool] } };
       const newTotal = Object.values(updated).flatMap(s => s.unlockedTools).length;
       gainXP(100, `(${tool})`);
+      recordActiveDay();
       setUnlockedAchievements(ua => {
         checkAchievements(newTotal, totalIncome, projects.length, updated, ua, streak, sessions.dates.length);
         return ua;
       });
       return updated;
     });
-  }, [gainXP, checkAchievements, totalIncome, projects, streak, sessions.dates.length]);
+  }, [gainXP, recordActiveDay, checkAchievements, totalIncome, projects, streak, sessions.dates.length]);
 
   const addIncomeEntry = useCallback(() => {
     const amt = parseFloat(incForm.amount);
@@ -641,6 +655,7 @@ export default function AITracker() {
       const next = [...prev, entry];
       const newTotal = next.reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
       gainXP(xpPaid, `(+$${amtUSD.toFixed(2)})`);
+      recordActiveDay();
       setUnlockedAchievements(ua => {
         checkAchievements(totalTools, newTotal, projects.length, skillData, ua, streak, sessions.dates.length);
         return ua;
@@ -648,7 +663,7 @@ export default function AITracker() {
       return next;
     });
     setIncForm(f => ({ ...f, amount: "", note: "", date: todayStr() }));
-  }, [incForm, uahRate, toUSD, gainXP, checkAchievements, totalTools, projects, skillData, streak, sessions.dates.length]);
+  }, [incForm, uahRate, toUSD, gainXP, recordActiveDay, checkAchievements, totalTools, projects, skillData, streak, sessions.dates.length]);
 
   // Delete entry with 5s undo window
   const startDelete = useCallback((id, type) => {
@@ -710,13 +725,14 @@ export default function AITracker() {
     const newProjects = [...projects, { name: projectInput.trim(), date: new Date().toLocaleDateString("uk-UA"), status: "in_progress", creationXP: 100, completionXP: cxp, completionXPPaid: false }];
     setProjects(newProjects);
     gainXP(100, `(${projectInput.trim()})`);
+    recordActiveDay();
     setProjectCompletionXP(200);
     setProjectInput("");
     setUnlockedAchievements(ua => {
       checkAchievements(totalTools, totalIncome, newProjects.length, skillData, ua, streak, sessions.dates.length);
       return ua;
     });
-  }, [projectInput, projects, gainXP, checkAchievements, totalTools, totalIncome, skillData, streak, sessions.dates.length]);
+  }, [projectInput, projects, gainXP, recordActiveDay, checkAchievements, totalTools, totalIncome, skillData, streak, sessions.dates.length]);
 
   const logSession = useCallback(() => {
     if (doneToday) return;
@@ -726,11 +742,12 @@ export default function AITracker() {
     const newSessions = { ...sessions, dates: newDates };
     setSessions(newSessions);
     gainXP(50, "(AI-сесія)");
+    recordActiveDay();
     setUnlockedAchievements(ua => {
       checkAchievements(totalTools, totalIncome, projects.length, skillData, ua, newStreak, newDates.length);
       return ua;
     });
-  }, [doneToday, sessions, gainXP, checkAchievements, totalTools, totalIncome, projects, skillData]);
+  }, [doneToday, sessions, gainXP, recordActiveDay, checkAchievements, totalTools, totalIncome, projects, skillData]);
 
   const updateMonthlyTarget = useCallback((val) => {
     const t = parseInt(val);
@@ -866,6 +883,9 @@ export default function AITracker() {
           {/* Top row: avatar + name + stats */}
           <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>
             <div style={{ position: "relative", flexShrink: 0 }}>
+              {todayXP.total > 0 && (
+                <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", background: "linear-gradient(135deg,#00c96a,#00ff88)", color: "#000", fontSize: 11, fontWeight: 800, fontFamily: "'Space Mono',monospace", padding: "3px 9px", borderRadius: 20, whiteSpace: "nowrap", boxShadow: "0 0 12px rgba(0,255,136,0.55)", zIndex: 2, letterSpacing: 0.3 }}>+{todayXP.total} XP</div>
+              )}
               <div style={{ width: 58, height: 58, borderRadius: 4, background: "linear-gradient(145deg,#1a1210,#2a1e14)", border: `2px solid ${lc}`, boxShadow: `0 0 22px ${lglow}, inset 0 0 16px ${lc}14`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 800, color: lc, fontFamily: "'Exo 2',sans-serif", letterSpacing: -1 }}>Vi</div>
               <div style={{ position: "absolute", bottom: -8, right: -10 }}><LeagueBadge level={totalLevel} size={30} /></div>
             </div>
@@ -882,7 +902,7 @@ export default function AITracker() {
                 { label: "Дохід", val: `$${totalIncome.toFixed(0)}`, color: lc },
                 { label: "Проекти", val: projects.length, color: lc },
                 { label: "Інструменти", val: `${totalTools}/${TOTAL_TOOLS}`, color: "#00ff88" },
-                { label: "Сесій/міс", val: `${monthSessions}/${sessions.monthlyTarget}`, color: lc },
+                { label: "Сесій/міс", val: `${monthSessions}/${daysInCurrentMonth}`, color: lc },
               ].map(s => (
                 <div key={s.label} style={{ textAlign: "center", padding: "10px 14px", minWidth: 84, background: "rgba(8,5,2,0.55)", border: `1px solid ${lc}28`, borderTop: `2px solid ${lc}60`, borderRadius: 4, boxShadow: `0 0 12px ${lglow}` }}>
                   <div style={{ fontSize: 11, color: `${lc}88`, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>{s.label}</div>
@@ -955,7 +975,7 @@ export default function AITracker() {
                   {doneToday ? "✓ AI-сесія сьогодні виконана" : "⚡ Чи працював сьогодні з AI?"}
                 </div>
                 <div style={{ fontSize: 11, color: "#9a8a60", marginTop: 3 }}>
-                  Стрік: {streak} дн. · {monthSessions}/{sessions.monthlyTarget} цього місяця · всього {sessions.dates.length} сесій
+                  Стрік: {streak} дн. · {monthSessions}/{daysInCurrentMonth} цього місяця
                 </div>
               </div>
               {!doneToday && (
@@ -1071,7 +1091,7 @@ export default function AITracker() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))", gap: 12 }}>
               {[
                 { label: "Стрік", val: `${streak} дн.`, icon: "🔥", color: "#f59e0b", sub: streak >= 7 ? "Топ!" : "Тримай!" },
-                { label: "Цього місяця", val: `${monthSessions}/${sessions.monthlyTarget}`, icon: "📅", color: "#00ff88", sub: `${daysPassedThisMonth} дн. пройшло` },
+                { label: "Цього місяця", val: `${monthSessions}/${daysInCurrentMonth}`, icon: "📅", color: "#00ff88", sub: `${daysPassedThisMonth} дн. пройшло` },
                 { label: "Активних днів", val: totalActiveDays, icon: "📆", color: "#6366f1", sub: `з ${daysSinceStart} дн.` },
                 { label: "Найдовший стрік", val: `${longestStreak} дн.`, icon: "🏅", color: "#ec4899", sub: "особистий рекорд" },
               ].map(s => (
@@ -1086,29 +1106,16 @@ export default function AITracker() {
 
             {/* Monthly progress bar */}
             <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
-                <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 14, fontWeight: 700, color: "#fff" }}>
-                  📅 Ціль місяця
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 11, color: "#8a7850" }}>Ціль:</span>
-                  <input
-                    type="number"
-                    min="1"
-                    max="31"
-                    value={sessions.monthlyTarget}
-                    onChange={e => updateMonthlyTarget(e.target.value)}
-                    style={{ width: 56, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 3, padding: "4px 8px", color: "#00ff88", fontSize: 13, fontFamily: "'Space Mono',monospace", textAlign: "center" }}
-                  />
-                  <span style={{ fontSize: 11, color: "#8a7850" }}>сесій</span>
-                </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 14, fontWeight: 700, color: "#fff" }}>📅 Ціль місяця</div>
+                <div style={{ fontSize: 12, color: "#6a5f40" }}>ціль: <span style={{ color: "#c9a84c", fontWeight: 700 }}>{daysInCurrentMonth} сесій</span></div>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 8 }}>
                 <span style={{ color: "#6a5f40" }}>{monthSessions} виконано</span>
-                <span style={{ color: "#00ff88", fontWeight: 700 }}>{Math.min(100, Math.round(monthSessions / sessions.monthlyTarget * 100))}%</span>
+                <span style={{ color: "#00ff88", fontWeight: 700 }}>{Math.min(100, Math.round(monthSessions / daysInCurrentMonth * 100))}%</span>
               </div>
               <div style={{ height: 10, background: "rgba(201,168,76,0.12)", borderRadius: 5, overflow: "hidden" }}>
-                <div style={{ width: `${Math.min(100, (monthSessions / sessions.monthlyTarget) * 100)}%`, height: "100%", background: monthSessions >= sessions.monthlyTarget ? "#c9a84c" : "linear-gradient(90deg,#f43f5e,#f59e0b)", borderRadius: 5, transition: "width 0.5s" }} />
+                <div style={{ width: `${Math.min(100, (monthSessions / daysInCurrentMonth) * 100)}%`, height: "100%", background: monthSessions >= daysInCurrentMonth ? "#c9a84c" : "linear-gradient(90deg,#f43f5e,#f59e0b)", borderRadius: 5, transition: "width 0.5s" }} />
               </div>
             </div>
 
@@ -2393,10 +2400,10 @@ export default function AITracker() {
               <div style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: "6px 12px" }}>
                 <span style={{ fontSize: 11, color: "#6a5a40", whiteSpace: "nowrap" }}>XP за виконання:</span>
                 <input
-                  type="number" min="0" max="9999"
+                  type="number" min="0" max="99999"
                   value={projectCompletionXP}
                   onChange={e => setProjectCompletionXP(Math.max(0, parseInt(e.target.value) || 0))}
-                  style={{ width: 60, background: "none", border: "none", color: "#c9a84c", fontSize: 13, fontFamily: "'Space Mono',monospace", fontWeight: 700, outline: "none", textAlign: "center" }}
+                  style={{ width: 90, background: "none", border: "none", color: "#c9a84c", fontSize: 13, fontFamily: "'Space Mono',monospace", fontWeight: 700, outline: "none", textAlign: "center", MozAppearance: "textfield", appearance: "textfield" }}
                 />
               </div>
               <button className="act-btn" onClick={addProject} style={{ background: "#6366f1", color: "#fff", border: "none", padding: "10px 18px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 13, whiteSpace: "nowrap" }}>+ Додати (+100 XP)</button>
@@ -2456,6 +2463,7 @@ export default function AITracker() {
             if (!progressInput.trim()) return;
             const entry = { id: `pr_${Date.now()}`, date: progressDate, text: progressInput.trim(), tags: progressTags };
             setProgressLog(prev => [entry, ...prev]);
+            recordActiveDay();
             setProgressInput("");
             setProgressTags([]);
             setProgressDate(todayStr());
@@ -2519,10 +2527,36 @@ export default function AITracker() {
                       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                         {grouped[ds].map(entry => (
                           <div key={entry.id} className="wf-panel" style={{ padding: "12px 14px", position: "relative" }}>
-                            <button onClick={() => setProgressLog(p => p.filter(e => e.id !== entry.id))}
-                              style={{ position: "absolute", top: 8, right: 10, background: "none", border: "none", color: "#4a3a25", cursor: "pointer", fontSize: 16, lineHeight: 1, padding: "2px 4px" }}
-                              onMouseEnter={e => e.target.style.color="#f43f5e"} onMouseLeave={e => e.target.style.color="#4a3a25"}>×</button>
-                            <div style={{ fontSize: 13, color: "#e0d8c0", lineHeight: 1.6, fontFamily: "'Exo 2',sans-serif", paddingRight: 20, whiteSpace: "pre-wrap" }}>{entry.text}</div>
+                            <div style={{ position: "absolute", top: 8, right: 8, display: "flex", gap: 2 }}>
+                              <button onClick={() => { setProgressEditId(entry.id); setProgressEditText(entry.text); }}
+                                style={{ background: "none", border: "none", color: "#4a3a25", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "2px 5px" }}
+                                onMouseEnter={e => e.target.style.color="#c9a84c"} onMouseLeave={e => e.target.style.color="#4a3a25"}>✎</button>
+                              <button onClick={() => setProgressLog(p => p.filter(e => e.id !== entry.id))}
+                                style={{ background: "none", border: "none", color: "#4a3a25", cursor: "pointer", fontSize: 16, lineHeight: 1, padding: "2px 4px" }}
+                                onMouseEnter={e => e.target.style.color="#f43f5e"} onMouseLeave={e => e.target.style.color="#4a3a25"}>×</button>
+                            </div>
+                            {progressEditId === entry.id ? (
+                              <div style={{ paddingRight: 52 }}>
+                                <textarea
+                                  autoFocus
+                                  value={progressEditText}
+                                  onChange={e => setProgressEditText(e.target.value)}
+                                  onKeyDown={e => {
+                                    if (e.key === "Enter" && e.ctrlKey) { setProgressLog(p => p.map(x => x.id === entry.id ? { ...x, text: progressEditText.trim() || x.text } : x)); setProgressEditId(null); }
+                                    if (e.key === "Escape") setProgressEditId(null);
+                                  }}
+                                  style={{ width: "100%", minHeight: 72, background: "rgba(8,5,2,0.8)", border: "1px solid rgba(201,168,76,0.35)", borderRadius: 3, padding: "8px 10px", color: "#fff", fontSize: 13, fontFamily: "'Exo 2',sans-serif", resize: "vertical", lineHeight: 1.6 }}
+                                />
+                                <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                                  <button onClick={() => { setProgressLog(p => p.map(x => x.id === entry.id ? { ...x, text: progressEditText.trim() || x.text } : x)); setProgressEditId(null); }}
+                                    style={{ background: "#c9a84c", border: "none", color: "#000", padding: "5px 14px", borderRadius: 3, fontWeight: 700, cursor: "pointer", fontSize: 12 }}>Зберегти</button>
+                                  <button onClick={() => setProgressEditId(null)}
+                                    style={{ background: "none", border: "1px solid rgba(201,168,76,0.25)", color: "#6a5a40", padding: "5px 12px", borderRadius: 3, cursor: "pointer", fontSize: 12 }}>Скасувати</button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div style={{ fontSize: 13, color: "#e0d8c0", lineHeight: 1.6, fontFamily: "'Exo 2',sans-serif", paddingRight: 52, whiteSpace: "pre-wrap" }}>{entry.text}</div>
+                            )}
                             {entry.tags?.length > 0 && (
                               <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 8 }}>
                                 {entry.tags.map(tag => (
