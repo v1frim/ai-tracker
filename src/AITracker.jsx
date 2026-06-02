@@ -86,11 +86,73 @@ const SKILL_TASKS = [
       { id: "income_music",    label: "Заробив $ на AI-музиці",            xp: 2000 },
     ],
   },
-  { id: "automation", name: "Автоматизація / Агенти", emoji: "⚙️",  color: "#f59e0b", progressive: [], oneTime: [] },
-  { id: "code",       name: "Код / Боти",              emoji: "💻",  color: "#6366f1", progressive: [], oneTime: [] },
-  { id: "design",     name: "AI Дизайн",               emoji: "✨",  color: "#f43f5e", progressive: [], oneTime: [] },
-  { id: "content",    name: "Контент / Публікації",     emoji: "📱",  color: "#10b981", progressive: [], oneTime: [] },
-  { id: "monetize",   name: "Монетизація",              emoji: "💰",  color: "#fbbf24", progressive: [], oneTime: [] },
+  {
+    id: "automation", name: "Автоматизація / Агенти", emoji: "⚙️", color: "#f59e0b",
+    progressive: [
+      { id: "automations_created", label: "Створити автоматизацій (воронок)",           milestones: [{count:1,xp:200},{count:5,xp:600},{count:20,xp:1500},{count:100,xp:4000}] },
+      { id: "hours_saved",         label: "Заощаджених годин завдяки автоматизації",    milestones: [{count:1,xp:100},{count:10,xp:400},{count:50,xp:1200},{count:200,xp:3000}] },
+    ],
+    oneTime: [
+      { id: "first_biz_auto",   label: "Автоматизував перший бізнес-процес",        xp: 1000 },
+      { id: "first_ai_agent",   label: "Запустив першого AI-агента",                xp: 800  },
+      { id: "client_auto",      label: "Зробив автоматизацію для клієнта",          xp: 2000 },
+      { id: "agent_24h",        label: "Агент працював 24 год без участі людини",   xp: 1500 },
+      { id: "income_auto",      label: "Заробив $ на автоматизації",                xp: 2000 },
+    ],
+  },
+  {
+    id: "code", name: "Код / Боти", emoji: "💻", color: "#6366f1",
+    progressive: [
+      { id: "lines_written",  label: "Рядків коду написано",          milestones: [{count:100,xp:100},{count:1000,xp:400},{count:10000,xp:1500},{count:50000,xp:4000}] },
+      { id: "projects_launched", label: "Запущених проектів / сайтів", milestones: [{count:1,xp:300},{count:3,xp:700},{count:10,xp:2000},{count:30,xp:5000}] },
+    ],
+    oneTime: [
+      { id: "first_deploy",    label: "Перший сайт задеплоєний (Oxford_1000!)", xp: 800  },
+      { id: "telegram_bot",    label: "Перший Telegram-бот",                    xp: 1000 },
+      { id: "100_users",       label: "Проект набрав 100 активних користувачів", xp: 2000 },
+      { id: "paid_client_code", label: "Перший платний клієнт за код",          xp: 2000 },
+      { id: "first_saas",      label: "Перший SaaS продукт",                    xp: 3000 },
+    ],
+  },
+  {
+    id: "design", name: "AI Дизайн", emoji: "✨", color: "#f43f5e",
+    progressive: [
+      { id: "mockups_created", label: "Дизайн-макетів створено",       milestones: [{count:1,xp:100},{count:10,xp:350},{count:100,xp:1000},{count:500,xp:3000}] },
+      { id: "logos_created",   label: "Логотипів / брендів створено",  milestones: [{count:1,xp:200},{count:5,xp:600},{count:25,xp:1500},{count:100,xp:4000}] },
+    ],
+    oneTime: [
+      { id: "first_logo_client", label: "Перший логотип для клієнта", xp: 1000 },
+      { id: "full_brandbook",    label: "Повний брендбук з AI",       xp: 2000 },
+      { id: "ui_ux_mockup",      label: "UI/UX макет додатку",        xp: 1500 },
+      { id: "income_design",     label: "Заробив $ на AI-дизайні",    xp: 2000 },
+    ],
+  },
+  {
+    id: "content", name: "Контент / Публікації", emoji: "📱", color: "#10b981",
+    progressive: [
+      { id: "posts_published",  label: "Опублікованих постів (Інста/ТГ/YouTube)", milestones: [{count:1,xp:100},{count:10,xp:350},{count:100,xp:1000},{count:500,xp:3000}] },
+      { id: "followers_gained", label: "Підписників здобуто",                    milestones: [{count:10,xp:100},{count:100,xp:400},{count:1000,xp:1500},{count:10000,xp:5000}] },
+      { id: "content_views",    label: "Переглядів контенту",                     milestones: [{count:100,xp:100},{count:1000,xp:400},{count:10000,xp:1200},{count:100000,xp:3500}] },
+    ],
+    oneTime: [
+      { id: "viral_post",       label: "Перший вірусний пост (1000+ переглядів)", xp: 1000 },
+      { id: "30_days_posting",  label: "30 днів щоденних публікацій",             xp: 1500 },
+      { id: "content_monetize", label: "Перша монетизація контенту",              xp: 2000 },
+    ],
+  },
+  {
+    id: "monetize", name: "Монетизація", emoji: "💰", color: "#fbbf24",
+    progressive: [
+      { id: "ai_income",  label: "Дохід з AI-проектів ($)",  milestones: [{count:1,xp:200},{count:100,xp:800},{count:1000,xp:2500},{count:10000,xp:6000}] },
+      { id: "clients",    label: "Клієнтів / продажів",      milestones: [{count:1,xp:300},{count:5,xp:800},{count:20,xp:2000},{count:100,xp:5000}] },
+    ],
+    oneTime: [
+      { id: "first_paid_client",  label: "Перший платний клієнт",            xp: 1000 },
+      { id: "digital_product",    label: "Перший цифровий продукт на продаж", xp: 1500 },
+      { id: "1k_month",           label: "Перший місяць $1,000+ з AI",        xp: 3000 },
+      { id: "passive_income",     label: "Перший пасивний дохід",             xp: 2000 },
+    ],
+  },
 ];
 
 // Рівні складності — 6 ступенів рідкісності
