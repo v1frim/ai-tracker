@@ -539,6 +539,7 @@ export default function AITracker() {
   const [selectedSkill, setSelectedSkill] = useState(null);
   const [selectedSkillTask, setSelectedSkillTask] = useState(null);
   const [skillTasksData, setSkillTasksData] = useState(saved?.skillTasksData ?? {});
+  const [skillTaskInputs, setSkillTaskInputs] = useState({});
   const [notification, setNotification] = useState(null);
   const [unlockedAchievements, setUnlockedAchievements] = useState(saved?.unlockedAchievements ?? ["oxford_dev"]);
   const [goalInput, setGoalInput] = useState("");
@@ -729,6 +730,23 @@ export default function AITracker() {
     gainXP(xp, "навичка");
     recordActiveDay();
   }, [gainXP, recordActiveDay]);
+
+  const revokeProgressiveMilestone = useCallback((catId, taskId, milestoneIdx, xp) => {
+    const key = `${catId}_${taskId}`;
+    setSkillTasksData(prev => {
+      const existing = prev[key] || { count: 0, claimed: [] };
+      return { ...prev, [key]: { ...existing, claimed: existing.claimed.filter(i => i !== milestoneIdx) } };
+    });
+    loseXP(xp);
+  }, [loseXP]);
+
+  const addProgressiveCount = useCallback((catId, taskId, delta) => {
+    const key = `${catId}_${taskId}`;
+    setSkillTasksData(prev => {
+      const existing = prev[key] || { count: 0, claimed: [] };
+      return { ...prev, [key]: { ...existing, count: Math.max(0, existing.count + delta) } };
+    });
+  }, []);
 
   const setProgressiveCount = useCallback((catId, taskId, value) => {
     const key = `${catId}_${taskId}`;
@@ -1406,31 +1424,40 @@ export default function AITracker() {
                             {cat.progressive.map(task => {
                               const key = `${cat.id}_${task.id}`;
                               const taskState = skillTasksData[key] || { count: 0, claimed: [] };
+                              const inputKey = `${cat.id}_${task.id}`;
+                              const inputVal = skillTaskInputs[inputKey] ?? "";
+                              const handleAdd = () => {
+                                const n = parseInt(inputVal) || 1;
+                                addProgressiveCount(cat.id, task.id, n);
+                                setSkillTaskInputs(prev => ({ ...prev, [inputKey]: "" }));
+                              };
                               return (
-                                <div key={task.id}>
-                                  <div style={{ fontSize: 13, color: "#c8b89a", fontFamily: "'Space Mono',monospace", marginBottom: 8 }}>{task.label}</div>
-                                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                      <input
-                                        type="number"
-                                        value={taskState.count}
-                                        onChange={e => setProgressiveCount(cat.id, task.id, e.target.value)}
-                                        style={{ width: 70, background: "rgba(0,0,0,0.4)", border: `1px solid ${cat.color}44`, color: cat.color, padding: "4px 8px", borderRadius: 4, fontFamily: "'Space Mono',monospace", fontSize: 13, fontWeight: 700, textAlign: "center" }}
-                                      />
-                                      <span style={{ fontSize: 11, color: "#6a5f40" }}>кількість</span>
-                                    </div>
-                                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                                      {task.milestones.map((m, idx) => {
-                                        const claimed = taskState.claimed.includes(idx);
-                                        const reached = taskState.count >= m.count;
-                                        const canClaim = reached && !claimed;
-                                        return (
-                                          <button key={idx} onClick={() => canClaim && claimProgressiveMilestone(cat.id, task.id, idx, m.xp)} style={{ padding: "4px 10px", borderRadius: 3, fontSize: 11, fontWeight: 700, fontFamily: "'Space Mono',monospace", cursor: canClaim ? "pointer" : "default", background: claimed ? `${cat.color}22` : canClaim ? `${cat.color}18` : "rgba(0,0,0,0.3)", border: `1px solid ${claimed ? cat.color : canClaim ? cat.color + "88" : "rgba(201,168,76,0.2)"}`, color: claimed ? cat.color : canClaim ? cat.color + "cc" : "#6a5f40", textDecoration: claimed ? "line-through" : "none", opacity: claimed ? 0.7 : 1 }}>
-                                            {claimed ? "✓ " : canClaim ? "▶ " : ""}×{m.count} <span style={{ color: claimed ? cat.color + "99" : canClaim ? "#00ff88" : "#6a5f40" }}>+{m.xp}</span>
-                                          </button>
-                                        );
-                                      })}
-                                    </div>
+                                <div key={task.id} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                  <div style={{ fontSize: 13, color: "#c8b89a", fontFamily: "'Space Mono',monospace" }}>{task.label}</div>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                    <button onClick={() => addProgressiveCount(cat.id, task.id, 1)} style={{ padding: "4px 12px", borderRadius: 4, fontSize: 16, fontWeight: 800, cursor: "pointer", background: `${cat.color}18`, border: `1px solid ${cat.color}66`, color: cat.color, lineHeight: 1 }}>+</button>
+                                    <input
+                                      type="number"
+                                      placeholder="N"
+                                      value={inputVal}
+                                      onChange={e => setSkillTaskInputs(prev => ({ ...prev, [inputKey]: e.target.value }))}
+                                      onKeyDown={e => e.key === "Enter" && handleAdd()}
+                                      style={{ width: 52, background: "rgba(0,0,0,0.4)", border: `1px solid ${cat.color}33`, color: "#c8b89a", padding: "4px 6px", borderRadius: 4, fontFamily: "'Space Mono',monospace", fontSize: 12, textAlign: "center" }}
+                                    />
+                                    <button onClick={handleAdd} style={{ padding: "4px 10px", borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: "pointer", background: `${cat.color}18`, border: `1px solid ${cat.color}44`, color: `${cat.color}cc` }}>+N</button>
+                                    <span style={{ fontSize: 12, color: cat.color, fontFamily: "'Space Mono',monospace", fontWeight: 700, marginLeft: 2 }}>Всього: {taskState.count}</span>
+                                  </div>
+                                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                    {task.milestones.map((m, idx) => {
+                                      const claimed = taskState.claimed.includes(idx);
+                                      const reached = taskState.count >= m.count;
+                                      const canClaim = reached && !claimed;
+                                      return (
+                                        <button key={idx} onClick={() => claimed ? revokeProgressiveMilestone(cat.id, task.id, idx, m.xp) : canClaim ? claimProgressiveMilestone(cat.id, task.id, idx, m.xp) : null} style={{ padding: "4px 10px", borderRadius: 3, fontSize: 11, fontWeight: 700, fontFamily: "'Space Mono',monospace", cursor: claimed || canClaim ? "pointer" : "default", background: claimed ? `${cat.color}22` : canClaim ? `${cat.color}18` : "rgba(0,0,0,0.3)", border: `1px solid ${claimed ? cat.color : canClaim ? cat.color + "88" : "rgba(201,168,76,0.2)"}`, color: claimed ? cat.color : canClaim ? cat.color + "cc" : "#6a5f40", textDecoration: claimed ? "line-through" : "none", opacity: claimed ? 0.7 : 1 }}>
+                                          {claimed ? "✓ " : canClaim ? "▶ " : ""}×{m.count} <span style={{ color: claimed ? cat.color + "99" : canClaim ? "#00ff88" : "#6a5f40" }}>+{m.xp}</span>
+                                        </button>
+                                      );
+                                    })}
                                   </div>
                                 </div>
                               );
