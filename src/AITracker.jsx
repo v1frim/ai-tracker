@@ -451,7 +451,11 @@ export default function AITracker() {
   const [progressEditText, setProgressEditText] = useState("");
   const [todayXP, setTodayXP] = useState(() => {
     const s = saved?.todayXP;
-    return (s?.date === todayStr()) ? s : { date: todayStr(), total: 0 };
+    if (s?.date === todayStr()) {
+      const maxPossible = saved?.totalXP ?? 0;
+      return { ...s, total: Math.min(s.total, maxPossible) };
+    }
+    return { date: todayStr(), total: 0 };
   });
   const [activeTab, setActiveTab] = useState("dashboard");
   const [selectedSkill, setSelectedSkill] = useState(null);
