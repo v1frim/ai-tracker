@@ -2139,9 +2139,9 @@ export default function AITracker() {
               );
 
               return (
-                <div className="wf-panel" style={{ padding: 16 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: journalOpen ? 14 : 0, cursor: "pointer", padding: "4px 8px", margin: "-4px -8px", marginBottom: journalOpen ? 10 : -4, borderRadius: 4, background: "rgba(201,168,76,0.05)", border: "1px solid rgba(201,168,76,0.12)", transition: "background 0.15s" }} onClick={() => setJournalOpen(v => !v)}>
-                    <span className="wf-sec" style={{ marginBottom: 0, paddingBottom: 0, border: "none" }}>📋 Журнал операцій</span>
+                <div className="wf-panel" style={{ padding: 16, borderLeft: "3px solid #c9a84c", borderTop: "1px solid rgba(201,168,76,0.35)", background: "rgba(201,168,76,0.04)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: journalOpen ? 14 : 0, cursor: "pointer", padding: "4px 8px", margin: "-4px -8px", marginBottom: journalOpen ? 10 : -4, borderRadius: 4, background: "rgba(201,168,76,0.08)", border: "1px solid rgba(201,168,76,0.30)", transition: "background 0.15s" }} onClick={() => setJournalOpen(v => !v)}>
+                    <span className="wf-sec" style={{ marginBottom: 0, paddingBottom: 0, border: "none", color: "#c9a84c" }}>📋 Журнал операцій</span>
                     <span style={{ fontSize: 12, color: "#5a4a30", marginLeft: 6 }}>{allTx.length} записів</span>
                     <span style={{ marginLeft: "auto", color: "#c9a84c", fontSize: 16, fontWeight: 700, width: 24, textAlign: "center" }}>{journalOpen ? "▲" : "▼"}</span>
                   </div>
@@ -2229,8 +2229,8 @@ export default function AITracker() {
             })()}
 
             {/* Income table */}
-            <div className="wf-panel" style={{ padding: 16 }}>
-              <span className="wf-sec" style={{ display: "block", marginBottom: 12 }}>📈 Дохід</span>
+            <div className="wf-panel" style={{ padding: 16, borderLeft: "3px solid #00ff88", borderTop: "1px solid rgba(0,255,136,0.25)", background: "rgba(0,255,136,0.03)" }}>
+              <span className="wf-sec" style={{ display: "block", marginBottom: 12, color: "#00ff88", borderBottomColor: "rgba(0,255,136,0.25)" }}>📈 Дохід</span>
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'Space Mono',monospace" }}>
                   <thead>
@@ -2313,8 +2313,8 @@ export default function AITracker() {
             </div>
 
             {/* Expense table */}
-            <div className="wf-panel" style={{ padding: 16 }}>
-              <span className="wf-sec" style={{ display: "block", marginBottom: 12 }}>📉 Витрати</span>
+            <div className="wf-panel" style={{ padding: 16, borderLeft: "3px solid #f43f5e", borderTop: "1px solid rgba(244,63,94,0.25)", background: "rgba(244,63,94,0.03)" }}>
+              <span className="wf-sec" style={{ display: "block", marginBottom: 12, color: "#f43f5e", borderBottomColor: "rgba(244,63,94,0.25)" }}>📉 Витрати</span>
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'Space Mono',monospace" }}>
                   <thead>
@@ -2401,9 +2401,9 @@ export default function AITracker() {
             </div>
 
             {/* Subscriptions management */}
-            <div className="wf-panel" style={{ padding: 16 }}>
+            <div className="wf-panel" style={{ padding: 16, borderLeft: "3px solid #a855f7", borderTop: "1px solid rgba(168,85,247,0.25)", background: "rgba(168,85,247,0.03)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: subscriptions.length > 0 || showSubForm ? 14 : 0 }}>
-                <span className="wf-sec" style={{ marginBottom: 0, paddingBottom: 0, border: "none" }}>📅 Підписки</span>
+                <span className="wf-sec" style={{ marginBottom: 0, paddingBottom: 0, border: "none", color: "#a855f7" }}>📅 Підписки</span>
                 <span style={{ fontSize: 11, color: "#9a8a60", marginLeft: 4 }}>автоматично списуються щомісяця</span>
                 <button onClick={() => setShowSubForm(v => !v)} style={{ marginLeft: "auto", background: showSubForm ? "rgba(244,63,94,0.12)" : "rgba(201,168,76,0.12)", border: `1px solid ${showSubForm ? "rgba(244,63,94,0.4)" : "rgba(201,168,76,0.4)"}`, color: showSubForm ? "#f43f5e" : "#c9a84c", padding: "5px 12px", borderRadius: 4, cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
                   {showSubForm ? "× Скасувати" : "+ Нова"}
