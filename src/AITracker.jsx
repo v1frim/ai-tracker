@@ -625,6 +625,11 @@ export default function AITracker() {
     showNotif(`+${amount} XP ${label}`, "xp");
   }, [showNotif]);
 
+  const loseXP = useCallback((amount) => {
+    setTotalXP(prev => Math.max(0, prev - amount));
+    setTodayXP(prev => prev.date === todayStr() ? { ...prev, total: Math.max(0, prev.total - amount) } : prev);
+  }, []);
+
   const recordActiveDay = useCallback(() => {
     const today = todayStr();
     setActiveDays(prev => prev.includes(today) ? prev : [...prev, today]);
@@ -687,7 +692,7 @@ export default function AITracker() {
     setIncomeEntries(prev => prev.filter(e => e.id !== id));
     const xp = entry.xpPaid ?? 0;
     if (xp > 0) {
-      setTotalXP(prev => Math.max(0, prev - xp));
+      loseXP(xp);
       showNotif(`↩ Повернуто −${xp} XP`, "xp");
     }
     setPendingDelete(prev => {
@@ -695,7 +700,7 @@ export default function AITracker() {
       const timerId = setTimeout(() => setPendingDelete(null), 5000);
       return { id, type: "income", entry, xpPaid: xp, refund: true, timerId };
     });
-  }, [incomeEntries, showNotif]);
+  }, [incomeEntries, loseXP, showNotif]);
 
   const undoDelete = useCallback(() => {
     if (!pendingDelete) return;
@@ -703,14 +708,13 @@ export default function AITracker() {
     if (pendingDelete.type === "income") {
       setIncomeEntries(prev => [...prev, pendingDelete.entry]);
       if (pendingDelete.refund && pendingDelete.xpPaid > 0) {
-        setTotalXP(prev => prev + pendingDelete.xpPaid);
-        showNotif(`✓ Скасовано — +${pendingDelete.xpPaid} XP повернено`, "xp");
+        gainXP(pendingDelete.xpPaid, "↩ повернено");
       }
     } else {
       setExpenseEntries(prev => [...prev, pendingDelete.entry]);
     }
     setPendingDelete(null);
-  }, [pendingDelete, showNotif]);
+  }, [pendingDelete, gainXP, showNotif]);
 
   const addExpenseEntry = useCallback(() => {
     const amt = parseFloat(expForm.amount);
@@ -1209,7 +1213,7 @@ export default function AITracker() {
                     const updated = { ...prev, [toolRevokeConfirm.skillId]: { unlockedTools: prev[toolRevokeConfirm.skillId].unlockedTools.filter(t => t !== toolRevokeConfirm.tool) } };
                     return updated;
                   });
-                  setTotalXP(prev => Math.max(0, prev - 100));
+                  loseXP(100);
                   setToolRevokeConfirm(null);
                 }} style={{ flex: 1, background: "rgba(244,63,94,0.15)", border: "1px solid rgba(244,63,94,0.5)", color: "#f43f5e", padding: "10px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 13 }}>Так, зняти</button>
                 <button onClick={() => setToolRevokeConfirm(null)} style={{ flex: 1, background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.3)", color: "#c9a84c", padding: "10px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>Залишити</button>
@@ -1230,7 +1234,7 @@ export default function AITracker() {
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={() => {
                   setUnlockedAchievements(prev => prev.filter(id => id !== revokeConfirm.id));
-                  setTotalXP(prev => Math.max(0, prev - revokeConfirm.xp));
+                  loseXP(revokeConfirm.xp);
                   setRevokeConfirm(null);
                 }} style={{ flex: 1, background: "rgba(244,63,94,0.15)", border: "1px solid rgba(244,63,94,0.5)", color: "#f43f5e", padding: "10px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 13 }}>Так, скасувати</button>
                 <button onClick={() => setRevokeConfirm(null)} style={{ flex: 1, background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.3)", color: "#c9a84c", padding: "10px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>Залишити</button>
@@ -2409,7 +2413,7 @@ export default function AITracker() {
                   const dp = projects[projectDeleteConfirm];
                   const totalDeduct = (dp?.creationXP ?? 200) + (dp?.completionXPPaid ? (dp?.completionXP ?? 0) : 0);
                   setProjects(prev => prev.filter((_, idx) => idx !== projectDeleteConfirm));
-                  setTotalXP(prev => Math.max(0, prev - totalDeduct));
+                  loseXP(totalDeduct);
                   setProjectDeleteConfirm(null);
                 }} style={{ flex: 1, background: "rgba(244,63,94,0.15)", border: "1px solid rgba(244,63,94,0.5)", color: "#f43f5e", padding: "10px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 13 }}>Так, видалити</button>
                 <button onClick={() => setProjectDeleteConfirm(null)} style={{ flex: 1, background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.3)", color: "#c9a84c", padding: "10px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>Скасувати</button>
@@ -2459,7 +2463,7 @@ export default function AITracker() {
                       return { ...x, status: next, completionXPPaid: true };
                     }
                     if (next === "in_progress" && paid && cxp > 0) {
-                      setTotalXP(p2 => Math.max(0, p2 - cxp));
+                      loseXP(cxp);
                       return { ...x, status: next, completionXPPaid: false };
                     }
                     return { ...x, status: next };
