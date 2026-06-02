@@ -15,6 +15,84 @@ const SKILLS = [
 
 const TOTAL_TOOLS = SKILLS.reduce((a, s) => a + s.tools.length, 0);
 
+const SKILL_TASKS = [
+  {
+    id: "llm", name: "LLM / Чат-боти", emoji: "🧠", color: "#00ff88",
+    progressive: [
+      { id: "prompts",    label: "Написати промптів",                milestones: [{count:1,xp:100},{count:50,xp:400},{count:200,xp:1000},{count:1000,xp:3000}] },
+      { id: "real_tasks", label: "Вирішити реальних задач через AI", milestones: [{count:1,xp:150},{count:20,xp:600},{count:100,xp:1500},{count:500,xp:4000}] },
+      { id: "streak",     label: "Днів поспіль використовував AI",   milestones: [{count:3,xp:200},{count:14,xp:600},{count:30,xp:1200},{count:100,xp:3000}] },
+    ],
+    oneTime: [
+      { id: "system_prompt",     label: "Зробив власний system prompt",             xp: 500  },
+      { id: "compare_models",    label: "Порівняв 3+ моделі на одному завданні",    xp: 400  },
+      { id: "taught_ai",         label: "Навчив когось іншого користуватись AI",    xp: 1000 },
+      { id: "income_text",       label: "Перший дохід завдяки AI-тексту",           xp: 2000 },
+      { id: "automated_routine", label: "Автоматизував рутинне завдання через AI",  xp: 800  },
+    ],
+  },
+  {
+    id: "image", name: "Генерація зображень", emoji: "🎨", color: "#ff6b35",
+    progressive: [
+      { id: "images_gen",        label: "Згенерувати зображень",               milestones: [{count:1,xp:100},{count:10,xp:350},{count:100,xp:1000},{count:1000,xp:3500}] },
+      { id: "images_commercial", label: "Зображень для комерційних цілей",     milestones: [{count:1,xp:200},{count:10,xp:600},{count:100,xp:2000},{count:500,xp:4000}] },
+      { id: "images_sold",       label: "Продати/передати зображення клієнту", milestones: [{count:1,xp:500},{count:5,xp:1200},{count:20,xp:2500}] },
+    ],
+    oneTime: [
+      { id: "negative_prompting", label: "Освоїв техніку negative prompting",      xp: 300  },
+      { id: "product_cards",      label: "Зробив 10 карток товарів для магазину",  xp: 600  },
+      { id: "first_income_img",   label: "Перший заробіток на AI-зображеннях",     xp: 2000 },
+      { id: "client_approved",    label: "Клієнт схвалив зображення з першого разу", xp: 400 },
+    ],
+  },
+  {
+    id: "video", name: "Генерація відео", emoji: "🎬", color: "#a855f7",
+    progressive: [
+      { id: "videos_created",    label: "Створити відео",                  milestones: [{count:1,xp:150},{count:10,xp:500},{count:100,xp:1500},{count:500,xp:4000}] },
+      { id: "videos_commercial", label: "Відео для клієнтів / комерції",   milestones: [{count:1,xp:300},{count:5,xp:800},{count:25,xp:2000},{count:100,xp:4500}] },
+    ],
+    oneTime: [
+      { id: "first_social_video",  label: "Перше AI-відео для соцмереж",      xp: 500  },
+      { id: "1k_views",            label: "Відео набрало 1,000+ переглядів",   xp: 1000 },
+      { id: "10k_views",           label: "Відео набрало 10,000+ переглядів",  xp: 2500 },
+      { id: "first_income_video",  label: "Заробив перший $ на AI-відео",      xp: 2000 },
+      { id: "video_series",        label: "Зробив серію з 5 відео",            xp: 800  },
+    ],
+  },
+  {
+    id: "voice", name: "Голос / Аудіо", emoji: "🎙️", color: "#06b6d4",
+    progressive: [
+      { id: "audio_files",         label: "Створити озвучок / аудіо-файлів",    milestones: [{count:1,xp:100},{count:10,xp:350},{count:100,xp:1000},{count:500,xp:3000}] },
+      { id: "audio_minutes",       label: "Хвилин озвученого контенту",         milestones: [{count:10,xp:150},{count:60,xp:500},{count:300,xp:1200},{count:1000,xp:3000}] },
+      { id: "voice_practice_days", label: "Днів практики з голосовими AI",      milestones: [{count:1,xp:100},{count:7,xp:300},{count:30,xp:900},{count:90,xp:2500}] },
+    ],
+    oneTime: [
+      { id: "voice_clone",      label: "Клонував голос (власний або персонажа)", xp: 800  },
+      { id: "commercial_voice", label: "Озвучив перше комерційне відео",         xp: 1000 },
+      { id: "income_voice",     label: "Заробив $ на озвучці",                   xp: 2000 },
+      { id: "podcast_episode",  label: "Зробив подкаст-епізод з AI-голосом",    xp: 1000 },
+    ],
+  },
+  {
+    id: "music", name: "Музика", emoji: "🎵", color: "#ec4899",
+    progressive: [
+      { id: "tracks_created",   label: "Створити музичних треків", milestones: [{count:1,xp:100},{count:10,xp:350},{count:100,xp:1000},{count:500,xp:3000}] },
+      { id: "tracks_published", label: "Опублікованих треків",     milestones: [{count:1,xp:300},{count:5,xp:800},{count:20,xp:2000},{count:100,xp:5000}] },
+    ],
+    oneTime: [
+      { id: "youtube_track",   label: "Перший трек у YouTube відео",       xp: 800  },
+      { id: "streaming_track", label: "Трек на стримінгу (Spotify тощо)", xp: 1500 },
+      { id: "licensed_pack",   label: "Пакет з 5 ліцензованих треків",    xp: 800  },
+      { id: "income_music",    label: "Заробив $ на AI-музиці",            xp: 2000 },
+    ],
+  },
+  { id: "automation", name: "Автоматизація / Агенти", emoji: "⚙️",  color: "#f59e0b", progressive: [], oneTime: [] },
+  { id: "code",       name: "Код / Боти",              emoji: "💻",  color: "#6366f1", progressive: [], oneTime: [] },
+  { id: "design",     name: "AI Дизайн",               emoji: "✨",  color: "#f43f5e", progressive: [], oneTime: [] },
+  { id: "content",    name: "Контент / Публікації",     emoji: "📱",  color: "#10b981", progressive: [], oneTime: [] },
+  { id: "monetize",   name: "Монетизація",              emoji: "💰",  color: "#fbbf24", progressive: [], oneTime: [] },
+];
+
 // Рівні складності — 6 ступенів рідкісності
 const TIERS = {
   common:    { label: "Common",    color: "#9a7850", glow: "rgba(154,120,80,0.40)"  },
@@ -459,6 +537,8 @@ export default function AITracker() {
   });
   const [activeTab, setActiveTab] = useState("dashboard");
   const [selectedSkill, setSelectedSkill] = useState(null);
+  const [selectedSkillTask, setSelectedSkillTask] = useState(null);
+  const [skillTasksData, setSkillTasksData] = useState(saved?.skillTasksData ?? {});
   const [notification, setNotification] = useState(null);
   const [unlockedAchievements, setUnlockedAchievements] = useState(saved?.unlockedAchievements ?? ["oxford_dev"]);
   const [goalInput, setGoalInput] = useState("");
@@ -491,12 +571,12 @@ export default function AITracker() {
   const [aiAvailModels, setAiAvailModels] = useState(null);
   const aiMsgsRef = useRef(null);
 
-  const TAB_IDS = ["dashboard", "plan", "goals", "longgoals", "projects", "skills", "achievements", "finances", "sessions", "progress"];
+  const TAB_IDS = ["dashboard", "plan", "goals", "longgoals", "projects", "tools", "skillstasks", "achievements", "finances", "sessions", "progress"];
 
   useEffect(() => {
-    const state = { skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, activeDays, goals, longGoals, plan, aiMessages, aiModel, aiApiKeys, progressLog, todayXP };
+    const state = { skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, activeDays, goals, longGoals, plan, aiMessages, aiModel, aiApiKeys, progressLog, todayXP, skillTasksData };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, activeDays, goals, longGoals, plan, aiMessages, aiModel, aiApiKeys, progressLog, todayXP]);
+  }, [skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, activeDays, goals, longGoals, plan, aiMessages, aiModel, aiApiKeys, progressLog, todayXP, skillTasksData]);
 
   // Computed totals in USD
   const toUSD = useCallback((amount, currency) => currency === "UAH" ? amount / uahRate : amount, [uahRate]);
@@ -639,6 +719,47 @@ export default function AITracker() {
     setActiveDays(prev => prev.includes(today) ? prev : [...prev, today]);
   }, []);
 
+  const claimProgressiveMilestone = useCallback((catId, taskId, milestoneIdx, xp) => {
+    const key = `${catId}_${taskId}`;
+    setSkillTasksData(prev => {
+      const existing = prev[key] || { count: 0, claimed: [] };
+      if (existing.claimed.includes(milestoneIdx)) return prev;
+      return { ...prev, [key]: { ...existing, claimed: [...existing.claimed, milestoneIdx] } };
+    });
+    gainXP(xp, "навичка");
+    recordActiveDay();
+  }, [gainXP, recordActiveDay]);
+
+  const setProgressiveCount = useCallback((catId, taskId, value) => {
+    const key = `${catId}_${taskId}`;
+    const n = Math.max(0, parseInt(value) || 0);
+    setSkillTasksData(prev => {
+      const existing = prev[key] || { count: 0, claimed: [] };
+      return { ...prev, [key]: { ...existing, count: n } };
+    });
+  }, []);
+
+  const claimOneTimeTask = useCallback((catId, taskId, xp) => {
+    const key = `${catId}_${taskId}`;
+    setSkillTasksData(prev => {
+      if (prev[key] === true) return prev;
+      return { ...prev, [key]: true };
+    });
+    gainXP(xp, "навичка");
+    recordActiveDay();
+  }, [gainXP, recordActiveDay]);
+
+  const revokeOneTimeTask = useCallback((catId, taskId, xp) => {
+    const key = `${catId}_${taskId}`;
+    setSkillTasksData(prev => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    loseXP(xp);
+  }, [loseXP]);
+
   const learnTool = useCallback((skillId, tool) => {
     setSkillData(prev => {
       const current = prev[skillId].unlockedTools;
@@ -768,8 +889,9 @@ export default function AITracker() {
     { id: "plan",         label: "📋 План дій" },
     { id: "goals",        label: "✅ Задачі" },
     { id: "longgoals",    label: "🎯 Цілі" },
-    { id: "projects",     label: "🚀 Проекти" },
-    { id: "skills",       label: "🧩 Навички" },
+    { id: "projects",    label: "🚀 Проекти" },
+    { id: "tools",       label: "🛠️ Інструменти" },
+    { id: "skillstasks", label: "💪 Навички" },
     { id: "achievements", label: "🏆 Досягнення" },
     { id: "finances",     label: "💸 Фінанси" },
     { id: "sessions",     label: "🔥 Сесії" },
@@ -1049,7 +1171,7 @@ export default function AITracker() {
                 {SKILLS.map(sk => {
                   const unlocked = skillData[sk.id].unlockedTools;
                   return (
-                    <div key={sk.id} onClick={() => { setSelectedSkill(sk); setActiveTab("skills"); }} className="skill-card" style={{ background: "rgba(3,2,0,0.6)", border: `1px solid ${unlocked.length > 0 ? sk.color + "33" : "rgba(201,168,76,0.10)"}`, borderRadius: 4, padding: 12, cursor: "pointer" }}>
+                    <div key={sk.id} onClick={() => { setSelectedSkill(sk); setActiveTab("tools"); }} className="skill-card" style={{ background: "rgba(3,2,0,0.6)", border: `1px solid ${unlocked.length > 0 ? sk.color + "33" : "rgba(201,168,76,0.10)"}`, borderRadius: 4, padding: 12, cursor: "pointer" }}>
                       <div style={{ fontSize: 18, marginBottom: 5 }}>{sk.emoji}</div>
                       <div style={{ fontSize: 11, color: "#9a8a60", marginBottom: 4, fontFamily: "'Exo 2',sans-serif", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.8 }}>{sk.name}</div>
                       <div style={{ fontSize: 12, color: sk.color, marginBottom: 5, fontWeight: 700, fontFamily: "'Exo 2',sans-serif" }}>{unlocked.length}/{sk.tools.length}</div>
@@ -1067,7 +1189,7 @@ export default function AITracker() {
               <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 14 }}>⚡ Швидкі дії</div>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 {[
-                  { label: "+ Вивчити інструмент", color: "#00ff88", rgb: "0,255,136", tab: "skills" },
+                  { label: "+ Вивчити інструмент", color: "#00ff88", rgb: "0,255,136", tab: "tools" },
                   { label: "+ Записати дохід", color: "#f59e0b", rgb: "245,158,11", tab: "finances" },
                   { label: "+ Новий проект", color: "#6366f1", rgb: "99,102,241", tab: "projects" },
                   { label: "+ Нова задача", color: "#f43f5e", rgb: "244,63,94", tab: "goals" },
@@ -1165,7 +1287,7 @@ export default function AITracker() {
         )}
 
         {/* Skills */}
-        {activeTab === "skills" && (
+        {activeTab === "tools" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {SKILLS.map(sk => {
               const unlocked = skillData[sk.id].unlockedTools;
@@ -1244,6 +1366,103 @@ export default function AITracker() {
                 <button onClick={() => setRevokeConfirm(null)} style={{ flex: 1, background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.3)", color: "#c9a84c", padding: "10px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>Залишити</button>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Skills Tasks */}
+        {activeTab === "skillstasks" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {SKILL_TASKS.map(cat => {
+              const isOpen = selectedSkillTask === cat.id;
+              const hasContent = cat.progressive.length > 0 || cat.oneTime.length > 0;
+              const totalTasks = cat.oneTime.length + cat.progressive.reduce((s, t) => s + t.milestones.length, 0);
+              const doneTasks = cat.oneTime.filter(t => skillTasksData[`${cat.id}_${t.id}`] === true).length
+                + cat.progressive.reduce((s, t) => s + t.milestones.filter((_, i) => (skillTasksData[`${cat.id}_${t.id}`]?.claimed ?? []).includes(i)).length, 0);
+              return (
+                <div key={cat.id} className="skill-card wf-card" style={{ border: `1px solid ${isOpen ? cat.color + "80" : doneTasks > 0 ? cat.color + "44" : "rgba(201,168,76,0.18)"}`, borderTop: `2px solid ${isOpen ? cat.color : doneTasks > 0 ? cat.color + "88" : "rgba(201,168,76,0.35)"}`, overflow: "hidden", opacity: hasContent ? 1 : 0.45 }}>
+                  <div onClick={() => hasContent && setSelectedSkillTask(isOpen ? null : cat.id)} style={{ padding: "14px 16px", cursor: hasContent ? "pointer" : "default", display: "flex", alignItems: "center", gap: 12 }}>
+                    <span style={{ fontSize: 20 }}>{cat.emoji}</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: "#e0d8c0", textTransform: "uppercase", letterSpacing: 2, fontFamily: "'Exo 2',sans-serif" }}>{cat.name}</div>
+                      <div style={{ fontSize: 13, color: hasContent ? cat.color : "#6a5f40", marginTop: 4, letterSpacing: 1, fontWeight: 600 }}>
+                        {hasContent ? `${doneTasks}/${totalTasks} завдань виконано` : "Скоро буде додано"}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      {hasContent && totalTasks > 0 && (
+                        <div style={{ width: 80, height: 5, background: "rgba(201,168,76,0.18)", borderRadius: 3 }}>
+                          <div style={{ width: `${(doneTasks / totalTasks) * 100}%`, height: "100%", background: cat.color, borderRadius: 3 }} />
+                        </div>
+                      )}
+                      {hasContent && <span style={{ color: "#9a8a60", fontSize: 14 }}>{isOpen ? "▲" : "▼"}</span>}
+                    </div>
+                  </div>
+                  {isOpen && (
+                    <div style={{ padding: "0 16px 20px", display: "flex", flexDirection: "column", gap: 20 }}>
+                      {cat.progressive.length > 0 && (
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 800, color: "#9a8a60", letterSpacing: 2, textTransform: "uppercase", fontFamily: "'Exo 2',sans-serif", marginBottom: 12 }}>Прогресивні</div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                            {cat.progressive.map(task => {
+                              const key = `${cat.id}_${task.id}`;
+                              const taskState = skillTasksData[key] || { count: 0, claimed: [] };
+                              return (
+                                <div key={task.id}>
+                                  <div style={{ fontSize: 13, color: "#c8b89a", fontFamily: "'Space Mono',monospace", marginBottom: 8 }}>{task.label}</div>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                      <input
+                                        type="number"
+                                        value={taskState.count}
+                                        onChange={e => setProgressiveCount(cat.id, task.id, e.target.value)}
+                                        style={{ width: 70, background: "rgba(0,0,0,0.4)", border: `1px solid ${cat.color}44`, color: cat.color, padding: "4px 8px", borderRadius: 4, fontFamily: "'Space Mono',monospace", fontSize: 13, fontWeight: 700, textAlign: "center" }}
+                                      />
+                                      <span style={{ fontSize: 11, color: "#6a5f40" }}>кількість</span>
+                                    </div>
+                                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                      {task.milestones.map((m, idx) => {
+                                        const claimed = taskState.claimed.includes(idx);
+                                        const reached = taskState.count >= m.count;
+                                        const canClaim = reached && !claimed;
+                                        return (
+                                          <button key={idx} onClick={() => canClaim && claimProgressiveMilestone(cat.id, task.id, idx, m.xp)} style={{ padding: "4px 10px", borderRadius: 3, fontSize: 11, fontWeight: 700, fontFamily: "'Space Mono',monospace", cursor: canClaim ? "pointer" : "default", background: claimed ? `${cat.color}22` : canClaim ? `${cat.color}18` : "rgba(0,0,0,0.3)", border: `1px solid ${claimed ? cat.color : canClaim ? cat.color + "88" : "rgba(201,168,76,0.2)"}`, color: claimed ? cat.color : canClaim ? cat.color + "cc" : "#6a5f40", textDecoration: claimed ? "line-through" : "none", opacity: claimed ? 0.7 : 1 }}>
+                                            {claimed ? "✓ " : canClaim ? "▶ " : ""}×{m.count} <span style={{ color: claimed ? cat.color + "99" : canClaim ? "#00ff88" : "#6a5f40" }}>+{m.xp}</span>
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                      {cat.oneTime.length > 0 && (
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 800, color: "#9a8a60", letterSpacing: 2, textTransform: "uppercase", fontFamily: "'Exo 2',sans-serif", marginBottom: 12 }}>Разові</div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            {cat.oneTime.map(task => {
+                              const key = `${cat.id}_${task.id}`;
+                              const done = skillTasksData[key] === true;
+                              return (
+                                <div key={task.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                  <button onClick={() => done ? revokeOneTimeTask(cat.id, task.id, task.xp) : claimOneTimeTask(cat.id, task.id, task.xp)} style={{ flexShrink: 0, width: 22, height: 22, borderRadius: 4, border: `1px solid ${done ? cat.color : "rgba(201,168,76,0.3)"}`, background: done ? `${cat.color}22` : "transparent", color: done ? cat.color : "#6a5f40", cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                    {done ? "✓" : ""}
+                                  </button>
+                                  <span style={{ flex: 1, fontSize: 13, color: done ? "#9a8a60" : "#c8b89a", fontFamily: "'Space Mono',monospace", textDecoration: done ? "line-through" : "none" }}>{task.label}</span>
+                                  <span style={{ fontSize: 11, fontWeight: 700, color: done ? "#6a5f40" : "#00ff88", fontFamily: "'Space Mono',monospace", whiteSpace: "nowrap" }}>+{task.xp} XP</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 
