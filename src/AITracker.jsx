@@ -570,7 +570,7 @@ export default function AITracker() {
   const [subPrompt, setSubPrompt] = useState(null); // { items: [{...sub, checked: bool}] }
   const [subForm, setSubForm] = useState({ name: "", catId: "exp_other", amount: "", currency: "USD", startDate: todayStr() });
   const [showSubForm, setShowSubForm] = useState(false);
-  const [journalOpen, setJournalOpen] = useState(true);
+  const [journalOpen, setJournalOpen] = useState(false);
   const [showAllSubs, setShowAllSubs] = useState(false);
   const [revokeConfirm, setRevokeConfirm] = useState(null); // { id, name, xp }
   const [toolRevokeConfirm, setToolRevokeConfirm] = useState(null); // { skillId, tool }
@@ -597,7 +597,7 @@ export default function AITracker() {
     }
     return { date: todayStr(), total: 0 };
   });
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [activeTab, setActiveTab] = useState(() => sessionStorage.getItem("ai_tracker_tab") ?? "dashboard");
   const [selectedSkill, setSelectedSkill] = useState(null);
   const [selectedSkillTask, setSelectedSkillTask] = useState(null);
   const [skillTasksData, setSkillTasksData] = useState(saved?.skillTasksData ?? {});
@@ -708,6 +708,8 @@ export default function AITracker() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
+
+  useEffect(() => { sessionStorage.setItem("ai_tracker_tab", activeTab); }, [activeTab]);
 
   useEffect(() => {
     if (aiOpen && aiMsgsRef.current) {
@@ -1510,19 +1512,15 @@ export default function AITracker() {
                                     <button onClick={handleAdd} style={{ padding: "4px 10px", borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: "pointer", background: `${cat.color}18`, border: `1px solid ${cat.color}44`, color: `${cat.color}cc` }}>+N</button>
                                     <span style={{ fontSize: 12, color: cat.color, fontFamily: "'Space Mono',monospace", fontWeight: 700, marginLeft: 2 }}>Всього: {taskState.count}</span>
                                   </div>
-                                  <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 0, background: "rgba(0,0,0,0.25)", border: "1px solid rgba(201,168,76,0.15)", borderRadius: 4, overflow: "hidden" }}>
+                                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                                     {task.milestones.map((m, idx) => {
                                       const claimed = taskState.claimed.includes(idx);
                                       const reached = taskState.count >= m.count;
                                       const canClaim = reached && !claimed;
-                                      const isLast = idx === task.milestones.length - 1;
                                       return (
-                                        <React.Fragment key={idx}>
-                                          <button onClick={() => claimed ? revokeProgressiveMilestone(cat.id, task.id, idx, m.xp) : canClaim ? claimProgressiveMilestone(cat.id, task.id, idx, m.xp) : null} style={{ padding: "6px 12px", fontSize: 11, fontWeight: 700, fontFamily: "'Space Mono',monospace", cursor: claimed || canClaim ? "pointer" : "default", background: claimed ? `${cat.color}20` : canClaim ? `${cat.color}14` : "transparent", border: "none", color: claimed ? cat.color : canClaim ? cat.color + "cc" : "#4a4030", whiteSpace: "nowrap", transition: "background 0.15s" }}>
-                                            {claimed ? "✓ " : canClaim ? "▶ " : ""}×{m.count} <span style={{ color: claimed ? cat.color + "aa" : canClaim ? "#00ff88" : "#3a3828" }}>+{m.xp} XP</span>
-                                          </button>
-                                          {!isLast && <span style={{ color: "rgba(201,168,76,0.2)", fontSize: 13, userSelect: "none" }}>/</span>}
-                                        </React.Fragment>
+                                        <button key={idx} onClick={() => claimed ? revokeProgressiveMilestone(cat.id, task.id, idx, m.xp) : canClaim ? claimProgressiveMilestone(cat.id, task.id, idx, m.xp) : null} style={{ padding: "4px 10px", borderRadius: 3, fontSize: 11, fontWeight: 700, fontFamily: "'Space Mono',monospace", cursor: claimed || canClaim ? "pointer" : "default", background: claimed ? `${cat.color}22` : canClaim ? `${cat.color}18` : "rgba(0,0,0,0.3)", border: `1px solid ${claimed ? cat.color : canClaim ? cat.color + "88" : "rgba(201,168,76,0.2)"}`, color: claimed ? cat.color : canClaim ? cat.color + "cc" : "#6a5f40", textDecoration: claimed ? "line-through" : "none", opacity: claimed ? 0.7 : 1 }}>
+                                          {claimed ? "✓ " : canClaim ? "▶ " : ""}×{m.count}<span style={{ color: "rgba(201,168,76,0.35)", margin: "0 4px" }}>/</span><span style={{ color: claimed ? cat.color + "99" : canClaim ? "#00ff88" : "#6a5f40" }}>+{m.xp} XP</span>
+                                        </button>
                                       );
                                     })}
                                   </div>
@@ -2142,10 +2140,10 @@ export default function AITracker() {
 
               return (
                 <div className="wf-panel" style={{ padding: 16 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: journalOpen ? 14 : 0, cursor: "pointer" }} onClick={() => setJournalOpen(v => !v)}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: journalOpen ? 14 : 0, cursor: "pointer", padding: "4px 8px", margin: "-4px -8px", marginBottom: journalOpen ? 10 : -4, borderRadius: 4, background: "rgba(201,168,76,0.05)", border: "1px solid rgba(201,168,76,0.12)", transition: "background 0.15s" }} onClick={() => setJournalOpen(v => !v)}>
                     <span className="wf-sec" style={{ marginBottom: 0, paddingBottom: 0, border: "none" }}>📋 Журнал операцій</span>
                     <span style={{ fontSize: 12, color: "#5a4a30", marginLeft: 6 }}>{allTx.length} записів</span>
-                    <span style={{ marginLeft: "auto", color: "#9a8a60", fontSize: 14 }}>{journalOpen ? "▲" : "▼"}</span>
+                    <span style={{ marginLeft: "auto", color: "#c9a84c", fontSize: 16, fontWeight: 700, width: 24, textAlign: "center" }}>{journalOpen ? "▲" : "▼"}</span>
                   </div>
 
                   {journalOpen && (
