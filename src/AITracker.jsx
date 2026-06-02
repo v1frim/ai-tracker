@@ -634,7 +634,7 @@ export default function AITracker() {
   const [aiAvailModels, setAiAvailModels] = useState(null);
   const aiMsgsRef = useRef(null);
 
-  const TAB_IDS = ["dashboard", "plan", "goals", "longgoals", "projects", "tools", "skillstasks", "achievements", "finances", "sessions", "progress"];
+  const TAB_IDS = ["dashboard", "plan", "goals", "longgoals", "projects", "tools", "skillstasks", "achievements", "finances", "sessions", "progress", "stats"];
 
   useEffect(() => {
     const state = { skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, activeDays, goals, longGoals, plan, aiMessages, aiModel, aiApiKeys, progressLog, todayXP, skillTasksData };
@@ -976,6 +976,7 @@ export default function AITracker() {
     { id: "finances",     label: "💸 Фінанси" },
     { id: "sessions",     label: "🔥 Сесії" },
     { id: "progress",     label: "📝 Прогрес" },
+    { id: "stats",        label: "📊 Статистика" },
   ];
 
   // Heatmap: group days into weeks
@@ -2925,6 +2926,72 @@ export default function AITracker() {
                   )}
                 </div>
               )}
+            </div>
+          );
+        })()}
+
+        {activeTab === "stats" && (() => {
+          const net = totalIncome - totalExpenses;
+          const netColor = net >= 0 ? "#00ff88" : "#f43f5e";
+          const SKILL_STAT_ROWS = [
+            { catId: "llm",        emoji: "🧠", label: "LLM",            tasks: [{ id: "prompts", label: "Промптів" }, { id: "real_tasks", label: "Задач вирішено" }] },
+            { catId: "image",      emoji: "🎨", label: "Зображення",     tasks: [{ id: "images_gen", label: "Згенеровано" }, { id: "images_commercial", label: "Комерційних" }] },
+            { catId: "video",      emoji: "🎬", label: "Відео",          tasks: [{ id: "videos_created", label: "Створено" }, { id: "videos_commercial", label: "Для клієнтів" }] },
+            { catId: "voice",      emoji: "🎙️", label: "Голос / Аудіо", tasks: [{ id: "audio_files", label: "Аудіо-файлів" }, { id: "audio_minutes", label: "Хвилин" }] },
+            { catId: "music",      emoji: "🎵", label: "Музика",         tasks: [{ id: "tracks_created", label: "Треків" }, { id: "tracks_published", label: "Опублікованих" }] },
+            { catId: "automation", emoji: "⚙️", label: "Автоматизація", tasks: [{ id: "automations_created", label: "Автоматизацій" }, { id: "hours_saved", label: "Год заощаджено" }] },
+            { catId: "code",       emoji: "💻", label: "Код",            tasks: [{ id: "lines_written", label: "Рядків коду" }, { id: "projects_launched", label: "Проектів" }] },
+            { catId: "design",     emoji: "✨", label: "Дизайн",         tasks: [{ id: "mockups_created", label: "Макетів" }, { id: "logos_created", label: "Логотипів" }] },
+            { catId: "content",    emoji: "📱", label: "Контент",        tasks: [{ id: "posts_published", label: "Постів" }, { id: "followers_gained", label: "Підписників" }, { id: "content_views", label: "Переглядів" }] },
+            { catId: "monetize",   emoji: "💰", label: "Монетизація",    tasks: [{ id: "ai_income", label: "Дохід ($)" }, { id: "clients", label: "Клієнтів" }] },
+          ];
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+              {/* Фінанси */}
+              <div>
+                <div className="wf-sec" style={{ marginBottom: 16 }}>💸 Фінанси</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
+                  {[
+                    { label: "Дохід", value: `$${totalIncome.toFixed(2)}`, color: "#00ff88" },
+                    { label: "Витрати", value: `$${totalExpenses.toFixed(2)}`, color: "#f43f5e" },
+                    { label: net >= 0 ? "Профіт +" : "Збиток −", value: `$${Math.abs(net).toFixed(2)}`, color: netColor },
+                  ].map(s => (
+                    <div key={s.label} className="wf-card" style={{ padding: "18px 16px", textAlign: "center", border: `1px solid ${s.color}33`, borderTop: `2px solid ${s.color}` }}>
+                      <div style={{ fontSize: 11, color: "#9a8a60", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 2, marginBottom: 8 }}>{s.label}</div>
+                      <div style={{ fontSize: 22, fontWeight: 800, color: s.color, fontFamily: "'Space Mono',monospace" }}>{s.value}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* Навички */}
+              <div>
+                <div className="wf-sec" style={{ marginBottom: 16 }}>💪 Навички — виконано</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {SKILL_STAT_ROWS.map(row => {
+                    const cat = SKILL_TASKS.find(c => c.id === row.catId);
+                    const catColor = cat?.color ?? "#c9a84c";
+                    const counts = row.tasks.map(t => ({
+                      label: t.label,
+                      count: (skillTasksData[`${row.catId}_${t.id}`]?.count ?? 0),
+                    }));
+                    const hasAny = counts.some(c => c.count > 0);
+                    return (
+                      <div key={row.catId} className="wf-card" style={{ padding: "12px 16px", display: "flex", alignItems: "center", gap: 12, border: `1px solid ${hasAny ? catColor + "44" : "rgba(201,168,76,0.12)"}`, borderLeft: `3px solid ${hasAny ? catColor : "rgba(201,168,76,0.2)"}` }}>
+                        <span style={{ fontSize: 18, flexShrink: 0 }}>{row.emoji}</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: "#c8b89a", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1, flexShrink: 0, minWidth: 110 }}>{row.label}</span>
+                        <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+                          {counts.map(c => (
+                            <span key={c.label} style={{ fontFamily: "'Space Mono',monospace", fontSize: 12 }}>
+                              <span style={{ color: "#6a5f40" }}>{c.label}: </span>
+                              <span style={{ color: c.count > 0 ? catColor : "#4a4030", fontWeight: 700 }}>{c.count.toLocaleString()}</span>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           );
         })()}
