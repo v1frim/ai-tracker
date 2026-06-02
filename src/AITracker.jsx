@@ -921,7 +921,10 @@ export default function AITracker() {
                 )}
               </div>
               <div style={{ fontSize: 11, color: `${lc}99`, fontFamily: "'Space Mono',monospace" }}>
-                ще <span style={{ color: lc, fontWeight: 700 }}>{(nextLevelXP - totalXP).toLocaleString()}</span> XP
+                {totalLevel >= 100
+                  ? <span style={{ color: "#00ff88", fontWeight: 700 }}>+{(totalXP - nextLevelXP).toLocaleString()} XP</span>
+                  : <>ще <span style={{ color: lc, fontWeight: 700 }}>{(nextLevelXP - totalXP).toLocaleString()}</span> XP</>
+                }
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 12, color: `${lc}80`, fontFamily: "'Space Mono',monospace" }}>{nextLevelXP.toLocaleString()} XP</span>
