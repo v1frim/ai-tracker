@@ -284,71 +284,76 @@ function lastNDays(n) {
   return days;
 }
 
-// ── Floating 3D background ──────────────────────────────────────────────────
+// ── Floating 3D background — dark blue geometric ───────────────────────────
 const BG_SHAPES = [
-  { id:  1, type: "cube",    left:  7, top: 11, size: 72, depth: 0.22, phase: 0.0, blur: 0, op: 0.72 },
-  { id:  2, type: "ring",    left: 80, top:  7, size: 60, depth: 0.42, phase: 2.1, blur: 0, op: 0.58 },
-  { id:  3, type: "tri",     left: 56, top: 58, size: 52, depth: 0.33, phase: 1.0, blur: 0, op: 0.52 },
-  { id:  4, type: "diamond", left: 88, top: 72, size: 56, depth: 0.38, phase: 3.2, blur: 0, op: 0.62 },
-  { id:  5, type: "cube",    left: 70, top: 27, size: 48, depth: 0.50, phase: 4.1, blur: 5, op: 0.35 },
-  { id:  6, type: "ring",    left: 17, top: 68, size: 44, depth: 0.28, phase: 0.7, blur: 0, op: 0.52 },
-  { id:  7, type: "tri",     left: 35, top: 20, size: 40, depth: 0.45, phase: 1.8, blur: 0, op: 0.55 },
-  { id:  8, type: "cube",    left:  2, top: 42, size: 46, depth: 0.18, phase: 2.5, blur: 0, op: 0.48 },
-  { id:  9, type: "ring",    left: 63, top: 84, size: 32, depth: 0.55, phase: 3.8, blur: 4, op: 0.38 },
-  { id: 10, type: "diamond", left: 25, top: 33, size: 30, depth: 0.30, phase: 0.4, blur: 0, op: 0.48 },
-  { id: 11, type: "tri",     left: 84, top: 52, size: 36, depth: 0.25, phase: 1.5, blur: 0, op: 0.52 },
-  { id: 12, type: "ring",    left: 44, top: 88, size: 26, depth: 0.60, phase: 2.9, blur: 6, op: 0.28 },
-  { id: 13, type: "cube",    left: 48, top: 37, size: 38, depth: 0.36, phase: 5.0, blur: 3, op: 0.33 },
-  { id: 14, type: "diamond", left: 92, top: 37, size: 42, depth: 0.20, phase: 1.2, blur: 0, op: 0.58 },
-  { id: 15, type: "tri",     left: 62, top: 12, size: 28, depth: 0.48, phase: 3.6, blur: 0, op: 0.42 },
+  // Back layer — large panels, barely move
+  { id:  1, type: "shard", left: -6,  top: -10, size: 500, depth: 0.12, phase: 0.0, op: 0.90, v: "a" },
+  { id:  2, type: "shard", left: 36,  top: -14, size: 460, depth: 0.16, phase: 1.9, op: 0.85, v: "b" },
+  { id:  3, type: "shard", left: 60,  top: 20,  size: 420, depth: 0.14, phase: 3.1, op: 0.82, v: "c" },
+  { id:  4, type: "shard", left: 74,  top: -20, size: 440, depth: 0.19, phase: 0.8, op: 0.88, v: "d" },
+  // Mid layer
+  { id:  5, type: "shard", left: 6,   top: 48,  size: 300, depth: 0.28, phase: 2.2, op: 0.76, v: "b" },
+  { id:  6, type: "shard", left: 44,  top: 54,  size: 270, depth: 0.34, phase: 4.1, op: 0.70, v: "a" },
+  { id:  7, type: "shard", left: 76,  top: 52,  size: 310, depth: 0.26, phase: 1.3, op: 0.74, v: "d" },
+  { id:  8, type: "shard", left: -2,  top: 22,  size: 240, depth: 0.32, phase: 5.2, op: 0.68, v: "c" },
+  // Glow crack lines
+  { id:  9, type: "glow",  left: 18,  top: 12,  size: 320, depth: 0.38, phase: 0.6, op: 0.55, v: "a" },
+  { id: 10, type: "glow",  left: 50,  top: 6,   size: 280, depth: 0.44, phase: 2.7, op: 0.48, v: "b" },
+  { id: 11, type: "glow",  left: 66,  top: 60,  size: 240, depth: 0.46, phase: 1.2, op: 0.42, v: "c" },
+  { id: 12, type: "glow",  left: 30,  top: 68,  size: 200, depth: 0.52, phase: 3.8, op: 0.38, v: "a" },
+  // Front small shards — move most with cursor
+  { id: 13, type: "shard", left: 2,   top: 72,  size: 190, depth: 0.50, phase: 3.4, op: 0.62, v: "c" },
+  { id: 14, type: "shard", left: 20,  top: 80,  size: 170, depth: 0.56, phase: 0.9, op: 0.55, v: "a" },
+  { id: 15, type: "shard", left: 84,  top: 24,  size: 210, depth: 0.47, phase: 2.4, op: 0.65, v: "b" },
 ];
 
-function CubeSvg({ s }) {
-  const h = s * 0.5;
-  const top   = `0,${-h} ${h},${-h*0.5} 0,0 ${-h},${-h*0.5}`;
-  const right  = `${h},${-h*0.5} 0,0 0,${h} ${h},${h*0.5}`;
-  const left   = `${-h},${-h*0.5} 0,0 0,${h} ${-h},${h*0.5}`;
-  const W = h * 2 + 4; const H = h * 1.5 + 4;
-  return (
-    <svg width={W} height={H} viewBox={`${-h-2} ${-h-2} ${W} ${H}`} style={{ display: "block" }}>
-      <polygon points={top}   fill="#c9a84c" fillOpacity="0.80" stroke="#e8c870" strokeWidth="0.7" strokeOpacity="0.60" />
-      <polygon points={right} fill="#7a5818" fillOpacity="0.80" stroke="#a07828" strokeWidth="0.7" strokeOpacity="0.55" />
-      <polygon points={left}  fill="#3a2808" fillOpacity="0.80" stroke="#5a3c10" strokeWidth="0.7" strokeOpacity="0.50" />
-    </svg>
-  );
-}
-function RingSvg({ s }) {
-  const r = s / 2;
+function ShardSvg({ s, v }) {
+  const pts = {
+    a: `0,${s*0.28} ${s*0.65},0 ${s},${s*0.60} ${s*0.28},${s}`,
+    b: `${s*0.24},0 ${s},${s*0.18} ${s*0.80},${s} 0,${s*0.84}`,
+    c: `${s*0.08},0 ${s*0.94},${s*0.06} ${s},${s*0.90} ${s*0.06},${s*0.96}`,
+    d: `${s*0.46},0 ${s*0.96},${s*0.42} ${s*0.54},${s} 0,${s*0.56}`,
+  }[v] || "";
+  const id = `sg${v}${s}`;
   return (
     <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`} style={{ display: "block" }}>
-      <circle cx={r} cy={r} r={r-2}    fill="none" stroke="#c9a84c" strokeWidth="2.5" strokeOpacity="0.65" />
-      <circle cx={r} cy={r} r={r*0.55} fill="none" stroke="#8a6820" strokeWidth="1.2" strokeOpacity="0.38" />
+      <defs>
+        <filter id={id}>
+          <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="b" />
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <polygon points={pts} fill="#050a16" fillOpacity="0.94" stroke="#1e58c8" strokeWidth="1.2" strokeOpacity="0.70" filter={`url(#${id})`} />
     </svg>
   );
 }
-function TriSvg({ s }) {
-  const h = s * 0.866;
-  return (
-    <svg width={s} height={h} viewBox={`0 0 ${s} ${h}`} style={{ display: "block" }}>
-      <polygon points={`${s/2},2 ${s-2},${h-2} 2,${h-2}`} fill="none" stroke="#a08030" strokeWidth="2.2" strokeOpacity="0.68" />
-    </svg>
-  );
-}
-function DiamondSvg({ s }) {
-  const m = s / 2;
+
+function GlowLineSvg({ s, v }) {
+  const L = {
+    a: [0, s*0.38, s, s*0.12],
+    b: [s*0.14, 0, s*0.86, s],
+    c: [0, s*0.72, s, s*0.28],
+  }[v] || [0, 0, s, s];
+  const id = `gl${v}${s}`;
   return (
     <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`} style={{ display: "block" }}>
-      <polygon points={`${m},2 ${s-2},${m} ${m},${s-2} 2,${m}`} fill="none" stroke="#c9a84c" strokeWidth="2.2" strokeOpacity="0.65" />
-      <polygon points={`${m},${s*0.22} ${s*0.78},${m} ${m},${s*0.78} ${s*0.22},${m}`} fill="#8a6018" fillOpacity="0.14" />
+      <defs>
+        <filter id={id}>
+          <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="b" />
+          <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <line x1={L[0]} y1={L[1]} x2={L[2]} y2={L[3]} stroke="#2070e8" strokeWidth="2.5" strokeOpacity="0.75" filter={`url(#${id})`} />
+      <line x1={L[0]} y1={L[1]} x2={L[2]} y2={L[3]} stroke="#90c0ff" strokeWidth="0.8" strokeOpacity="0.45" />
     </svg>
   );
 }
 
 function FloatingBg() {
-  const wrapRef  = useRef(null);
-  const tgtRef   = useRef({ x: 0, y: 0 });
-  const curRef   = useRef({ x: 0, y: 0 });
-  const rafRef   = useRef(null);
+  const wrapRef = useRef(null);
+  const tgtRef  = useRef({ x: 0, y: 0 });
+  const curRef  = useRef({ x: 0, y: 0 });
+  const rafRef  = useRef(null);
 
   useEffect(() => {
     const onMove = (e) => {
@@ -362,11 +367,11 @@ function FloatingBg() {
       wrapRef.current?.querySelectorAll("[data-bg]").forEach(el => {
         const depth = +el.dataset.depth;
         const phase = +el.dataset.phase;
-        const tx = curRef.current.x * depth * -26;
-        const ty = curRef.current.y * depth * -26;
-        const fy = Math.sin(t * 0.44 + phase) * 9;
-        const fx = Math.cos(t * 0.33 + phase) * 4;
-        const rot = Math.sin(t * 0.17 + phase) * 5;
+        const tx = curRef.current.x * depth * -28;
+        const ty = curRef.current.y * depth * -28;
+        const fy = Math.sin(t * 0.38 + phase) * 8;
+        const fx = Math.cos(t * 0.28 + phase) * 4;
+        const rot = Math.sin(t * 0.14 + phase) * 3;
         el.style.transform = `translate(${tx+fx}px,${ty+fy}px) rotate(${rot}deg)`;
       });
       rafRef.current = requestAnimationFrame(tick);
@@ -380,13 +385,9 @@ function FloatingBg() {
     <div ref={wrapRef} style={{ position: "fixed", inset: 0, overflow: "hidden", pointerEvents: "none", zIndex: 0 }}>
       {BG_SHAPES.map(s => (
         <div key={s.id} data-bg data-depth={s.depth} data-phase={s.phase}
-          style={{ position: "absolute", left: `${s.left}%`, top: `${s.top}%`,
-                   filter: s.blur ? `blur(${s.blur}px)` : undefined,
-                   opacity: s.op, willChange: "transform" }}>
-          {s.type === "cube"    && <CubeSvg    s={s.size} />}
-          {s.type === "ring"    && <RingSvg    s={s.size} />}
-          {s.type === "tri"     && <TriSvg     s={s.size} />}
-          {s.type === "diamond" && <DiamondSvg s={s.size} />}
+          style={{ position: "absolute", left: `${s.left}%`, top: `${s.top}%`, opacity: s.op, willChange: "transform" }}>
+          {s.type === "shard" && <ShardSvg s={s.size} v={s.v} />}
+          {s.type === "glow"  && <GlowLineSvg s={s.size} v={s.v} />}
         </div>
       ))}
     </div>
@@ -883,9 +884,6 @@ export default function AITracker() {
           {/* Top row: avatar + name + stats */}
           <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>
             <div style={{ position: "relative", flexShrink: 0 }}>
-              {todayXP.total > 0 && (
-                <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", background: "linear-gradient(135deg,#00c96a,#00ff88)", color: "#000", fontSize: 11, fontWeight: 800, fontFamily: "'Space Mono',monospace", padding: "3px 9px", borderRadius: 20, whiteSpace: "nowrap", boxShadow: "0 0 12px rgba(0,255,136,0.55)", zIndex: 2, letterSpacing: 0.3 }}>+{todayXP.total} XP</div>
-              )}
               <div style={{ width: 58, height: 58, borderRadius: 4, background: "linear-gradient(145deg,#1a1210,#2a1e14)", border: `2px solid ${lc}`, boxShadow: `0 0 22px ${lglow}, inset 0 0 16px ${lc}14`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 800, color: lc, fontFamily: "'Exo 2',sans-serif", letterSpacing: -1 }}>Vi</div>
               <div style={{ position: "absolute", bottom: -8, right: -10 }}><LeagueBadge level={totalLevel} size={30} /></div>
             </div>
@@ -918,6 +916,9 @@ export default function AITracker() {
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ background: lbg, color: "#000", padding: "3px 12px", borderRadius: 3, fontSize: 12, fontWeight: 800, fontFamily: "'Exo 2',sans-serif", letterSpacing: 2, textTransform: "uppercase" }}>RANK {totalLevel}</span>
                 <span style={{ fontSize: 12, color: lc, fontFamily: "'Space Mono',monospace", fontWeight: 700 }}>{totalXP.toLocaleString()} XP</span>
+                {todayXP.total > 0 && (
+                  <span style={{ background: "rgba(0,255,136,0.14)", border: "1px solid rgba(0,255,136,0.45)", color: "#00ff88", fontSize: 11, fontWeight: 800, fontFamily: "'Space Mono',monospace", padding: "2px 9px", borderRadius: 12, letterSpacing: 0.3, whiteSpace: "nowrap" }}>+{todayXP.total} XP сьогодні</span>
+                )}
               </div>
               <div style={{ fontSize: 11, color: `${lc}99`, fontFamily: "'Space Mono',monospace" }}>
                 ще <span style={{ color: lc, fontWeight: 700 }}>{(nextLevelXP - totalXP).toLocaleString()}</span> XP
