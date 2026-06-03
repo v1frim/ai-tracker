@@ -617,6 +617,10 @@ export default function AITracker() {
   const [achieveToasts, setAchieveToasts] = useState([]);
   const [floats, setFloats] = useState([]);
   const [packInputs, setPackInputs] = useState({});
+  const [todayActivity, setTodayActivity] = useState(() => {
+    const saved_ta = (() => { try { return JSON.parse(localStorage.getItem("ai_tracker_today_act") ?? "null"); } catch { return null; } })();
+    return (saved_ta?.date === todayStr()) ? saved_ta.data : {};
+  });
   const [unlockedAchievements, setUnlockedAchievements] = useState(saved?.unlockedAchievements ?? ["oxford_dev"]);
   const [goalInput, setGoalInput] = useState("");
   const [goalPriority, setGoalPriority] = useState("important");
@@ -654,6 +658,10 @@ export default function AITracker() {
     const state = { skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, activeDays, goals, longGoals, plan, aiMessages, aiModel, aiApiKeys, progressLog, todayXP, skillTasksData, learnTime };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, activeDays, goals, longGoals, plan, aiMessages, aiModel, aiApiKeys, progressLog, todayXP, skillTasksData, learnTime]);
+
+  useEffect(() => {
+    localStorage.setItem("ai_tracker_today_act", JSON.stringify({ date: todayStr(), data: todayActivity }));
+  }, [todayActivity]);
 
   // Computed totals in USD
   const toUSD = useCallback((amount, currency) => currency === "UAH" ? amount / uahRate : amount, [uahRate]);
@@ -775,6 +783,10 @@ export default function AITracker() {
     setTimeout(() => setFloats(prev => prev.filter(f => f.id !== fid)), 900);
   }, []);
 
+  const recordTodayActivity = useCallback((key, delta) => {
+    setTodayActivity(prev => ({ ...prev, [key]: Math.max(0, (prev[key] ?? 0) + delta) }));
+  }, []);
+
   const learnTimeRef = useRef(learnTime);
   useEffect(() => { learnTimeRef.current = learnTime; }, [learnTime]);
 
@@ -849,7 +861,8 @@ export default function AITracker() {
       const xpAmt = (SKILL_ACT_XP[catId] ?? 1) * Math.abs(delta);
       if (xpAmt > 0) gainXP(xpAmt, "активність");
     }
-  }, [gainXP, recordActiveDay]);
+    recordTodayActivity(`${catId}_${taskId}`, delta);
+  }, [gainXP, recordActiveDay, recordTodayActivity]);
 
   const LEARN_XP = { education: 4, business: 4, edu_videos: 3 };
 
@@ -883,7 +896,8 @@ export default function AITracker() {
       }
       return next;
     });
-  }, [gainXP, recordActiveDay, showAchievementToast]);
+    recordTodayActivity(kind, delta);
+  }, [gainXP, recordActiveDay, recordTodayActivity, showAchievementToast]);
 
   const setProgressiveCount = useCallback((catId, taskId, value) => {
     const key = `${catId}_${taskId}`;
@@ -1354,18 +1368,20 @@ export default function AITracker() {
                         ? (learnTime[tr.key] ?? 0)
                         : (skillTasksData[tr.key]?.count ?? 0);
                       const packVal = packInputs[tr.key] ?? "";
+                      const packN = parseInt(packVal) || 0;
+                      const todayCount = todayActivity[tr.key] ?? 0;
                       const doInc = (delta) => {
                         if (tr.kind === "learn") addLearnTime(tr.key, delta);
                         else {
                           const sep = tr.key.indexOf("_");
                           addProgressiveCount(tr.key.slice(0, sep), tr.key.slice(sep + 1), delta);
                         }
-                        if (delta > 0) addFloat(tr.key, `+${delta}`, tr.color);
+                        addFloat(tr.key, delta > 0 ? `+${delta}` : `${delta}`, delta > 0 ? tr.color : "#f43f5e");
                       };
                       const cardFloats = floats.filter(f => f.key === tr.key);
+                      const xpLabel = tr.note ? `${tr.note} · +${tr.xp} XP` : `+${tr.xp} XP/шт`;
                       return (
                         <div key={tr.key} style={{ position: "relative", background: `${tr.color}0d`, border: `1px solid ${tr.color}35`, borderRadius: 8, padding: "14px 12px 12px", display: "flex", flexDirection: "column", gap: 10, overflow: "visible" }}>
-                          {/* Floating +N animations */}
                           {cardFloats.map(f => (
                             <span key={f.id} className="float-text" style={{ color: f.color }}>{f.text}</span>
                           ))}
@@ -1375,9 +1391,14 @@ export default function AITracker() {
                             <span style={{ fontSize: 18 }}>{tr.emoji}</span>
                             <div style={{ flex: 1 }}>
                               <div style={{ fontSize: 10, fontWeight: 700, color: "#9a8a72", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>{tr.label}</div>
-                              <div style={{ fontSize: 9, color: "#4a4030", fontFamily: "'Space Mono',monospace" }}>{tr.note ?? `+${tr.xp} XP/шт`}</div>
+                              <div style={{ fontSize: 9, color: "#4a4030", fontFamily: "'Space Mono',monospace" }}>{xpLabel}</div>
                             </div>
-                            <span style={{ fontSize: 22, fontWeight: 900, color: tr.color, fontFamily: "'Space Mono',monospace", textShadow: `0 0 10px ${tr.color}66` }}>{count}</span>
+                            <div style={{ textAlign: "right" }}>
+                              <div style={{ fontSize: 22, fontWeight: 900, color: tr.color, fontFamily: "'Space Mono',monospace", textShadow: `0 0 10px ${tr.color}66`, lineHeight: 1 }}>{count}</div>
+                              {todayCount > 0 && (
+                                <div style={{ fontSize: 9, color: `${tr.color}99`, fontFamily: "'Space Mono',monospace", marginTop: 2 }}>+{todayCount} сьогодні</div>
+                              )}
+                            </div>
                           </div>
 
                           {/* Big + button */}
@@ -1395,19 +1416,28 @@ export default function AITracker() {
                             }}
                           >+</button>
 
-                          {/* − button + pack row */}
+                          {/* − / N / ±N row */}
                           <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                            <button onClick={() => doInc(-1)} style={{ padding: "4px 10px", borderRadius: 4, fontSize: 13, fontWeight: 700, cursor: "pointer", background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.25)", color: "#c04050", lineHeight: 1, letterSpacing: 1 }}>−</button>
+                            <button
+                              onClick={() => { const n = packN > 0 ? packN : 1; doInc(-n); if (packN > 0) setPackInputs(prev => ({ ...prev, [tr.key]: "" })); }}
+                              style={{ padding: "4px 8px", borderRadius: 4, fontSize: 13, fontWeight: 700, cursor: "pointer", background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.25)", color: "#c04050", lineHeight: 1, letterSpacing: 1, whiteSpace: "nowrap" }}>
+                              {packN > 0 ? `−${packN}` : "−"}
+                            </button>
                             <input
                               type="number"
                               placeholder="N"
                               value={packVal}
                               onChange={e => setPackInputs(prev => ({ ...prev, [tr.key]: e.target.value }))}
-                              onKeyDown={e => { if (e.key === "Enter") { const n = parseInt(packVal); if (n > 0) { doInc(n); setPackInputs(prev => ({ ...prev, [tr.key]: "" })); } } }}
+                              onKeyDown={e => {
+                                if (e.key === "Enter" && packN !== 0) {
+                                  doInc(packN);
+                                  setPackInputs(prev => ({ ...prev, [tr.key]: "" }));
+                                }
+                              }}
                               style={{ width: 38, background: "rgba(0,0,0,0.45)", border: `1px solid ${tr.color}28`, color: "#b0a080", padding: "4px 4px", borderRadius: 4, fontFamily: "'Space Mono',monospace", fontSize: 11, textAlign: "center" }}
                             />
                             <button
-                              onClick={() => { const n = parseInt(packVal); if (n > 0) { doInc(n); setPackInputs(prev => ({ ...prev, [tr.key]: "" })); } }}
+                              onClick={() => { if (packN > 0) { doInc(packN); setPackInputs(prev => ({ ...prev, [tr.key]: "" })); } }}
                               style={{ flex: 1, padding: "4px 0", borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: "pointer", background: `${tr.color}14`, border: `1px solid ${tr.color}33`, color: `${tr.color}bb`, fontFamily: "'Space Mono',monospace" }}
                             >+N</button>
                           </div>
