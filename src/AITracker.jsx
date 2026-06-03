@@ -248,11 +248,17 @@ const GOAL_CATEGORIES = [
   { id: "other", label: "Інше", color: "#6a5f40", icon: "🎯" },
 ];
 
-const PLAN_PRIORITIES = [
-  { id: "now", label: "Зараз", color: "#00ff88", bg: "rgba(0,255,136,0.08)" },
-  { id: "soon", label: "Скоро", color: "#f59e0b", bg: "rgba(245,158,11,0.08)" },
-  { id: "later", label: "Потім", color: "#6366f1", bg: "rgba(99,102,241,0.08)" },
-  { id: "scale", label: "Масштаб", color: "#a855f7", bg: "rgba(168,85,247,0.08)" },
+const PLAN_TYPES = [
+  { id: "content",  label: "Контент",  color: "#ec4899", bg: "rgba(236,72,153,0.08)" },
+  { id: "learning", label: "Навчання", color: "#06b6d4", bg: "rgba(6,182,212,0.08)" },
+  { id: "bots",     label: "Боти",     color: "#a855f7", bg: "rgba(168,85,247,0.08)" },
+  { id: "other",    label: "Інше",     color: "#9a8a60", bg: "rgba(154,138,96,0.08)" },
+];
+
+const PLAN_URGENCIES = [
+  { id: "now",   label: "Зараз", order: 0 },
+  { id: "soon",  label: "Скоро", order: 1 },
+  { id: "later", label: "Потім", order: 2 },
 ];
 
 const DEFAULT_GOALS = [
@@ -280,15 +286,15 @@ const DEFAULT_LONG_GOALS = [
 ];
 
 const DEFAULT_PLAN = [
-  { id: "dp1", text: "Affiliate — партнерські комісії за продаж AI-сервісів", priority: "now", done: false },
-  { id: "dp2", text: "Digital Products — шаблони, пресети, гайди, паки", priority: "now", done: false },
-  { id: "dp3", text: "Послуги — AI-послуги клієнтам (картки, контент, боти)", priority: "now", done: false },
-  { id: "dp4", text: "Контент — монетизація соц. мереж (YouTube, TikTok, Telegram)", priority: "soon", done: false },
-  { id: "dp5", text: "Навчання — AI-курси, гайди, консультації", priority: "soon", done: false },
-  { id: "dp6", text: "SaaS / Боти — програмні сервіси за підпискою", priority: "later", done: false },
-  { id: "dp7", text: "Ком'юніті — закриті спільноти і підписки", priority: "later", done: false },
-  { id: "dp8", text: "Контент-фабрика — B2B виробництво контенту для інших", priority: "scale", done: false },
-  { id: "dp9", text: "Автоматизація — продаж AI-пайплайнів для бізнесу", priority: "scale", done: false },
+  { id: "dp1", text: "Affiliate — партнерські комісії за продаж AI-сервісів", type: "other", urgency: "now",   done: false },
+  { id: "dp2", text: "Digital Products — шаблони, пресети, гайди, паки",       type: "other", urgency: "now",   done: false },
+  { id: "dp3", text: "Послуги — AI-послуги клієнтам (картки, контент, боти)",   type: "other", urgency: "now",   done: false },
+  { id: "dp4", text: "Контент — монетизація соц. мереж (YouTube, TikTok, Telegram)", type: "other", urgency: "soon",  done: false },
+  { id: "dp5", text: "Навчання — AI-курси, гайди, консультації",                type: "other", urgency: "soon",  done: false },
+  { id: "dp6", text: "SaaS / Боти — програмні сервіси за підпискою",            type: "other", urgency: "later", done: false },
+  { id: "dp7", text: "Ком'юніті — закриті спільноти і підписки",                type: "other", urgency: "later", done: false },
+  { id: "dp8", text: "Контент-фабрика — B2B виробництво контенту для інших",    type: "other", urgency: "later", done: false },
+  { id: "dp9", text: "Автоматизація — продаж AI-пайплайнів для бізнесу",        type: "other", urgency: "later", done: false },
 ];
 
 const LEAGUES = [
@@ -604,7 +610,12 @@ export default function AITracker() {
   const [sessions, setSessions] = useState(saved?.sessions ?? DEFAULT_SESSIONS);
   const [activeDays, setActiveDays] = useState(saved?.activeDays ?? []);
   const [goals, setGoals] = useState(saved?.goals ?? DEFAULT_GOALS);
-  const [plan, setPlan] = useState(saved?.plan ?? DEFAULT_PLAN);
+  const [plan, setPlan] = useState(() => {
+    const raw = saved?.plan ?? DEFAULT_PLAN;
+    // migrate old priority-based tasks to type+urgency
+    const urgencyMap = { now: "now", soon: "soon", later: "later", scale: "later" };
+    return raw.map(t => t.type ? t : { ...t, type: "other", urgency: urgencyMap[t.priority] ?? "later" });
+  });
   const [progressLog, setProgressLog] = useState(saved?.progressLog ?? []);
   const [progressInput, setProgressInput] = useState("");
   const [progressDate, setProgressDate] = useState(todayStr());
@@ -650,7 +661,8 @@ export default function AITracker() {
   const [longGoalEditText, setLongGoalEditText] = useState("");
   const [longGoalEditXP, setLongGoalEditXP] = useState(200);
   const [planInput, setPlanInput] = useState("");
-  const [planPriority, setPlanPriority] = useState("now");
+  const [planType, setPlanType] = useState("other");
+  const [planUrgency, setPlanUrgency] = useState("now");
 
   // AI Chat Widget state
   const [aiOpen, setAiOpen] = useState(false);
@@ -2209,7 +2221,7 @@ export default function AITracker() {
                   onChange={e => setPlanInput(e.target.value)}
                   onKeyDown={e => {
                     if (e.key === "Enter" && planInput.trim()) {
-                      setPlan(prev => [...prev, { id: `p${Date.now()}`, text: planInput.trim(), priority: planPriority, done: false }]);
+                      setPlan(prev => [...prev, { id: `p${Date.now()}`, text: planInput.trim(), type: planType, urgency: planUrgency, done: false }]);
                       setPlanInput("");
                     }
                   }}
@@ -2217,34 +2229,44 @@ export default function AITracker() {
                   style={{ flex: 1, minWidth: 180, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "9px 14px", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace" }}
                 />
                 <select
-                  value={planPriority}
-                  onChange={e => setPlanPriority(e.target.value)}
+                  value={planType}
+                  onChange={e => setPlanType(e.target.value)}
                   style={{ background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "9px 12px", color: "#6a5f40", fontSize: 12, cursor: "pointer" }}
                 >
-                  {PLAN_PRIORITIES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                  {PLAN_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                </select>
+                <select
+                  value={planUrgency}
+                  onChange={e => setPlanUrgency(e.target.value)}
+                  style={{ background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "9px 12px", color: "#6a5f40", fontSize: 12, cursor: "pointer" }}
+                >
+                  {PLAN_URGENCIES.map(u => <option key={u.id} value={u.id}>{u.label}</option>)}
                 </select>
                 <button className="act-btn" onClick={() => {
                   if (!planInput.trim()) return;
-                  setPlan(prev => [...prev, { id: `p${Date.now()}`, text: planInput.trim(), priority: planPriority, done: false }]);
+                  setPlan(prev => [...prev, { id: `p${Date.now()}`, text: planInput.trim(), type: planType, urgency: planUrgency, done: false }]);
                   setPlanInput("");
                 }} style={{ background: "#6366f1", color: "#fff", border: "none", padding: "9px 16px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 12 }}>Додати</button>
               </div>
             </div>
 
-            {/* Priority groups */}
-            {PLAN_PRIORITIES.map(pr => {
-              const items = plan.filter(p => p.priority === pr.id && !p.done);
-              const done = plan.filter(p => p.priority === pr.id && p.done);
+            {/* Type groups */}
+            {PLAN_TYPES.map(pt => {
+              const urgencyOrder = Object.fromEntries(PLAN_URGENCIES.map(u => [u.id, u.order]));
+              const items = plan
+                .filter(p => (p.type ?? "other") === pt.id && !p.done)
+                .sort((a, b) => (urgencyOrder[a.urgency ?? "later"] ?? 2) - (urgencyOrder[b.urgency ?? "later"] ?? 2));
+              const done = plan.filter(p => (p.type ?? "other") === pt.id && p.done);
               if (!items.length && !done.length) return null;
               return (
-                <div key={pr.id}>
+                <div key={pt.id}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                    <span style={{ background: pr.bg, border: `1px solid ${pr.color}44`, color: pr.color, padding: "3px 12px", borderRadius: 3, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>{pr.label}</span>
+                    <span style={{ background: pt.bg, border: `1px solid ${pt.color}44`, color: pt.color, padding: "3px 12px", borderRadius: 3, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>{pt.label}</span>
                     <span style={{ fontSize: 11, color: "#5a4a30" }}>{items.length} активних{done.length > 0 ? ` · ${done.length} виконано` : ""}</span>
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
                     {[...items, ...done].map(item => (
-                      <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 10, background: item.done ? "rgba(5,3,1,0.80)" : pr.bg, border: `1px solid ${item.done ? "rgba(8,5,2,0.68)" : pr.color + "22"}`, borderRadius: 11, padding: "11px 14px" }}>
+                      <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 10, background: item.done ? "rgba(5,3,1,0.80)" : pt.bg, border: `1px solid ${item.done ? "rgba(8,5,2,0.68)" : pt.color + "22"}`, borderLeft: item.done ? undefined : `3px solid ${pt.color}88`, borderRadius: 4, padding: "11px 14px" }}>
                         <button onClick={() => setPlan(prev => prev.map(x => {
                           if (x.id !== item.id) return x;
                           if (!x.done && !x.xpAwarded) {
@@ -2253,21 +2275,30 @@ export default function AITracker() {
                           }
                           return { ...x, done: !x.done };
                         }))}
-                          style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${item.done ? "#9a8a60" : pr.color}`, background: item.done ? "#9a8a60" : "transparent", cursor: "pointer", flexShrink: 0, fontSize: 12, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
+                          style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${item.done ? "#9a8a60" : pt.color}`, background: item.done ? "#9a8a60" : "transparent", cursor: "pointer", flexShrink: 0, fontSize: 12, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
                           {item.done ? "✓" : ""}
                         </button>
                         <span style={{ flex: 1, color: item.done ? "#5a4a30" : "#cbd5e1", fontSize: 12, textDecoration: item.done ? "line-through" : "none" }}>{item.text}</span>
                         {!item.done && !item.xpAwarded && (
-                          <span style={{ fontSize: 12, color: pr.color, background: pr.bg, border: `1px solid ${pr.color}33`, padding: "2px 7px", borderRadius: 3, whiteSpace: "nowrap" }}>+75 XP</span>
+                          <span style={{ fontSize: 12, color: pt.color, background: pt.bg, border: `1px solid ${pt.color}33`, padding: "2px 7px", borderRadius: 3, whiteSpace: "nowrap" }}>+75 XP</span>
                         )}
                         {!item.done && (
-                          <select
-                            value={item.priority}
-                            onChange={e => setPlan(prev => prev.map(x => x.id === item.id ? { ...x, priority: e.target.value } : x))}
-                            style={{ background: "rgba(0,0,0,0.3)", border: "none", borderRadius: 6, padding: "2px 6px", color: pr.color, fontSize: 12, cursor: "pointer" }}
-                          >
-                            {PLAN_PRIORITIES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
-                          </select>
+                          <>
+                            <select
+                              value={item.type ?? "other"}
+                              onChange={e => setPlan(prev => prev.map(x => x.id === item.id ? { ...x, type: e.target.value } : x))}
+                              style={{ background: "rgba(0,0,0,0.3)", border: "none", borderRadius: 4, padding: "2px 6px", color: pt.color, fontSize: 11, cursor: "pointer" }}
+                            >
+                              {PLAN_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                            </select>
+                            <select
+                              value={item.urgency ?? "later"}
+                              onChange={e => setPlan(prev => prev.map(x => x.id === item.id ? { ...x, urgency: e.target.value } : x))}
+                              style={{ background: "rgba(0,0,0,0.3)", border: "none", borderRadius: 4, padding: "2px 6px", color: "#9a8a60", fontSize: 11, cursor: "pointer" }}
+                            >
+                              {PLAN_URGENCIES.map(u => <option key={u.id} value={u.id}>{u.label}</option>)}
+                            </select>
+                          </>
                         )}
                         <button onClick={() => setPlan(prev => prev.filter(x => x.id !== item.id))}
                           style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 16, padding: "0 4px" }}>×</button>
