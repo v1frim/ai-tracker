@@ -614,6 +614,8 @@ export default function AITracker() {
   const [learnTime, setLearnTime] = useState(saved?.learnTime ?? { education: 0, business: 0, edu_videos: 0 });
   const [learnTimeInputs, setLearnTimeInputs] = useState({ education: "", business: "", edu_videos: "" });
   const [notification, setNotification] = useState(null);
+  const [achieveToasts, setAchieveToasts] = useState([]);
+  const [floats, setFloats] = useState([]);
   const [unlockedAchievements, setUnlockedAchievements] = useState(saved?.unlockedAchievements ?? ["oxford_dev"]);
   const [goalInput, setGoalInput] = useState("");
   const [goalPriority, setGoalPriority] = useState("important");
@@ -759,6 +761,19 @@ export default function AITracker() {
     setTimeout(() => setNotification(null), 2800);
   }, []);
 
+  const showAchievementToast = useCallback((ach) => {
+    const tid = Date.now() + Math.random();
+    setAchieveToasts(prev => [...prev.slice(-3), { id: tid, dying: false, ...ach }]);
+    setTimeout(() => setAchieveToasts(prev => prev.map(t => t.id === tid ? { ...t, dying: true } : t)), 3800);
+    setTimeout(() => setAchieveToasts(prev => prev.filter(t => t.id !== tid)), 4300);
+  }, []);
+
+  const addFloat = useCallback((key, text, color) => {
+    const fid = Date.now() + Math.random();
+    setFloats(prev => [...prev.slice(-8), { id: fid, key, text, color }]);
+    setTimeout(() => setFloats(prev => prev.filter(f => f.id !== fid)), 900);
+  }, []);
+
   const learnTimeRef = useRef(learnTime);
   useEffect(() => { learnTimeRef.current = learnTime; }, [learnTime]);
 
@@ -779,10 +794,10 @@ export default function AITracker() {
       setTotalXP(prev => prev + bonusXP);
       newlyUnlocked.forEach((id, idx) => {
         const a = ACHIEVEMENTS.find(x => x.id === id);
-        setTimeout(() => showNotif(`🏆 ${a.name} розблоковано!`, "achievement"), 600 + idx * 900);
+        setTimeout(() => showAchievementToast(a), 500 + idx * 1000);
       });
     }
-  }, [showNotif]);
+  }, [showAchievementToast]);
 
   const gainXP = useCallback((amount, label = "") => {
     setTotalXP(prev => prev + amount);
@@ -820,16 +835,28 @@ export default function AITracker() {
     loseXP(xp);
   }, [loseXP]);
 
+  const SKILL_ACT_XP = { image: 2, video: 8, music: 6 };
+
   const addProgressiveCount = useCallback((catId, taskId, delta) => {
     const key = `${catId}_${taskId}`;
     setSkillTasksData(prev => {
       const existing = prev[key] || { count: 0, claimed: [] };
       return { ...prev, [key]: { ...existing, count: Math.max(0, existing.count + delta) } };
     });
-    if (delta > 0) recordActiveDay();
-  }, [recordActiveDay]);
+    if (delta > 0) {
+      recordActiveDay();
+      const xpAmt = (SKILL_ACT_XP[catId] ?? 1) * Math.abs(delta);
+      if (xpAmt > 0) gainXP(xpAmt, "активність");
+    }
+  }, [gainXP, recordActiveDay]);
+
+  const LEARN_XP = { education: 4, business: 4, edu_videos: 3 };
 
   const addLearnTime = useCallback((kind, delta) => {
+    if (delta > 0) {
+      const xpAmt = (LEARN_XP[kind] ?? 0) * Math.abs(delta);
+      if (xpAmt > 0) gainXP(xpAmt, "активність");
+    }
     setLearnTime(prev => {
       const next = { ...prev, [kind]: Math.max(0, (prev[kind] ?? 0) + delta) };
       if (delta > 0) {
@@ -846,7 +873,7 @@ export default function AITracker() {
             setTotalXP(p => p + bonus);
             toUnlock.forEach((id, idx) => {
               const a = ACHIEVEMENTS.find(x => x.id === id);
-              setTimeout(() => showNotif(`🏆 ${a.name} розблоковано!`, "achievement"), 600 + idx * 900);
+              setTimeout(() => showAchievementToast(a), 500 + idx * 1000);
             });
             return [...ua, ...toUnlock];
           }
@@ -855,7 +882,7 @@ export default function AITracker() {
       }
       return next;
     });
-  }, [recordActiveDay, showNotif]);
+  }, [gainXP, recordActiveDay, showAchievementToast]);
 
   const setProgressiveCount = useCallback((catId, taskId, value) => {
     const key = `${catId}_${taskId}`;
@@ -1127,6 +1154,44 @@ export default function AITracker() {
         .wf-stat-row:last-child { border-bottom: none; }
         .wf-stat-label { color: #9a8a60; text-transform: uppercase; letter-spacing: 1px; font-size: 11px; }
         .wf-stat-val { color: #e0d8c0; font-family: 'Exo 2',sans-serif; font-weight: 700; }
+
+        /* Floating +N animation */
+        @keyframes floatUp {
+          0%   { opacity:1; transform: translateY(0) scale(1.1); }
+          60%  { opacity:0.9; transform: translateY(-28px) scale(1.25); }
+          100% { opacity:0; transform: translateY(-54px) scale(0.9); }
+        }
+        .float-text {
+          position: absolute;
+          pointer-events: none;
+          font-family: 'Space Mono',monospace;
+          font-weight: 800;
+          font-size: 22px;
+          animation: floatUp 0.85s ease-out forwards;
+          z-index: 100;
+          text-shadow: 0 0 12px currentColor;
+          white-space: nowrap;
+          left: 50%; transform: translateX(-50%);
+          bottom: 48px;
+        }
+
+        /* Big + button Cookie-Clicker style */
+        .act-plus {
+          border: none;
+          cursor: pointer;
+          font-weight: 900;
+          font-size: 28px;
+          line-height: 1;
+          transition: transform 0.08s, box-shadow 0.08s;
+          user-select: none;
+        }
+        .act-plus:active { transform: scale(0.93) translateY(2px) !important; }
+
+        /* Achievement toast (bottom-right) */
+        @keyframes achIn  { from { opacity:0; transform: translateX(120px); } to { opacity:1; transform: translateX(0); } }
+        @keyframes achOut { from { opacity:1; transform: translateX(0);      } to { opacity:0; transform: translateX(80px); } }
+        .ach-toast        { animation: achIn 0.35s cubic-bezier(.22,.68,0,1.2) forwards; }
+        .ach-toast.dying  { animation: achOut 0.4s ease-in forwards; }
       `}</style>
 
       <FloatingBg />
@@ -1134,6 +1199,23 @@ export default function AITracker() {
       {notification && (
         <div key={notification.id} style={{ position: "fixed", top: 16, right: 16, zIndex: 9999, background: "linear-gradient(135deg,rgba(40,28,4,0.98),rgba(18,12,2,0.98))", color: "#c9a84c", padding: "12px 22px", borderRadius: 3, fontWeight: 700, fontSize: 12, border: "1px solid rgba(201,168,76,0.55)", borderTop: "2px solid #c9a84c", boxShadow: "0 0 30px rgba(201,168,76,0.30), 0 6px 24px rgba(0,0,0,0.7)", animation: "slideIn 0.3s ease", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 2 }}>{notification.msg}</div>
       )}
+
+      {/* Achievement toasts — bottom-right, Cookie Clicker style */}
+      <div style={{ position: "fixed", bottom: 20, right: 20, zIndex: 9998, display: "flex", flexDirection: "column-reverse", gap: 10, pointerEvents: "none" }}>
+        {achieveToasts.map(t => {
+          const tierColor = { common: "#9a8a60", uncommon: "#00cc66", rare: "#3b8ff5", epic: "#a855f7", legendary: "#f59e0b", prime: "#ff6b35" }[t.tier] ?? "#c9a84c";
+          return (
+            <div key={t.id} className={`ach-toast${t.dying ? " dying" : ""}`} style={{ width: 270, background: "linear-gradient(135deg,rgba(10,6,2,0.97),rgba(18,12,4,0.97))", border: `1px solid ${tierColor}55`, borderLeft: `3px solid ${tierColor}`, borderRadius: 4, padding: "12px 14px", boxShadow: `0 4px 24px rgba(0,0,0,0.8), 0 0 20px ${tierColor}22`, display: "flex", gap: 12, alignItems: "center" }}>
+              <span style={{ fontSize: 28, lineHeight: 1, filter: "drop-shadow(0 0 6px currentColor)" }}>{t.icon}</span>
+              <div>
+                <div style={{ fontSize: 9, fontWeight: 700, color: tierColor, fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 2, marginBottom: 2 }}>Досягнення розблоковано</div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: "#e0d8c0", fontFamily: "'Exo 2',sans-serif", letterSpacing: 0.5 }}>{t.name}</div>
+                <div style={{ fontSize: 10, color: "#6a5f40", fontFamily: "'Space Mono',monospace", marginTop: 2 }}>{t.desc}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
 
       <div style={{ position: "relative", zIndex: 1, maxWidth: "min(1200px, 92vw)", margin: "0 auto", padding: "20px 14px" }}>
 
@@ -1252,56 +1334,82 @@ export default function AITracker() {
               )}
             </div>
 
-            {/* Активність — compact trackers */}
+            {/* Активність */}
             {(() => {
               const ACTIVITY_TRACKERS = [
-                { kind: "learn", key: "education",       emoji: "📚", label: "Навчання",   color: "#06b6d4", note: "30хв/раз" },
-                { kind: "learn", key: "business",        emoji: "💼", label: "Бізнес",     color: "#f59e0b", note: "30хв/раз" },
-                { kind: "learn", key: "edu_videos",      emoji: "📺", label: "Навч. відео", color: "#a855f7", note: "1 відео" },
-                { kind: "skill", key: "image_images_gen",     emoji: "🎨", label: "Зображення", color: "#ff6b35" },
-                { kind: "skill", key: "video_videos_created", emoji: "🎬", label: "Відео",      color: "#a855f7" },
-                { kind: "skill", key: "music_tracks_created", emoji: "🎵", label: "Музика",     color: "#ec4899" },
+                { kind: "learn", key: "education",            emoji: "📚", label: "Навчання",    color: "#06b6d4", note: "30хв/раз", xp: 4 },
+                { kind: "learn", key: "business",             emoji: "💼", label: "Бізнес",      color: "#f59e0b", note: "30хв/раз", xp: 4 },
+                { kind: "learn", key: "edu_videos",           emoji: "📺", label: "Навч. відео", color: "#a855f7", note: "1 відео",   xp: 3 },
+                { kind: "skill", key: "image_images_gen",     emoji: "🎨", label: "Зображення",  color: "#ff6b35",                   xp: 2 },
+                { kind: "skill", key: "video_videos_created", emoji: "🎬", label: "Відео",       color: "#a855f7",                   xp: 8 },
+                { kind: "skill", key: "music_tracks_created", emoji: "🎵", label: "Музика",      color: "#ec4899",                   xp: 6 },
               ];
+              const [packInputs, setPackInputs] = React.useState({});
               return (
                 <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18 }}>
                   <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 14 }}>⚡ Активність</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
                     {ACTIVITY_TRACKERS.map(tr => {
                       const count = tr.kind === "learn"
                         ? (learnTime[tr.key] ?? 0)
                         : (skillTasksData[tr.key]?.count ?? 0);
-                      const inputVal = tr.kind === "learn" ? (learnTimeInputs[tr.key] ?? "") : "";
-                      const inc = (delta) => {
-                        if (tr.kind === "learn") {
-                          addLearnTime(tr.key, delta);
-                        } else {
+                      const packVal = packInputs[tr.key] ?? "";
+                      const doInc = (delta) => {
+                        if (tr.kind === "learn") addLearnTime(tr.key, delta);
+                        else {
                           const sep = tr.key.indexOf("_");
                           addProgressiveCount(tr.key.slice(0, sep), tr.key.slice(sep + 1), delta);
                         }
+                        if (delta > 0) addFloat(tr.key, `+${delta}`, tr.color);
                       };
+                      const cardFloats = floats.filter(f => f.key === tr.key);
                       return (
-                        <div key={tr.key} style={{ background: `${tr.color}0c`, border: `1px solid ${tr.color}30`, borderRadius: 6, padding: "12px 10px", display: "flex", flexDirection: "column", gap: 8 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            <span style={{ fontSize: 16 }}>{tr.emoji}</span>
-                            <div>
-                              <div style={{ fontSize: 11, fontWeight: 700, color: "#c8b89a", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 0.8 }}>{tr.label}</div>
-                              {tr.note && <div style={{ fontSize: 9, color: "#5a5040", fontFamily: "'Space Mono',monospace" }}>{tr.note}</div>}
+                        <div key={tr.key} style={{ position: "relative", background: `${tr.color}0d`, border: `1px solid ${tr.color}35`, borderRadius: 8, padding: "14px 12px 12px", display: "flex", flexDirection: "column", gap: 10, overflow: "visible" }}>
+                          {/* Floating +N animations */}
+                          {cardFloats.map(f => (
+                            <span key={f.id} className="float-text" style={{ color: f.color }}>{f.text}</span>
+                          ))}
+
+                          {/* Header row */}
+                          <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                            <span style={{ fontSize: 18 }}>{tr.emoji}</span>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: "#9a8a72", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>{tr.label}</div>
+                              <div style={{ fontSize: 9, color: "#4a4030", fontFamily: "'Space Mono',monospace" }}>{tr.note ?? `+${tr.xp} XP/шт`}</div>
                             </div>
-                            <span style={{ marginLeft: "auto", fontSize: 20, fontWeight: 800, color: tr.color, fontFamily: "'Space Mono',monospace" }}>{count}</span>
+                            <span style={{ fontSize: 22, fontWeight: 900, color: tr.color, fontFamily: "'Space Mono',monospace", textShadow: `0 0 10px ${tr.color}66` }}>{count}</span>
                           </div>
+
+                          {/* Big + button */}
+                          <button
+                            className="act-plus"
+                            onClick={() => doInc(1)}
+                            style={{
+                              width: "100%", padding: "14px 0",
+                              borderRadius: 6,
+                              background: `linear-gradient(180deg, ${tr.color}44 0%, ${tr.color}22 50%, ${tr.color}30 100%)`,
+                              border: `2px solid ${tr.color}88`,
+                              color: tr.color,
+                              boxShadow: `0 4px 0 ${tr.color}44, 0 0 18px ${tr.color}33, inset 0 1px 0 ${tr.color}55`,
+                              letterSpacing: 2,
+                            }}
+                          >+</button>
+
+                          {/* − button + pack row */}
                           <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                            <button onClick={() => inc(1)} style={{ flex: 1, padding: "5px 0", borderRadius: 3, fontSize: 16, fontWeight: 800, cursor: "pointer", background: `${tr.color}18`, border: `1px solid ${tr.color}55`, color: tr.color, lineHeight: 1 }}>+</button>
-                            <button onClick={() => inc(-1)} style={{ flex: 1, padding: "5px 0", borderRadius: 3, fontSize: 16, fontWeight: 800, cursor: "pointer", background: "rgba(244,63,94,0.10)", border: "1px solid rgba(244,63,94,0.35)", color: "#f43f5e", lineHeight: 1 }}>−</button>
-                            {tr.kind === "learn" && (
-                              <input
-                                type="number"
-                                placeholder="N"
-                                value={inputVal}
-                                onChange={e => setLearnTimeInputs(prev => ({ ...prev, [tr.key]: e.target.value }))}
-                                onKeyDown={e => { if (e.key === "Enter") { inc(parseInt(inputVal) || 1); setLearnTimeInputs(prev => ({ ...prev, [tr.key]: "" })); } }}
-                                style={{ width: 40, background: "rgba(0,0,0,0.4)", border: `1px solid ${tr.color}33`, color: "#c8b89a", padding: "4px 4px", borderRadius: 3, fontFamily: "'Space Mono',monospace", fontSize: 11, textAlign: "center" }}
-                              />
-                            )}
+                            <button onClick={() => doInc(-1)} style={{ padding: "4px 10px", borderRadius: 4, fontSize: 13, fontWeight: 700, cursor: "pointer", background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.25)", color: "#c04050", lineHeight: 1, letterSpacing: 1 }}>−</button>
+                            <input
+                              type="number"
+                              placeholder="N"
+                              value={packVal}
+                              onChange={e => setPackInputs(prev => ({ ...prev, [tr.key]: e.target.value }))}
+                              onKeyDown={e => { if (e.key === "Enter") { const n = parseInt(packVal); if (n > 0) { doInc(n); setPackInputs(prev => ({ ...prev, [tr.key]: "" })); } } }}
+                              style={{ width: 38, background: "rgba(0,0,0,0.45)", border: `1px solid ${tr.color}28`, color: "#b0a080", padding: "4px 4px", borderRadius: 4, fontFamily: "'Space Mono',monospace", fontSize: 11, textAlign: "center" }}
+                            />
+                            <button
+                              onClick={() => { const n = parseInt(packVal); if (n > 0) { doInc(n); setPackInputs(prev => ({ ...prev, [tr.key]: "" })); } }}
+                              style={{ flex: 1, padding: "4px 0", borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: "pointer", background: `${tr.color}14`, border: `1px solid ${tr.color}33`, color: `${tr.color}bb`, fontFamily: "'Space Mono',monospace" }}
+                            >+N</button>
                           </div>
                         </div>
                       );
