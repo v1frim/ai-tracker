@@ -178,47 +178,53 @@ const ACH_GROUPS = [
 
 const ACHIEVEMENTS = [
   // ── Інструменти ──
-  { id: "first_tool",    group: "tools", tier: "common",    name: "Перший крок",          desc: "Вивчи 1 AI-інструмент",                xp: 50,   icon: "🔧", check: (t) => t >= 1 },
-  { id: "five_tools",    group: "tools", tier: "uncommon",  name: "Дослідник",            desc: "Вивчи 5 AI-інструментів",              xp: 150,  icon: "🔍", check: (t) => t >= 5 },
-  { id: "ten_tools",     group: "tools", tier: "rare",      name: "Колекціонер",          desc: "Вивчи 10 AI-інструментів",             xp: 300,  icon: "🗂️", check: (t) => t >= 10 },
+  { id: "first_tool",    group: "tools", tier: "common",    name: "Перший крок",          desc: "Вивчи 1 AI-інструмент",                xp: 50,   icon: "🔧", check: (t) => t >= 1,           progress: (t) => ({ cur: t, max: 1 }) },
+  { id: "five_tools",    group: "tools", tier: "uncommon",  name: "Дослідник",            desc: "Вивчи 5 AI-інструментів",              xp: 150,  icon: "🔍", check: (t) => t >= 5,           progress: (t) => ({ cur: t, max: 5 }) },
+  { id: "ten_tools",     group: "tools", tier: "rare",      name: "Колекціонер",          desc: "Вивчи 10 AI-інструментів",             xp: 300,  icon: "🗂️", check: (t) => t >= 10,          progress: (t) => ({ cur: t, max: 10 }) },
   { id: "all_categories",group: "tools", tier: "epic",      name: "Поліглот ШІ",          desc: "По 1 інструменту в кожній категорії",  xp: 500,  icon: "🌐",
-    check: (t, i, p, skillData) => SKILLS.every(s => skillData[s.id]?.unlockedTools?.length > 0) },
-  { id: "twenty_tools",  group: "tools", tier: "legendary", name: "Майстер інструментів", desc: "Вивчи 20 AI-інструментів",             xp: 800,  icon: "🧰", check: (t) => t >= 20 },
-  { id: "all_tools",     group: "tools", tier: "prime",     name: "Арсенал",              desc: `Вивчи всі ${TOTAL_TOOLS} інструментів`, xp: 2000, icon: "🌟", check: (t) => t >= TOTAL_TOOLS },
+    check: (t, i, p, skillData) => SKILLS.every(s => skillData[s.id]?.unlockedTools?.length > 0),
+    progress: (t, i, p, skillData) => ({ cur: SKILLS.filter(s => skillData[s.id]?.unlockedTools?.length > 0).length, max: SKILLS.length }) },
+  { id: "twenty_tools",  group: "tools", tier: "legendary", name: "Майстер інструментів", desc: "Вивчи 20 AI-інструментів",             xp: 800,  icon: "🧰", check: (t) => t >= 20,          progress: (t) => ({ cur: t, max: 20 }) },
+  { id: "all_tools",     group: "tools", tier: "prime",     name: "Арсенал",              desc: `Вивчи всі ${TOTAL_TOOLS} інструментів`, xp: 2000, icon: "🌟", check: (t) => t >= TOTAL_TOOLS, progress: (t) => ({ cur: t, max: TOTAL_TOOLS }) },
 
   // ── Дохід ──
-  { id: "first_dollar",   group: "income", tier: "common",    name: "Перший долар",  desc: "Зароби перший $1 з AI",   xp: 100,  icon: "💵", check: (t, i) => i >= 1 },
-  { id: "hundred_dollar", group: "income", tier: "uncommon",  name: "Перша сотня",   desc: "Зароби $100 з AI",        xp: 300,  icon: "💯", check: (t, i) => i >= 100 },
-  { id: "thousand_dollar",group: "income", tier: "rare",      name: "Перша тисяча",  desc: "Зароби $1,000 з AI",      xp: 700,  icon: "🏆", check: (t, i) => i >= 1000 },
-  { id: "tenk_dollar",    group: "income", tier: "epic",      name: "П'ять нулів",   desc: "Зароби $10,000 з AI",     xp: 1500, icon: "💎", check: (t, i) => i >= 10000 },
-  { id: "hundredk_dollar",group: "income", tier: "prime",     name: "Шестизначний",  desc: "Зароби $100,000 з AI",    xp: 5000, icon: "👑", check: (t, i) => i >= 100000 },
-  { id: "million_dollar",  group: "income", tier: "legendary", name: "Мільйонер",    desc: "Зароби $1,000,000 з AI",  xp: 15000, icon: "🤑", check: (t, i) => i >= 1000000 },
+  { id: "first_dollar",   group: "income", tier: "common",    name: "Перший долар",  desc: "Зароби перший $1 з AI",   xp: 100,  icon: "💵", check: (t, i) => i >= 1,       progress: (t, i) => ({ cur: i, max: 1 }) },
+  { id: "hundred_dollar", group: "income", tier: "uncommon",  name: "Перша сотня",   desc: "Зароби $100 з AI",        xp: 300,  icon: "💯", check: (t, i) => i >= 100,     progress: (t, i) => ({ cur: i, max: 100 }) },
+  { id: "thousand_dollar",group: "income", tier: "rare",      name: "Перша тисяча",  desc: "Зароби $1,000 з AI",      xp: 700,  icon: "🏆", check: (t, i) => i >= 1000,    progress: (t, i) => ({ cur: i, max: 1000 }) },
+  { id: "tenk_dollar",    group: "income", tier: "epic",      name: "П'ять нулів",   desc: "Зароби $10,000 з AI",     xp: 1500, icon: "💎", check: (t, i) => i >= 10000,   progress: (t, i) => ({ cur: i, max: 10000 }) },
+  { id: "hundredk_dollar",group: "income", tier: "prime",     name: "Шестизначний",  desc: "Зароби $100,000 з AI",    xp: 5000, icon: "👑", check: (t, i) => i >= 100000,  progress: (t, i) => ({ cur: i, max: 100000 }) },
+  { id: "million_dollar", group: "income", tier: "legendary", name: "Мільйонер",     desc: "Зароби $1,000,000 з AI",  xp: 15000,icon: "🤑", check: (t, i) => i >= 1000000, progress: (t, i) => ({ cur: i, max: 1000000 }) },
 
   // ── Проекти ──
-  { id: "first_project",  group: "projects", tier: "common",    name: "Будівничий",       desc: "Заверши перший AI-проект", xp: 200,  icon: "🚀", check: (t, i, p) => p >= 1 },
-  { id: "three_projects", group: "projects", tier: "uncommon",  name: "Серійний творець", desc: "Заверши 3 проекти",        xp: 400,  icon: "🏗️", check: (t, i, p) => p >= 3 },
-  { id: "five_projects",  group: "projects", tier: "epic",      name: "Продуктолог",      desc: "Заверши 5 проектів",       xp: 900,  icon: "🏭", check: (t, i, p) => p >= 5 },
-  { id: "ten_projects",   group: "projects", tier: "legendary", name: "Імперія",          desc: "Заверши 10 проектів",      xp: 2000, icon: "🏛️", check: (t, i, p) => p >= 10 },
+  { id: "first_project",  group: "projects", tier: "common",    name: "Будівничий",       desc: "Заверши перший AI-проект", xp: 200,  icon: "🚀", check: (t, i, p) => p >= 1,  progress: (t, i, p) => ({ cur: p, max: 1 }) },
+  { id: "three_projects", group: "projects", tier: "uncommon",  name: "Серійний творець", desc: "Заверши 3 проекти",        xp: 400,  icon: "🏗️", check: (t, i, p) => p >= 3,  progress: (t, i, p) => ({ cur: p, max: 3 }) },
+  { id: "five_projects",  group: "projects", tier: "epic",      name: "Продуктолог",      desc: "Заверши 5 проектів",       xp: 900,  icon: "🏭", check: (t, i, p) => p >= 5,  progress: (t, i, p) => ({ cur: p, max: 5 }) },
+  { id: "ten_projects",   group: "projects", tier: "legendary", name: "Імперія",          desc: "Заверши 10 проектів",      xp: 2000, icon: "🏛️", check: (t, i, p) => p >= 10, progress: (t, i, p) => ({ cur: p, max: 10 }) },
 
   // ── Стріки ──
-  { id: "streak_3",   group: "streak", tier: "common",    name: "Розгін",         desc: "3 дні поспіль з AI",    xp: 100,  icon: "✨", check: (t, i, p, sd, streak) => streak >= 3 },
-  { id: "streak_7",   group: "streak", tier: "uncommon",  name: "Тижневий стрік", desc: "7 днів поспіль з AI",   xp: 250,  icon: "🔥", check: (t, i, p, sd, streak) => streak >= 7 },
-  { id: "streak_30",  group: "streak", tier: "epic",      name: "Місячний стрік", desc: "30 днів поспіль з AI",  xp: 1000, icon: "⚡", check: (t, i, p, sd, streak) => streak >= 30 },
-  { id: "streak_100", group: "streak", tier: "prime",     name: "Незламний",      desc: "100 днів поспіль з AI", xp: 3000, icon: "🌋", check: (t, i, p, sd, streak) => streak >= 100 },
+  { id: "streak_3",   group: "streak", tier: "common",    name: "Розгін",         desc: "3 дні поспіль з AI",    xp: 100,  icon: "✨", check: (t, i, p, sd, streak) => streak >= 3,   progress: (t, i, p, sd, streak) => ({ cur: streak, max: 3 }) },
+  { id: "streak_7",   group: "streak", tier: "uncommon",  name: "Тижневий стрік", desc: "7 днів поспіль з AI",   xp: 250,  icon: "🔥", check: (t, i, p, sd, streak) => streak >= 7,   progress: (t, i, p, sd, streak) => ({ cur: streak, max: 7 }) },
+  { id: "streak_30",  group: "streak", tier: "epic",      name: "Місячний стрік", desc: "30 днів поспіль з AI",  xp: 1000, icon: "⚡", check: (t, i, p, sd, streak) => streak >= 30,  progress: (t, i, p, sd, streak) => ({ cur: streak, max: 30 }) },
+  { id: "streak_60",  group: "streak", tier: "rare",      name: "Два місяці",     desc: "60 днів поспіль з AI",  xp: 1800, icon: "🌊", check: (t, i, p, sd, streak) => streak >= 60,  progress: (t, i, p, sd, streak) => ({ cur: streak, max: 60 }) },
+  { id: "streak_100", group: "streak", tier: "prime",     name: "Незламний",      desc: "100 днів поспіль з AI", xp: 3000, icon: "🌋", check: (t, i, p, sd, streak) => streak >= 100, progress: (t, i, p, sd, streak) => ({ cur: streak, max: 100 }) },
+  { id: "streak_365", group: "streak", tier: "legendary", name: "Залізна воля",   desc: "365 днів поспіль з AI", xp: 8000, icon: "👑", check: (t, i, p, sd, streak) => streak >= 365, progress: (t, i, p, sd, streak) => ({ cur: streak, max: 365 }) },
 
   // ── Сесії ──
-  { id: "sessions_10",  group: "sessions", tier: "common",    name: "Звичка",      desc: "Проведи 10 AI-сесій",  xp: 150,  icon: "🌱", check: (t, i, p, sd, streak, totalSess) => totalSess >= 10 },
-  { id: "sessions_50",  group: "sessions", tier: "rare",      name: "50 сесій",    desc: "Проведи 50 AI-сесій",  xp: 500,  icon: "💪", check: (t, i, p, sd, streak, totalSess) => totalSess >= 50 },
-  { id: "sessions_100", group: "sessions", tier: "epic",      name: "Сотня сесій", desc: "Проведи 100 AI-сесій", xp: 1200, icon: "🦾", check: (t, i, p, sd, streak, totalSess) => totalSess >= 100 },
-  { id: "sessions_365", group: "sessions", tier: "legendary", name: "Рік з AI",    desc: "Проведи 365 AI-сесій", xp: 4000, icon: "🏵️", check: (t, i, p, sd, streak, totalSess) => totalSess >= 365 },
+  { id: "sessions_10",  group: "sessions", tier: "common",    name: "Звичка",       desc: "10 AI-сесій",   xp: 150,   icon: "🌱", check: (t, i, p, sd, st, ts) => ts >= 10,   progress: (t, i, p, sd, st, ts) => ({ cur: ts, max: 10 }) },
+  { id: "sessions_30",  group: "sessions", tier: "uncommon",  name: "Місяць з AI",  desc: "30 AI-сесій",   xp: 350,   icon: "📆", check: (t, i, p, sd, st, ts) => ts >= 30,   progress: (t, i, p, sd, st, ts) => ({ cur: ts, max: 30 }) },
+  { id: "sessions_90",  group: "sessions", tier: "rare",      name: "Квартал",      desc: "90 AI-сесій",   xp: 800,   icon: "💪", check: (t, i, p, sd, st, ts) => ts >= 90,   progress: (t, i, p, sd, st, ts) => ({ cur: ts, max: 90 }) },
+  { id: "sessions_180", group: "sessions", tier: "epic",      name: "Пів року",     desc: "180 AI-сесій",  xp: 1500,  icon: "🦾", check: (t, i, p, sd, st, ts) => ts >= 180,  progress: (t, i, p, sd, st, ts) => ({ cur: ts, max: 180 }) },
+  { id: "sessions_365", group: "sessions", tier: "legendary", name: "Рік з AI",     desc: "365 AI-сесій",  xp: 4000,  icon: "🏵️", check: (t, i, p, sd, st, ts) => ts >= 365,  progress: (t, i, p, sd, st, ts) => ({ cur: ts, max: 365 }) },
+  { id: "sessions_730", group: "sessions", tier: "prime",     name: "Два роки",     desc: "730 AI-сесій",  xp: 8000,  icon: "🌟", check: (t, i, p, sd, st, ts) => ts >= 730,  progress: (t, i, p, sd, st, ts) => ({ cur: ts, max: 730 }) },
+  { id: "sessions_1095",group: "sessions", tier: "prime",     name: "Три роки",     desc: "1095 AI-сесій", xp: 15000, icon: "👁️", check: (t, i, p, sd, st, ts) => ts >= 1095, progress: (t, i, p, sd, st, ts) => ({ cur: ts, max: 1095 }) },
 
   // ── Вивчення ШІ (годин) ──
-  { id: "learn_10",    group: "learning", tier: "common",    name: "Початківець",    desc: "10 годин вивчення ШІ",     xp: 200,   icon: "📖", check: (t, i, p, sd, st, ts, h) => h >= 10 },
-  { id: "learn_50",    group: "learning", tier: "uncommon",  name: "Учень",          desc: "50 годин вивчення ШІ",     xp: 500,   icon: "📗", check: (t, i, p, sd, st, ts, h) => h >= 50 },
-  { id: "learn_250",   group: "learning", tier: "rare",      name: "Студент ШІ",     desc: "250 годин вивчення ШІ",    xp: 1200,  icon: "📘", check: (t, i, p, sd, st, ts, h) => h >= 250 },
-  { id: "learn_1000",  group: "learning", tier: "epic",      name: "Експерт",        desc: "1,000 годин вивчення ШІ",  xp: 3000,  icon: "🎓", check: (t, i, p, sd, st, ts, h) => h >= 1000 },
-  { id: "learn_5000",  group: "learning", tier: "legendary", name: "Майстер ШІ",     desc: "5,000 годин вивчення ШІ",  xp: 8000,  icon: "🧠", check: (t, i, p, sd, st, ts, h) => h >= 5000 },
-  { id: "learn_10000", group: "learning", tier: "prime",     name: "10,000 годин",   desc: "10,000 годин — правило майстерності", xp: 20000, icon: "🏆", check: (t, i, p, sd, st, ts, h) => h >= 10000 },
+  { id: "learn_10",    group: "learning", tier: "common",    name: "Початківець",  desc: "10 год вивчення ШІ (навч+бізнес)",      xp: 200,   icon: "📖", check: (t, i, p, sd, st, ts, h) => h >= 10,    progress: (t, i, p, sd, st, ts, h) => ({ cur: h, max: 10 }) },
+  { id: "learn_50",    group: "learning", tier: "uncommon",  name: "Учень",        desc: "50 год вивчення ШІ (навч+бізнес)",      xp: 500,   icon: "📗", check: (t, i, p, sd, st, ts, h) => h >= 50,    progress: (t, i, p, sd, st, ts, h) => ({ cur: h, max: 50 }) },
+  { id: "learn_250",   group: "learning", tier: "rare",      name: "Студент ШІ",   desc: "250 год вивчення ШІ (навч+бізнес)",     xp: 1200,  icon: "📘", check: (t, i, p, sd, st, ts, h) => h >= 250,   progress: (t, i, p, sd, st, ts, h) => ({ cur: h, max: 250 }) },
+  { id: "learn_1000",  group: "learning", tier: "epic",      name: "Експерт",      desc: "1,000 год вивчення ШІ (навч+бізнес)",   xp: 3000,  icon: "🎓", check: (t, i, p, sd, st, ts, h) => h >= 1000,  progress: (t, i, p, sd, st, ts, h) => ({ cur: h, max: 1000 }) },
+  { id: "learn_5000",  group: "learning", tier: "legendary", name: "Майстер ШІ",   desc: "5,000 год вивчення ШІ (навч+бізнес)",   xp: 8000,  icon: "🧠", check: (t, i, p, sd, st, ts, h) => h >= 5000,  progress: (t, i, p, sd, st, ts, h) => ({ cur: h, max: 5000 }) },
+  { id: "learn_10000", group: "learning", tier: "prime",     name: "10,000 годин", desc: "10,000 год — правило майстерності",      xp: 20000, icon: "🏆", check: (t, i, p, sd, st, ts, h) => h >= 10000, progress: (t, i, p, sd, st, ts, h) => ({ cur: h, max: 10000 }) },
 
   // ── Особливі ──
   { id: "oxford_dev", group: "special", tier: "epic", name: "Oxford Dev", desc: "Запущено! (Oxford_1000 вже є 🎉)", xp: 300, icon: "📚", check: () => true },
@@ -2113,7 +2119,11 @@ export default function AITracker() {
         )}
 
         {/* Achievements */}
-        {activeTab === "achievements" && (
+        {activeTab === "achievements" && (() => {
+          const lt = learnTime;
+          const learnHours = ((lt.education ?? 0) + (lt.business ?? 0)) * 0.5;
+          const achArgs = [totalTools, totalIncome, projects.length, skillData, streak, sessions.dates.length, learnHours];
+          return (
           <div style={{ display: "flex", flexDirection: "column", gap: 26 }}>
             {ACH_GROUPS.map(g => {
               const items = ACHIEVEMENTS.filter(a => a.group === g.id);
@@ -2167,6 +2177,22 @@ export default function AITracker() {
                               📅 {achievementDates[a.id]}
                             </div>
                           )}
+                          {!done && a.progress && (() => {
+                            const { cur, max } = a.progress(...achArgs);
+                            const pct = Math.min(1, cur / max);
+                            const pctLabel = pct >= 0.01 ? `${Math.floor(pct * 100)}%` : (cur > 0 ? `${Math.floor(cur * 10) / 10}/${max}` : "0%");
+                            return (
+                              <div style={{ marginTop: 10 }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, fontSize: 10, fontFamily: "'Space Mono',monospace" }}>
+                                  <span style={{ color: "#6a5a38" }}>{cur > 0 ? (Number.isInteger(cur) ? cur : cur.toFixed(1)) : 0} / {max}</span>
+                                  <span style={{ color: pct > 0.5 ? tier.color : "#6a5a38", fontWeight: 700 }}>{pctLabel}</span>
+                                </div>
+                                <div style={{ height: 4, background: "rgba(201,168,76,0.12)", borderRadius: 2, overflow: "hidden" }}>
+                                  <div style={{ height: "100%", width: `${pct * 100}%`, background: pct >= 1 ? tier.color : `linear-gradient(90deg, ${tier.color}88, ${tier.color})`, borderRadius: 2, transition: "width 0.4s" }} />
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
                       );
                     })}
@@ -2175,7 +2201,8 @@ export default function AITracker() {
               );
             })}
           </div>
-        )}
+          );
+        })()}
 
         {/* Goals */}
         {/* Goals = Задачі */}
