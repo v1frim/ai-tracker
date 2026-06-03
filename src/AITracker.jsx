@@ -407,6 +407,82 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
+// Розгортувані періоди для метрики: Сьогодні / Місяць / Рік + повна розбивка.
+// entries: [{ date: "YYYY-MM-DD", delta: number }] — лише для цієї метрики.
+function MetricPeriods({ entries = [], color = "#c9a84c", fmt = (n) => n.toLocaleString(), align = "center" }) {
+  const [open, setOpen] = useState(false);
+  const today = todayStr();
+  const curMonth = today.slice(0, 7);
+  const curYear = today.slice(0, 4);
+  const sum = (pred) => entries.reduce((s, e) => (pred(e) ? s + e.delta : s), 0);
+  const tToday = sum((e) => e.date === today);
+  const tMonth = sum((e) => e.date.slice(0, 7) === curMonth);
+  const tYear = sum((e) => e.date.slice(0, 4) === curYear);
+
+  const byMonth = {}, byYear = {};
+  entries.forEach((e) => {
+    const mk = e.date.slice(0, 7), yk = e.date.slice(0, 4);
+    byMonth[mk] = (byMonth[mk] ?? 0) + e.delta;
+    byYear[yk] = (byYear[yk] ?? 0) + e.delta;
+  });
+  const monthRows = Object.entries(byMonth).filter(([, v]) => v).sort((a, b) => b[0].localeCompare(a[0]));
+  const yearRows = Object.entries(byYear).filter(([, v]) => v).sort((a, b) => b[0].localeCompare(a[0]));
+  const hasHist = entries.length > 0;
+
+  const monthName = (mk) => { const [y, m] = mk.split("-"); return `${MONTH_NAMES_UA[+m - 1]} ${y}`; };
+  const Cell = ({ lbl, val }) => (
+    <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, whiteSpace: "nowrap" }}>
+      <span style={{ color: "#6a5f40" }}>{lbl} </span>
+      <span style={{ color: val ? color : "#4a4030", fontWeight: 700 }}>{val ? fmt(val) : "0"}</span>
+    </span>
+  );
+  const listBox = { maxHeight: 132, overflowY: "auto", display: "flex", flexDirection: "column", gap: 3, paddingRight: 4 };
+  const colTitle = { fontSize: 9, color: "#6a5f40", textTransform: "uppercase", letterSpacing: 1, marginBottom: 5, fontFamily: "'Exo 2',sans-serif" };
+
+  return (
+    <div style={{ marginTop: 6, width: "100%" }}>
+      <div style={{ display: "flex", gap: 10, justifyContent: align, alignItems: "center", flexWrap: "wrap" }}>
+        <Cell lbl="Сьог:" val={tToday} />
+        <Cell lbl="Міс:" val={tMonth} />
+        <Cell lbl="Рік:" val={tYear} />
+        {hasHist && (
+          <button onClick={() => setOpen((o) => !o)} style={{ background: "none", border: "none", color: "#8a7850", cursor: "pointer", fontSize: 10, fontFamily: "'Space Mono',monospace", padding: 0 }}>
+            {open ? "▲" : "▼"}
+          </button>
+        )}
+      </div>
+      {open && (
+        <div style={{ marginTop: 8, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, textAlign: "left", background: "rgba(0,0,0,0.25)", borderRadius: 4, padding: "8px 10px" }}>
+          <div>
+            <div style={colTitle}>По місяцях</div>
+            <div style={listBox}>
+              {monthRows.length === 0 ? <span style={{ fontSize: 10, color: "#4a4030" }}>—</span> :
+                monthRows.map(([mk, v]) => (
+                  <div key={mk} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 10, fontFamily: "'Space Mono',monospace" }}>
+                    <span style={{ color: mk === curMonth ? color : "#8a7850" }}>{monthName(mk)}</span>
+                    <b style={{ color }}>{fmt(v)}</b>
+                  </div>
+                ))}
+            </div>
+          </div>
+          <div>
+            <div style={colTitle}>По роках</div>
+            <div style={listBox}>
+              {yearRows.length === 0 ? <span style={{ fontSize: 10, color: "#4a4030" }}>—</span> :
+                yearRows.map(([yk, v]) => (
+                  <div key={yk} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 10, fontFamily: "'Space Mono',monospace" }}>
+                    <span style={{ color: yk === curYear ? color : "#8a7850" }}>{yk}</span>
+                    <b style={{ color }}>{fmt(v)}</b>
+                  </div>
+                ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function calcStreak(dates) {
   if (!dates.length) return 0;
   const set = new Set(dates);
@@ -647,6 +723,7 @@ export default function AITracker() {
     return raw.map(t => t.type ? t : { ...t, type: "other", urgency: urgencyMap[t.priority] ?? "later" });
   });
   const [progressLog, setProgressLog] = useState(saved?.progressLog ?? []);
+  const [metricLog, setMetricLog] = useState(saved?.metricLog ?? []);
   const [progressInput, setProgressInput] = useState("");
   const [progressDate, setProgressDate] = useState(todayStr());
   const [progressTags, setProgressTags] = useState([]);
@@ -763,9 +840,9 @@ export default function AITracker() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    const state = { skillData, totalXP, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, longGoalEpoch, plan, aiMessages, aiModel, aiApiKeys, progressLog, todayXP, skillTasksData, learnTime };
+    const state = { skillData, totalXP, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, longGoalEpoch, plan, aiMessages, aiModel, aiApiKeys, progressLog, metricLog, todayXP, skillTasksData, learnTime };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [skillData, totalXP, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, longGoalEpoch, plan, aiMessages, aiModel, aiApiKeys, progressLog, todayXP, skillTasksData, learnTime]);
+  }, [skillData, totalXP, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, longGoalEpoch, plan, aiMessages, aiModel, aiApiKeys, progressLog, metricLog, todayXP, skillTasksData, learnTime]);
 
   useEffect(() => {
     localStorage.setItem("ai_tracker_today_act", JSON.stringify({ date: todayStr(), data: todayActivity }));
@@ -1021,6 +1098,7 @@ export default function AITracker() {
     const updated = { ...skillTasksRef.current, [key]: { ...existing, count: newCount } };
     skillTasksRef.current = updated;
     setSkillTasksData(updated);
+    setMetricLog(prev => [{ ts: Date.now(), date: todayStr(), key, delta: eff }, ...prev].slice(0, 3000));
     applyActivityXP(key, eff);
   }, [applyActivityXP]);
 
@@ -1032,6 +1110,7 @@ export default function AITracker() {
     const next = { ...learnTimeRef.current, [kind]: newVal };
     learnTimeRef.current = next;
     setLearnTime(next);
+    setMetricLog(prev => [{ ts: Date.now(), date: todayStr(), key: kind, delta: eff }, ...prev].slice(0, 3000));
     applyActivityXP(kind, eff);
     if (eff > 0) {
       setUnlockedAchievements(ua => {
@@ -3582,16 +3661,22 @@ export default function AITracker() {
               </div>
               {/* Фінанси */}
               <div>
-                <div className="wf-sec" style={{ marginBottom: 16 }}>💸 Фінанси</div>
+                <div className="wf-sec" style={{ marginBottom: 16 }}>💸 Фінанси <span style={{ fontSize: 11, color: "#6a5f40", fontWeight: 400 }}>· ▼ розгорнути періоди</span></div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
-                  {[
-                    { label: "Дохід", value: `$${totalIncome.toFixed(2)}`, color: "#00ff88" },
-                    { label: "Витрати", value: `$${totalExpenses.toFixed(2)}`, color: "#f43f5e" },
-                    { label: net >= 0 ? "Профіт +" : "Збиток −", value: `$${Math.abs(net).toFixed(2)}`, color: netColor },
-                  ].map(s => (
-                    <div key={s.label} className="wf-card" style={{ padding: "18px 16px", textAlign: "center", border: `1px solid ${s.color}33`, borderTop: `2px solid ${s.color}` }}>
+                  {(() => {
+                    const incEntries = incomeEntries.map(e => ({ date: e.date, delta: toUSD(e.amount, e.currency) }));
+                    const expEntries = expenseEntries.map(e => ({ date: e.date, delta: toUSD(e.amount, e.currency) }));
+                    const netEntries = [...incEntries, ...expenseEntries.map(e => ({ date: e.date, delta: -toUSD(e.amount, e.currency) }))];
+                    return [
+                      { label: "Дохід", value: `$${totalIncome.toFixed(2)}`, color: "#00ff88", entries: incEntries },
+                      { label: "Витрати", value: `$${totalExpenses.toFixed(2)}`, color: "#f43f5e", entries: expEntries },
+                      { label: net >= 0 ? "Профіт +" : "Збиток −", value: `$${Math.abs(net).toFixed(2)}`, color: netColor, entries: netEntries },
+                    ];
+                  })().map(s => (
+                    <div key={s.label} className="wf-card" style={{ padding: "16px 14px", textAlign: "center", border: `1px solid ${s.color}33`, borderTop: `2px solid ${s.color}`, display: "flex", flexDirection: "column", alignItems: "center" }}>
                       <div style={{ fontSize: 11, color: "#9a8a60", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 2, marginBottom: 8 }}>{s.label}</div>
                       <div style={{ fontSize: 22, fontWeight: 800, color: s.color, fontFamily: "'Space Mono',monospace" }}>{s.value}</div>
+                      <MetricPeriods entries={s.entries} color={s.color} fmt={v => `$${v.toFixed(2)}`} />
                     </div>
                   ))}
                 </div>
@@ -3605,50 +3690,62 @@ export default function AITracker() {
                     const bizH = (learnTime.business ?? 0) * 0.5;
                     const vidCount = learnTime.edu_videos ?? 0;
                     const totalH = eduH + bizH;
+                    const logFor = (...keys) => metricLog.filter(e => keys.includes(e.key));
+                    const hoursFmt = v => `${(v % 1 === 0 ? v : v.toFixed(1))} год`;
                     return [
-                      { label: "Навчання",     emoji: "📚", count: learnTime.education ?? 0, hours: eduH,   sub: `${learnTime.education ?? 0} × 30хв`, color: "#06b6d4" },
-                      { label: "Бізнес",       emoji: "💼", count: learnTime.business ?? 0,  hours: bizH,   sub: `${learnTime.business ?? 0} × 30хв`,  color: "#f59e0b" },
-                      { label: "Навч. відео",  emoji: "📺", count: vidCount,                 hours: null,   sub: `${vidCount} відео`,                   color: "#a855f7" },
-                      { label: "Всього годин", emoji: "🎯", count: null,                     hours: totalH, sub: `edu+biz`,                              color: "#00ff88" },
+                      { label: "Навчання",     emoji: "📚", hours: eduH,   sub: `${learnTime.education ?? 0} × 30хв`, color: "#06b6d4", entries: logFor("education").map(e => ({ date: e.date, delta: e.delta * 0.5 })), fmt: hoursFmt },
+                      { label: "Бізнес",       emoji: "💼", hours: bizH,   sub: `${learnTime.business ?? 0} × 30хв`,  color: "#f59e0b", entries: logFor("business").map(e => ({ date: e.date, delta: e.delta * 0.5 })), fmt: hoursFmt },
+                      { label: "Навч. відео",  emoji: "📺", hours: null, count: vidCount, sub: `${vidCount} відео`,    color: "#a855f7", entries: logFor("edu_videos"), fmt: v => v.toLocaleString() },
+                      { label: "Всього годин", emoji: "🎯", hours: totalH, sub: `edu+biz`,                            color: "#00ff88", entries: logFor("education", "business").map(e => ({ date: e.date, delta: e.delta * 0.5 })), fmt: hoursFmt },
                     ];
                   })().map(s => (
-                    <div key={s.label} className="wf-card" style={{ padding: "18px 16px", textAlign: "center", border: `1px solid ${s.color}33`, borderTop: `2px solid ${s.color}` }}>
+                    <div key={s.label} className="wf-card" style={{ padding: "16px 14px", textAlign: "center", border: `1px solid ${s.color}33`, borderTop: `2px solid ${s.color}`, display: "flex", flexDirection: "column", alignItems: "center" }}>
                       <div style={{ fontSize: 11, color: "#9a8a60", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 2, marginBottom: 8 }}>{s.emoji} {s.label}</div>
                       <div style={{ fontSize: 22, fontWeight: 800, color: s.color, fontFamily: "'Space Mono',monospace" }}>
                         {s.hours !== null ? <>{s.hours.toLocaleString()} <span style={{ fontSize: 13 }}>год</span></> : s.count}
                       </div>
                       <div style={{ fontSize: 11, color: "#6a5f40", fontFamily: "'Space Mono',monospace", marginTop: 4 }}>{s.sub}</div>
+                      <MetricPeriods entries={s.entries} color={s.color} fmt={s.fmt} />
                     </div>
                   ))}
                 </div>
               </div>
               {/* Навички */}
               <div>
-                <div className="wf-sec" style={{ marginBottom: 16 }}>💪 Навички — виконано</div>
+                <div className="wf-sec" style={{ marginBottom: 16 }}>💪 Навички — виконано <span style={{ fontSize: 11, color: "#6a5f40", fontWeight: 400 }}>· ▼ розгорнути періоди</span></div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {SKILL_STAT_ROWS.map(row => {
                     const cat = SKILL_TASKS.find(c => c.id === row.catId);
                     const catColor = cat?.color ?? "#c9a84c";
-                    const counts = row.tasks.map(t => ({
+                    const tasks = row.tasks.map(t => ({
                       label: t.label,
                       count: (skillTasksData[`${row.catId}_${t.id}`]?.count ?? 0),
+                      entries: metricLog.filter(e => e.key === `${row.catId}_${t.id}`),
                     }));
-                    const hasAny = counts.some(c => c.count > 0);
+                    const hasAny = tasks.some(c => c.count > 0);
                     return (
-                      <div key={row.catId} className="wf-card" style={{ padding: "12px 16px", display: "flex", alignItems: "center", gap: 12, border: `1px solid ${hasAny ? catColor + "44" : "rgba(201,168,76,0.12)"}`, borderLeft: `3px solid ${hasAny ? catColor : "rgba(201,168,76,0.2)"}` }}>
-                        <span style={{ fontSize: 18, flexShrink: 0 }}>{row.emoji}</span>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: "#c8b89a", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1, flexShrink: 0, minWidth: 110 }}>{row.label}</span>
-                        <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
-                          {counts.map(c => (
-                            <span key={c.label} style={{ fontFamily: "'Space Mono',monospace", fontSize: 12 }}>
-                              <span style={{ color: "#6a5f40" }}>{c.label}: </span>
-                              <span style={{ color: c.count > 0 ? catColor : "#4a4030", fontWeight: 700 }}>{c.count.toLocaleString()}</span>
-                            </span>
+                      <div key={row.catId} className="wf-card" style={{ padding: "12px 16px", border: `1px solid ${hasAny ? catColor + "44" : "rgba(201,168,76,0.12)"}`, borderLeft: `3px solid ${hasAny ? catColor : "rgba(201,168,76,0.2)"}` }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: tasks.length ? 4 : 0 }}>
+                          <span style={{ fontSize: 18, flexShrink: 0 }}>{row.emoji}</span>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: "#c8b89a", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>{row.label}</span>
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fit, minmax(200px, 1fr))`, gap: "8px 18px" }}>
+                          {tasks.map(c => (
+                            <div key={c.label} style={{ padding: "6px 0" }}>
+                              <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 12 }}>
+                                <span style={{ color: "#6a5f40" }}>{c.label}: </span>
+                                <span style={{ color: c.count > 0 ? catColor : "#4a4030", fontWeight: 700 }}>{c.count.toLocaleString()}</span>
+                              </div>
+                              <MetricPeriods entries={c.entries} color={catColor} align="flex-start" />
+                            </div>
                           ))}
                         </div>
                       </div>
                     );
                   })}
+                </div>
+                <div style={{ marginTop: 10, fontSize: 10, color: "#5a5040", fontFamily: "'Space Mono',monospace" }}>
+                  Загальні лічильники — за весь час. Розбивка «Сьог/Міс/Рік» та по періодах рахується з цього оновлення (для фінансів — за всю історію записів).
                 </div>
               </div>
             </div>
