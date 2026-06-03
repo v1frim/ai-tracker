@@ -205,8 +205,8 @@ const ACHIEVEMENTS = [
   { id: "streak_3",   group: "streak", tier: "common",    name: "Розгін",         desc: "3 дні поспіль з AI",    xp: 100,  icon: "✨", check: (t, i, p, sd, streak) => streak >= 3,   progress: (t, i, p, sd, streak) => ({ cur: streak, max: 3 }) },
   { id: "streak_7",   group: "streak", tier: "uncommon",  name: "Тижневий стрік", desc: "7 днів поспіль з AI",   xp: 250,  icon: "🔥", check: (t, i, p, sd, streak) => streak >= 7,   progress: (t, i, p, sd, streak) => ({ cur: streak, max: 7 }) },
   { id: "streak_30",  group: "streak", tier: "epic",      name: "Місячний стрік", desc: "30 днів поспіль з AI",  xp: 1000, icon: "⚡", check: (t, i, p, sd, streak) => streak >= 30,  progress: (t, i, p, sd, streak) => ({ cur: streak, max: 30 }) },
-  { id: "streak_60",  group: "streak", tier: "rare",      name: "Два місяці",     desc: "60 днів поспіль з AI",  xp: 1800, icon: "🌊", check: (t, i, p, sd, streak) => streak >= 60,  progress: (t, i, p, sd, streak) => ({ cur: streak, max: 60 }) },
-  { id: "streak_100", group: "streak", tier: "prime",     name: "Незламний",      desc: "100 днів поспіль з AI", xp: 3000, icon: "🌋", check: (t, i, p, sd, streak) => streak >= 100, progress: (t, i, p, sd, streak) => ({ cur: streak, max: 100 }) },
+  { id: "streak_90",  group: "streak", tier: "rare",      name: "Три місяці",     desc: "90 днів поспіль з AI",  xp: 2000, icon: "🌊", check: (t, i, p, sd, streak) => streak >= 90,  progress: (t, i, p, sd, streak) => ({ cur: streak, max: 90 }) },
+  { id: "streak_180", group: "streak", tier: "prime",     name: "Пів року",       desc: "180 днів поспіль з AI", xp: 4000, icon: "🌋", check: (t, i, p, sd, streak) => streak >= 180, progress: (t, i, p, sd, streak) => ({ cur: streak, max: 180 }) },
   { id: "streak_365", group: "streak", tier: "legendary", name: "Залізна воля",   desc: "365 днів поспіль з AI", xp: 8000, icon: "👑", check: (t, i, p, sd, streak) => streak >= 365, progress: (t, i, p, sd, streak) => ({ cur: streak, max: 365 }) },
 
   // ── Сесії ──
@@ -2180,7 +2180,7 @@ export default function AITracker() {
                           {!done && a.progress && (() => {
                             const { cur, max } = a.progress(...achArgs);
                             const pct = Math.min(1, cur / max);
-                            const pctLabel = pct >= 0.01 ? `${Math.floor(pct * 100)}%` : (cur > 0 ? `${Math.floor(cur * 10) / 10}/${max}` : "0%");
+                            const pctLabel = pct >= 0.01 ? `${Math.floor(pct * 100)}%` : "0%";
                             return (
                               <div style={{ marginTop: 10 }}>
                                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, fontSize: 10, fontFamily: "'Space Mono',monospace" }}>
