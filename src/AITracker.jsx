@@ -2252,24 +2252,31 @@ export default function AITracker() {
                           return { ...x, done: !x.done };
                         }))} style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${pr.color}66`, background: "transparent", cursor: "pointer", flexShrink: 0, fontSize: 10, color: pr.color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }} />
                         {goalEditId === g.id ? (
-                          <div style={{ flex: 1, display: "flex", gap: 6 }}>
+                          (() => {
+                            const saveGoal = () => { setGoals(prev => prev.map(x => x.id === g.id ? { ...x, text: goalEditText.trim() || x.text, xp: goalEditXP } : x)); setGoalEditId(null); };
+                            return (
+                          <div style={{ flex: 1, display: "flex", gap: 6 }}
+                            onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) saveGoal(); }}>
                             <input
                               autoFocus
                               value={goalEditText}
                               onChange={e => setGoalEditText(e.target.value)}
                               onKeyDown={e => {
-                                if (e.key === "Enter") { setGoals(prev => prev.map(x => x.id === g.id ? { ...x, text: goalEditText.trim() || x.text, xp: goalEditXP } : x)); setGoalEditId(null); }
+                                if (e.key === "Enter") saveGoal();
                                 if (e.key === "Escape") setGoalEditId(null);
                               }}
-                              onBlur={() => { setGoals(prev => prev.map(x => x.id === g.id ? { ...x, text: goalEditText.trim() || x.text, xp: goalEditXP } : x)); setGoalEditId(null); }}
                               style={{ flex: 1, background: "rgba(8,5,2,0.9)", border: `1px solid ${pr.color}66`, borderRadius: 3, padding: "4px 10px", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace" }}
                             />
                             <div style={{ display: "flex", alignItems: "center", gap: 3, background: "rgba(8,5,2,0.9)", border: `1px solid ${pr.color}44`, borderRadius: 3, padding: "0 8px" }}>
                               <span style={{ fontSize: 10, color: "#6a5f40" }}>XP</span>
-                              <input type="number" min="0" max="9999" value={goalEditXP} onChange={e => setGoalEditXP(Math.max(0, parseInt(e.target.value) || 0))}
+                              <input type="number" min="0" max="9999" value={goalEditXP}
+                                onChange={e => setGoalEditXP(Math.max(0, parseInt(e.target.value) || 0))}
+                                onKeyDown={e => { if (e.key === "Enter") saveGoal(); if (e.key === "Escape") setGoalEditId(null); }}
                                 style={{ width: 44, background: "transparent", border: "none", color: "#00ff88", fontSize: 12, fontFamily: "'Space Mono',monospace", textAlign: "center", padding: "4px 0" }} />
                             </div>
                           </div>
+                            );
+                          })()
                         ) : (
                           <span style={{ flex: 1, color: "#e0d8c0", fontSize: 13, fontWeight: pr.fontWeight }}>{g.text}</span>
                         )}
@@ -2397,24 +2404,31 @@ export default function AITracker() {
                           return { ...x, done: !x.done };
                         }))} style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${per.color}66`, background: "transparent", cursor: "pointer", flexShrink: 0, fontSize: 10, color: per.color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }} />
                         {longGoalEditId === g.id ? (
-                          <div style={{ flex: 1, display: "flex", gap: 6 }}>
+                          (() => {
+                            const saveLong = () => { setLongGoals(prev => prev.map(x => x.id === g.id ? { ...x, text: longGoalEditText.trim() || x.text, customXP: longGoalEditXP } : x)); setLongGoalEditId(null); };
+                            return (
+                          <div style={{ flex: 1, display: "flex", gap: 6 }}
+                            onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) saveLong(); }}>
                             <input
                               autoFocus
                               value={longGoalEditText}
                               onChange={e => setLongGoalEditText(e.target.value)}
                               onKeyDown={e => {
-                                if (e.key === "Enter") { setLongGoals(prev => prev.map(x => x.id === g.id ? { ...x, text: longGoalEditText.trim() || x.text, customXP: longGoalEditXP } : x)); setLongGoalEditId(null); }
+                                if (e.key === "Enter") saveLong();
                                 if (e.key === "Escape") setLongGoalEditId(null);
                               }}
-                              onBlur={() => { setLongGoals(prev => prev.map(x => x.id === g.id ? { ...x, text: longGoalEditText.trim() || x.text, customXP: longGoalEditXP } : x)); setLongGoalEditId(null); }}
                               style={{ flex: 1, background: "rgba(8,5,2,0.9)", border: `1px solid ${per.color}66`, borderRadius: 3, padding: "4px 10px", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace" }}
                             />
                             <div style={{ display: "flex", alignItems: "center", gap: 3, background: "rgba(8,5,2,0.9)", border: `1px solid ${per.color}44`, borderRadius: 3, padding: "0 8px" }}>
                               <span style={{ fontSize: 10, color: "#6a5f40" }}>XP</span>
-                              <input type="number" min="0" max="99999" value={longGoalEditXP} onChange={e => setLongGoalEditXP(Math.max(0, parseInt(e.target.value) || 0))}
+                              <input type="number" min="0" max="99999" value={longGoalEditXP}
+                                onChange={e => setLongGoalEditXP(Math.max(0, parseInt(e.target.value) || 0))}
+                                onKeyDown={e => { if (e.key === "Enter") saveLong(); if (e.key === "Escape") setLongGoalEditId(null); }}
                                 style={{ width: 52, background: "transparent", border: "none", color: "#00ff88", fontSize: 12, fontFamily: "'Space Mono',monospace", textAlign: "center", padding: "4px 0" }} />
                             </div>
                           </div>
+                            );
+                          })()
                         ) : (
                           <span style={{ flex: 1, color: "#e0d8c0", fontSize: 13, fontWeight: 600 }}>{g.text}</span>
                         )}
