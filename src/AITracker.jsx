@@ -677,23 +677,6 @@ export default function AITracker() {
     localStorage.setItem("ai_tracker_today_act", JSON.stringify({ date: todayStr(), data: todayActivity }));
   }, [todayActivity]);
 
-  // Узгодження XP активності з лічильниками. Прив'язує внесок активності до
-  // значення «рахунок × ставка». При першому запуску просто фіксує базу
-  // (історію старих нарахувань відновити неможливо), далі — самовідновлює дрейф,
-  // тож надлишок більше ніколи не накопичується.
-  const reconciledRef = useRef(false);
-  useEffect(() => {
-    if (reconciledRef.current) return;
-    reconciledRef.current = true;
-    const correct = computeCorrectActivityXP();
-    if (activityXP == null) {
-      setActivityXP(correct);
-    } else if (activityXP !== correct) {
-      setTotalXP(t => Math.max(0, t + (correct - activityXP)));
-      setActivityXP(correct);
-    }
-  }, [activityXP, computeCorrectActivityXP]);
-
   // Computed totals in USD
   const toUSD = useCallback((amount, currency) => currency === "UAH" ? amount / uahRate : amount, [uahRate]);
   const totalIncome = useMemo(() => incomeEntries.reduce((s, e) => s + toUSD(e.amount, e.currency), 0), [incomeEntries, toUSD]);
@@ -832,6 +815,21 @@ export default function AITracker() {
         : (skillTasksRef.current[d.key]?.count ?? 0);
       return sum + cnt * d.xp;
     }, 0);
+  }, []);
+
+  // Узгодження: тут — після computeCorrectActivityXP, щоб уникнути TDZ.
+  const reconciledRef = useRef(false);
+  useEffect(() => {
+    if (reconciledRef.current) return;
+    reconciledRef.current = true;
+    const correct = computeCorrectActivityXP();
+    if (activityXP == null) {
+      setActivityXP(correct);
+    } else if (activityXP !== correct) {
+      setTotalXP(t => Math.max(0, t + (correct - activityXP)));
+      setActivityXP(correct);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const checkAchievements = useCallback((tools, inc, proj, sd, currentUnlocked, currentStreak, totalSessions) => {
