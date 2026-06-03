@@ -611,8 +611,8 @@ export default function AITracker() {
   const [selectedSkillTask, setSelectedSkillTask] = useState(null);
   const [skillTasksData, setSkillTasksData] = useState(saved?.skillTasksData ?? {});
   const [skillTaskInputs, setSkillTaskInputs] = useState({});
-  const [learnTime, setLearnTime] = useState(saved?.learnTime ?? { education: 0, business: 0 });
-  const [learnTimeInputs, setLearnTimeInputs] = useState({ education: "", business: "" });
+  const [learnTime, setLearnTime] = useState(saved?.learnTime ?? { education: 0, business: 0, edu_videos: 0 });
+  const [learnTimeInputs, setLearnTimeInputs] = useState({ education: "", business: "", edu_videos: "" });
   const [notification, setNotification] = useState(null);
   const [unlockedAchievements, setUnlockedAchievements] = useState(saved?.unlockedAchievements ?? ["oxford_dev"]);
   const [goalInput, setGoalInput] = useState("");
@@ -1252,55 +1252,64 @@ export default function AITracker() {
               )}
             </div>
 
-            {/* AI learning time */}
-            <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-                <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2 }}>⏱️ Час на вивчення ШІ</div>
-                <span style={{ fontSize: 11, color: "#6a5f40", fontFamily: "'Space Mono',monospace" }}>1 раз = 30 хв</span>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {[
-                  { kind: "education", label: "Навчання", sub: "Education", emoji: "📚", color: "#06b6d4" },
-                  { kind: "business",  label: "Бізнес",   sub: "Business",  emoji: "💼", color: "#f59e0b" },
-                ].map(item => {
-                  const count = learnTime[item.kind] ?? 0;
-                  const inputVal = learnTimeInputs[item.kind] ?? "";
-                  const handleAdd = (sign) => {
-                    const n = parseInt(inputVal) || 1;
-                    addLearnTime(item.kind, sign * n);
-                    setLearnTimeInputs(prev => ({ ...prev, [item.kind]: "" }));
-                  };
-                  return (
-                    <div key={item.kind} style={{ background: `${item.color}0d`, border: `1px solid ${item.color}33`, borderLeft: `3px solid ${item.color}`, borderRadius: 4, padding: "12px 14px" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
-                        <span style={{ fontSize: 18 }}>{item.emoji}</span>
-                        <div style={{ flex: 1, minWidth: 100 }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: "#e0d8c0", fontFamily: "'Exo 2',sans-serif" }}>{item.label} <span style={{ color: "#6a5f40", fontSize: 11, fontWeight: 400 }}>· {item.sub}</span></div>
+            {/* Активність — compact trackers */}
+            {(() => {
+              const ACTIVITY_TRACKERS = [
+                { kind: "learn", key: "education",       emoji: "📚", label: "Навчання",   color: "#06b6d4", note: "30хв/раз" },
+                { kind: "learn", key: "business",        emoji: "💼", label: "Бізнес",     color: "#f59e0b", note: "30хв/раз" },
+                { kind: "learn", key: "edu_videos",      emoji: "📺", label: "Навч. відео", color: "#a855f7", note: "1 відео" },
+                { kind: "skill", key: "image_images_gen",     emoji: "🎨", label: "Зображення", color: "#ff6b35" },
+                { kind: "skill", key: "video_videos_created", emoji: "🎬", label: "Відео",      color: "#a855f7" },
+                { kind: "skill", key: "music_tracks_created", emoji: "🎵", label: "Музика",     color: "#ec4899" },
+              ];
+              return (
+                <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18 }}>
+                  <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 14 }}>⚡ Активність</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+                    {ACTIVITY_TRACKERS.map(tr => {
+                      const count = tr.kind === "learn"
+                        ? (learnTime[tr.key] ?? 0)
+                        : (skillTasksData[tr.key]?.count ?? 0);
+                      const inputVal = tr.kind === "learn" ? (learnTimeInputs[tr.key] ?? "") : "";
+                      const inc = (delta) => {
+                        if (tr.kind === "learn") {
+                          addLearnTime(tr.key, delta);
+                        } else {
+                          const sep = tr.key.indexOf("_");
+                          addProgressiveCount(tr.key.slice(0, sep), tr.key.slice(sep + 1), delta);
+                        }
+                      };
+                      return (
+                        <div key={tr.key} style={{ background: `${tr.color}0c`, border: `1px solid ${tr.color}30`, borderRadius: 6, padding: "12px 10px", display: "flex", flexDirection: "column", gap: 8 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ fontSize: 16 }}>{tr.emoji}</span>
+                            <div>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: "#c8b89a", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 0.8 }}>{tr.label}</div>
+                              {tr.note && <div style={{ fontSize: 9, color: "#5a5040", fontFamily: "'Space Mono',monospace" }}>{tr.note}</div>}
+                            </div>
+                            <span style={{ marginLeft: "auto", fontSize: 20, fontWeight: 800, color: tr.color, fontFamily: "'Space Mono',monospace" }}>{count}</span>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                            <button onClick={() => inc(1)} style={{ flex: 1, padding: "5px 0", borderRadius: 3, fontSize: 16, fontWeight: 800, cursor: "pointer", background: `${tr.color}18`, border: `1px solid ${tr.color}55`, color: tr.color, lineHeight: 1 }}>+</button>
+                            <button onClick={() => inc(-1)} style={{ flex: 1, padding: "5px 0", borderRadius: 3, fontSize: 16, fontWeight: 800, cursor: "pointer", background: "rgba(244,63,94,0.10)", border: "1px solid rgba(244,63,94,0.35)", color: "#f43f5e", lineHeight: 1 }}>−</button>
+                            {tr.kind === "learn" && (
+                              <input
+                                type="number"
+                                placeholder="N"
+                                value={inputVal}
+                                onChange={e => setLearnTimeInputs(prev => ({ ...prev, [tr.key]: e.target.value }))}
+                                onKeyDown={e => { if (e.key === "Enter") { inc(parseInt(inputVal) || 1); setLearnTimeInputs(prev => ({ ...prev, [tr.key]: "" })); } }}
+                                style={{ width: 40, background: "rgba(0,0,0,0.4)", border: `1px solid ${tr.color}33`, color: "#c8b89a", padding: "4px 4px", borderRadius: 3, fontFamily: "'Space Mono',monospace", fontSize: 11, textAlign: "center" }}
+                              />
+                            )}
+                          </div>
                         </div>
-                        <div style={{ textAlign: "right" }}>
-                          <span style={{ fontSize: 18, fontWeight: 800, color: item.color, fontFamily: "'Space Mono',monospace" }}>{count}</span>
-                          <span style={{ fontSize: 11, color: "#6a5f40", marginLeft: 5, fontFamily: "'Space Mono',monospace" }}>× ({(count * 0.5).toLocaleString()} год)</span>
-                        </div>
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                        <button onClick={() => addLearnTime(item.kind, 1)} style={{ padding: "4px 12px", borderRadius: 4, fontSize: 16, fontWeight: 800, cursor: "pointer", background: `${item.color}18`, border: `1px solid ${item.color}66`, color: item.color, lineHeight: 1 }}>+</button>
-                        <button onClick={() => addLearnTime(item.kind, -1)} style={{ padding: "4px 12px", borderRadius: 4, fontSize: 16, fontWeight: 800, cursor: "pointer", background: "rgba(244,63,94,0.12)", border: "1px solid rgba(244,63,94,0.4)", color: "#f43f5e", lineHeight: 1 }}>−</button>
-                        <input
-                          type="number"
-                          placeholder="N"
-                          value={inputVal}
-                          onChange={e => setLearnTimeInputs(prev => ({ ...prev, [item.kind]: e.target.value }))}
-                          onKeyDown={e => e.key === "Enter" && handleAdd(1)}
-                          style={{ width: 52, background: "rgba(0,0,0,0.4)", border: `1px solid ${item.color}33`, color: "#c8b89a", padding: "4px 6px", borderRadius: 4, fontFamily: "'Space Mono',monospace", fontSize: 12, textAlign: "center" }}
-                        />
-                        <button onClick={() => handleAdd(1)} style={{ padding: "4px 10px", borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: "pointer", background: `${item.color}18`, border: `1px solid ${item.color}44`, color: `${item.color}cc` }}>+N</button>
-                        <button onClick={() => handleAdd(-1)} style={{ padding: "4px 10px", borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: "pointer", background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.3)", color: "#f43f5e" }}>−N</button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Priority tasks highlight */}
             {(() => {
@@ -3069,17 +3078,21 @@ export default function AITracker() {
                   {(() => {
                     const eduH = (learnTime.education ?? 0) * 0.5;
                     const bizH = (learnTime.business ?? 0) * 0.5;
+                    const vidCount = learnTime.edu_videos ?? 0;
                     const totalH = eduH + bizH;
                     return [
-                      { label: "Навчання", emoji: "📚", count: learnTime.education ?? 0, hours: eduH, color: "#06b6d4" },
-                      { label: "Бізнес",   emoji: "💼", count: learnTime.business ?? 0, hours: bizH, color: "#f59e0b" },
-                      { label: "Всього",   emoji: "🎯", count: (learnTime.education ?? 0) + (learnTime.business ?? 0), hours: totalH, color: "#00ff88" },
+                      { label: "Навчання",     emoji: "📚", count: learnTime.education ?? 0, hours: eduH,   sub: `${learnTime.education ?? 0} × 30хв`, color: "#06b6d4" },
+                      { label: "Бізнес",       emoji: "💼", count: learnTime.business ?? 0,  hours: bizH,   sub: `${learnTime.business ?? 0} × 30хв`,  color: "#f59e0b" },
+                      { label: "Навч. відео",  emoji: "📺", count: vidCount,                 hours: null,   sub: `${vidCount} відео`,                   color: "#a855f7" },
+                      { label: "Всього годин", emoji: "🎯", count: null,                     hours: totalH, sub: `edu+biz`,                              color: "#00ff88" },
                     ];
                   })().map(s => (
                     <div key={s.label} className="wf-card" style={{ padding: "18px 16px", textAlign: "center", border: `1px solid ${s.color}33`, borderTop: `2px solid ${s.color}` }}>
                       <div style={{ fontSize: 11, color: "#9a8a60", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 2, marginBottom: 8 }}>{s.emoji} {s.label}</div>
-                      <div style={{ fontSize: 22, fontWeight: 800, color: s.color, fontFamily: "'Space Mono',monospace" }}>{s.hours.toLocaleString()} <span style={{ fontSize: 13 }}>год</span></div>
-                      <div style={{ fontSize: 11, color: "#6a5f40", fontFamily: "'Space Mono',monospace", marginTop: 4 }}>{s.count} сесій × 30 хв</div>
+                      <div style={{ fontSize: 22, fontWeight: 800, color: s.color, fontFamily: "'Space Mono',monospace" }}>
+                        {s.hours !== null ? <>{s.hours.toLocaleString()} <span style={{ fontSize: 13 }}>год</span></> : s.count}
+                      </div>
+                      <div style={{ fontSize: 11, color: "#6a5f40", fontFamily: "'Space Mono',monospace", marginTop: 4 }}>{s.sub}</div>
                     </div>
                   ))}
                 </div>
