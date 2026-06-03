@@ -3297,7 +3297,7 @@ export default function AITracker() {
             <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
               {/* Джерела XP */}
               <div>
-                <div className="wf-sec" style={{ marginBottom: 16 }}>⭐ Джерела XP <span style={{ fontSize: 11, color: "#6a5f40", fontWeight: 400 }}>· що дало досвід</span></div>
+                <div className="wf-sec" style={{ marginBottom: 16 }}>⭐ Джерела XP <span style={{ fontSize: 11, color: "#6a5f40", fontWeight: 400 }}>· за сьогодні</span></div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
                   {xpSourceRows.map(([src, val]) => {
                     const m = XP_SOURCE_META[src] ?? XP_SOURCE_META.other;
@@ -3306,7 +3306,7 @@ export default function AITracker() {
                         <span style={{ fontSize: 20 }}>{m.emoji}</span>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 10, color: "#9a8a60", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>{m.label}</div>
-                          <div style={{ fontSize: 18, fontWeight: 800, color: m.color, fontFamily: "'Space Mono',monospace" }}>{val > 0 ? "+" : ""}{val.toLocaleString()}</div>
+                          <div style={{ fontSize: 18, fontWeight: 800, color: m.color, fontFamily: "'Space Mono',monospace" }}>{val > 0 ? "+" : ""}{val.toLocaleString()} <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.7 }}>XP</span></div>
                         </div>
                       </div>
                     );
