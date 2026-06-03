@@ -1712,42 +1712,46 @@ export default function AITracker() {
                           const cardFloats = floats.filter(f => f.key === tr.key);
                           const xpLabel = tr.note ? `${tr.note} · +${tr.xp} XP` : `+${tr.xp} XP/шт`;
                           return (
-                            <div key={tr.key} style={{ position: "relative", background: `${tr.color}0d`, border: `1px solid ${tr.color}35`, borderRadius: 8, padding: "14px 12px 12px", display: "flex", flexDirection: "column", gap: 10, overflow: "visible" }}>
+                            <div key={tr.key} style={{ position: "relative", background: `${tr.color}0d`, border: `1px solid ${tr.color}35`, borderRadius: 8, padding: "12px 10px 10px", display: "flex", flexDirection: "column", gap: 8, overflow: "visible" }}>
                               {cardFloats.map(f => (
                                 <span key={f.id} className="float-text" style={{ color: f.color }}>{f.text}</span>
                               ))}
 
-                              {/* Header row */}
-                              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                                <span style={{ fontSize: 18 }}>{tr.emoji}</span>
-                                <div style={{ flex: 1 }}>
-                                  <div style={{ fontSize: 10, fontWeight: 700, color: "#9a8a72", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>{tr.label}</div>
-                                  <div style={{ fontSize: 9, color: "#4a4030", fontFamily: "'Space Mono',monospace" }}>{xpLabel}</div>
+                              {/* Header: emoji · name · xp rate | total count */}
+                              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                <span style={{ fontSize: 15, lineHeight: 1, flexShrink: 0 }}>{tr.emoji}</span>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontSize: 11, fontWeight: 800, color: "#c8b89a", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 0.8, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tr.label}</div>
+                                  <div style={{ fontSize: 9, color: "#4a4030", fontFamily: "'Space Mono',monospace", lineHeight: 1.3 }}>{xpLabel}</div>
                                 </div>
-                                <div style={{ textAlign: "right" }}>
-                                  <div style={{ fontSize: 22, fontWeight: 900, color: tr.color, fontFamily: "'Space Mono',monospace", textShadow: `0 0 10px ${tr.color}66`, lineHeight: 1 }}>{count}</div>
+                                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                                  <div style={{ fontSize: 20, fontWeight: 900, color: tr.color, fontFamily: "'Space Mono',monospace", textShadow: `0 0 8px ${tr.color}55`, lineHeight: 1 }}>{count}</div>
                                   {todayCount > 0 && (
-                                    <div style={{ fontSize: 9, color: `${tr.color}99`, fontFamily: "'Space Mono',monospace", marginTop: 2 }}>+{todayCount} сьогодні</div>
+                                    <div style={{ fontSize: 9, color: `${tr.color}88`, fontFamily: "'Space Mono',monospace", marginTop: 1 }}>+{todayCount}</div>
                                   )}
                                 </div>
                               </div>
 
-                              {/* Big + button */}
+                              {/* Big + button — now shows emoji + label + hint */}
                               <button
                                 className="act-plus"
                                 onClick={() => doInc(1)}
                                 style={{
-                                  width: "100%", padding: "14px 0",
+                                  width: "100%", padding: "12px 8px",
                                   borderRadius: 6,
-                                  background: `linear-gradient(180deg, ${tr.color}44 0%, ${tr.color}22 50%, ${tr.color}30 100%)`,
-                                  border: `2px solid ${tr.color}88`,
+                                  background: `linear-gradient(180deg, ${tr.color}3a 0%, ${tr.color}1a 60%, ${tr.color}28 100%)`,
+                                  border: `2px solid ${tr.color}77`,
                                   color: tr.color,
-                                  boxShadow: `0 4px 0 ${tr.color}44, 0 0 18px ${tr.color}33, inset 0 1px 0 ${tr.color}55`,
-                                  letterSpacing: 2,
+                                  boxShadow: `0 4px 0 ${tr.color}33, 0 0 14px ${tr.color}22, inset 0 1px 0 ${tr.color}44`,
+                                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4,
                                 }}
-                              >+</button>
+                              >
+                                <span style={{ fontSize: 22, lineHeight: 1 }}>{tr.emoji}</span>
+                                <span style={{ fontSize: 11, fontWeight: 800, fontFamily: "'Exo 2',sans-serif", letterSpacing: 1, textTransform: "uppercase" }}>{tr.label}</span>
+                                <span style={{ fontSize: 10, opacity: 0.6, fontFamily: "'Space Mono',monospace" }}>+ {tr.note ?? "1 шт"}</span>
+                              </button>
 
-                              {/* − / N / ±N row */}
+                              {/* − / N / +N row */}
                               <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                                 <button
                                   onClick={() => { const n = packN > 0 ? packN : 1; doInc(-n); if (packN > 0) setPackInputs(prev => ({ ...prev, [tr.key]: "" })); }}
