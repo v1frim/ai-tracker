@@ -3131,7 +3131,6 @@ export default function AITracker() {
             </div>
           </div>
         )}
-      </div>
 
         {activeTab === "progress" && (() => {
           const PRESET_TAGS = ["AI-інструмент", "проект", "навичка", "дохід", "ідея", "перемога", "урок"];
@@ -3401,6 +3400,7 @@ export default function AITracker() {
             </div>
           );
         })()}
+      </div>
 
       {/* ── AI Chat Widget ── */}
     {(() => {
