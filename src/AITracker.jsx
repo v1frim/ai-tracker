@@ -1511,164 +1511,210 @@ export default function AITracker() {
               )}
             </div>
 
-            {/* Активність */}
-            {(() => {
-              const ACTIVITY_TRACKERS = ACTIVITY_DEFS;
-              const todayRows = ACTIVITY_TRACKERS
-                .map(tr => ({ tr, n: todayActivity[tr.key] ?? 0 }))
-                .filter(r => r.n > 0);
-              const todayTotalXP = todayRows.reduce((s, r) => s + r.n * r.tr.xp, 0);
-              return (
-                <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18 }}>
-                  <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 14 }}>⚡ Активність</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-                    {ACTIVITY_TRACKERS.map(tr => {
-                      const count = tr.kind === "learn"
-                        ? (learnTime[tr.key] ?? 0)
-                        : (skillTasksData[tr.key]?.count ?? 0);
-                      const packVal = packInputs[tr.key] ?? "";
-                      const packN = parseInt(packVal) || 0;
-                      const todayCount = todayActivity[tr.key] ?? 0;
-                      const doInc = (delta) => {
-                        if (tr.kind === "learn") addLearnTime(tr.key, delta);
-                        else {
-                          const sep = tr.key.indexOf("_");
-                          addProgressiveCount(tr.key.slice(0, sep), tr.key.slice(sep + 1), delta);
-                        }
-                        addFloat(tr.key, delta > 0 ? `+${delta}` : `${delta}`, delta > 0 ? tr.color : "#f43f5e");
-                      };
-                      const cardFloats = floats.filter(f => f.key === tr.key);
-                      const xpLabel = tr.note ? `${tr.note} · +${tr.xp} XP` : `+${tr.xp} XP/шт`;
-                      return (
-                        <div key={tr.key} style={{ position: "relative", background: `${tr.color}0d`, border: `1px solid ${tr.color}35`, borderRadius: 8, padding: "14px 12px 12px", display: "flex", flexDirection: "column", gap: 10, overflow: "visible" }}>
-                          {cardFloats.map(f => (
-                            <span key={f.id} className="float-text" style={{ color: f.color }}>{f.text}</span>
-                          ))}
-
-                          {/* Header row */}
-                          <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                            <span style={{ fontSize: 18 }}>{tr.emoji}</span>
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: 10, fontWeight: 700, color: "#9a8a72", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>{tr.label}</div>
-                              <div style={{ fontSize: 9, color: "#4a4030", fontFamily: "'Space Mono',monospace" }}>{xpLabel}</div>
-                            </div>
-                            <div style={{ textAlign: "right" }}>
-                              <div style={{ fontSize: 22, fontWeight: 900, color: tr.color, fontFamily: "'Space Mono',monospace", textShadow: `0 0 10px ${tr.color}66`, lineHeight: 1 }}>{count}</div>
-                              {todayCount > 0 && (
-                                <div style={{ fontSize: 9, color: `${tr.color}99`, fontFamily: "'Space Mono',monospace", marginTop: 2 }}>+{todayCount} сьогодні</div>
-                              )}
-                            </div>
+            {/* Two-column: Tasks mini-view + Activity */}
+            <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
+              {/* LEFT: Tasks mini-view */}
+              <div style={{ flex: "0 0 calc(50% - 8px)", minWidth: 260 }}>
+                {(() => {
+                  const activeTasks = goals.filter(g => !g.done);
+                  const urgentTasks = activeTasks.filter(g => g.priority === "urgent").slice(0, 1);
+                  const importantTasks = activeTasks.filter(g => g.priority === "important").slice(0, 2);
+                  const normalTasks = activeTasks.filter(g => g.priority === "normal").slice(0, 4);
+                  const shownTasks = [...urgentTasks, ...importantTasks, ...normalTasks];
+                  const weekCurGoals = longGoals.filter(g => !g.done && g.period === "week_cur").slice(0, 3);
+                  const monthCurGoals = longGoals.filter(g => !g.done && g.period === "month_cur").slice(0, 3);
+                  return (
+                    <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18, display: "flex", flexDirection: "column", gap: 14 }}>
+                      {/* Tasks section */}
+                      <div>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                          <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2 }}>✅ Задачі</div>
+                          <button onClick={() => setActiveTab("goals")} style={{ background: "none", border: "none", color: "#6a5f40", fontSize: 11, cursor: "pointer", fontFamily: "'Space Mono',monospace" }}>Всі →</button>
+                        </div>
+                        {shownTasks.length === 0 ? (
+                          <div style={{ fontSize: 12, color: "#6a5f40", textAlign: "center", padding: "8px 0" }}>
+                            <span onClick={() => setActiveTab("goals")} style={{ color: "#c9a84c", cursor: "pointer" }}>Додати задачі →</span>
                           </div>
-
-                          {/* Big + button */}
-                          <button
-                            className="act-plus"
-                            onClick={() => doInc(1)}
-                            style={{
-                              width: "100%", padding: "14px 0",
-                              borderRadius: 6,
-                              background: `linear-gradient(180deg, ${tr.color}44 0%, ${tr.color}22 50%, ${tr.color}30 100%)`,
-                              border: `2px solid ${tr.color}88`,
-                              color: tr.color,
-                              boxShadow: `0 4px 0 ${tr.color}44, 0 0 18px ${tr.color}33, inset 0 1px 0 ${tr.color}55`,
-                              letterSpacing: 2,
-                            }}
-                          >+</button>
-
-                          {/* − / N / ±N row */}
-                          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                            <button
-                              onClick={() => { const n = packN > 0 ? packN : 1; doInc(-n); if (packN > 0) setPackInputs(prev => ({ ...prev, [tr.key]: "" })); }}
-                              style={{ padding: "4px 8px", borderRadius: 4, fontSize: 13, fontWeight: 700, cursor: "pointer", background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.25)", color: "#c04050", lineHeight: 1, letterSpacing: 1, whiteSpace: "nowrap" }}>
-                              {packN > 0 ? `−${packN}` : "−"}
-                            </button>
-                            <input
-                              type="number"
-                              placeholder="N"
-                              value={packVal}
-                              onChange={e => setPackInputs(prev => ({ ...prev, [tr.key]: e.target.value }))}
-                              onKeyDown={e => {
-                                if (e.key === "Enter" && packN !== 0) {
-                                  doInc(packN);
-                                  setPackInputs(prev => ({ ...prev, [tr.key]: "" }));
-                                }
-                              }}
-                              style={{ width: 38, background: "rgba(0,0,0,0.45)", border: `1px solid ${tr.color}28`, color: "#b0a080", padding: "4px 4px", borderRadius: 4, fontFamily: "'Space Mono',monospace", fontSize: 11, textAlign: "center" }}
-                            />
-                            <button
-                              onClick={() => { if (packN > 0) { doInc(packN); setPackInputs(prev => ({ ...prev, [tr.key]: "" })); } }}
-                              style={{ flex: 1, padding: "4px 0", borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: "pointer", background: `${tr.color}14`, border: `1px solid ${tr.color}33`, color: `${tr.color}bb`, fontFamily: "'Space Mono',monospace" }}
-                            >+N</button>
+                        ) : (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                            {shownTasks.map(g => {
+                              const pr = TASK_PRIORITIES.find(p => p.id === g.priority) ?? TASK_PRIORITIES[2];
+                              return (
+                                <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, background: pr.bg, border: `1px solid ${pr.border}`, borderRadius: 4, padding: "8px 10px" }}>
+                                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: pr.color, flexShrink: 0 }} />
+                                  <span style={{ flex: 1, fontSize: 12, color: "#e0d8c0", fontWeight: pr.fontWeight, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.text}</span>
+                                  <span style={{ fontSize: 9, color: pr.color, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, flexShrink: 0 }}>{pr.label}</span>
+                                </div>
+                              );
+                            })}
+                            {activeTasks.length > shownTasks.length && (
+                              <div onClick={() => setActiveTab("goals")} style={{ fontSize: 11, color: "#6a5f40", textAlign: "center", cursor: "pointer", paddingTop: 2 }}>
+                                + ще {activeTasks.length - shownTasks.length} →
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      {/* Week goals section */}
+                      {weekCurGoals.length > 0 && (
+                        <div>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: "#06b6d4", textTransform: "uppercase", letterSpacing: 1.5 }}>📅 Цей тиждень</div>
+                            <button onClick={() => setActiveTab("longgoals")} style={{ background: "none", border: "none", color: "#6a5f40", fontSize: 11, cursor: "pointer", fontFamily: "'Space Mono',monospace" }}>Всі →</button>
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                            {weekCurGoals.map(g => (
+                              <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(6,182,212,0.07)", border: "1px solid rgba(6,182,212,0.20)", borderRadius: 4, padding: "7px 10px" }}>
+                                <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#06b6d4", flexShrink: 0 }} />
+                                <span style={{ flex: 1, fontSize: 12, color: "#cbd5e1", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.text}</span>
+                              </div>
+                            ))}
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Розбивка XP за сьогодні */}
-                  <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px dashed rgba(201,168,76,0.20)" }}>
-                    {todayRows.length === 0 ? (
-                      <div style={{ fontSize: 11, color: "#5a5040", fontFamily: "'Space Mono',monospace", textAlign: "center" }}>
-                        Сьогодні активності ще не додано
-                      </div>
-                    ) : (
-                      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "6px 14px" }}>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: "#9a8a60", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1.5 }}>XP за сьогодні:</span>
-                        {todayRows.map(({ tr, n }) => (
-                          <span key={tr.key} style={{ fontSize: 11, color: "#b0a080", fontFamily: "'Space Mono',monospace" }}>
-                            <span style={{ marginRight: 3 }}>{tr.emoji}</span>
-                            {n} × {tr.xp} = <b style={{ color: tr.color }}>{n * tr.xp}</b>
-                          </span>
-                        ))}
-                        <span style={{ marginLeft: "auto", fontSize: 13, fontWeight: 800, color: "#00ff88", fontFamily: "'Space Mono',monospace", textShadow: "0 0 10px rgba(0,255,136,0.4)" }}>
-                          = +{todayTotalXP} XP
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Priority tasks highlight */}
-            {(() => {
-              const activeTasks = goals.filter(g => !g.done);
-              const urgentTasks = activeTasks.filter(g => g.priority === "urgent");
-              const importantTasks = activeTasks.filter(g => g.priority === "important");
-              const topTasks = [...urgentTasks, ...importantTasks].slice(0, 5);
-              return (
-                <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18 }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-                    <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2 }}>🎯 Пріоритети</div>
-                    <button onClick={() => setActiveTab("goals")} style={{ background: "none", border: "none", color: "#6a5f40", fontSize: 11, cursor: "pointer", fontFamily: "'Space Mono',monospace" }}>Всі задачі →</button>
-                  </div>
-                  {topTasks.length === 0 ? (
-                    <div style={{ fontSize: 12, color: "#6a5f40", textAlign: "center", padding: "12px 0" }}>
-                      Немає активних пріоритетних задач.{" "}
-                      <span onClick={() => setActiveTab("goals")} style={{ color: "#c9a84c", cursor: "pointer" }}>Додати →</span>
-                    </div>
-                  ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      {topTasks.map(g => {
-                        const pr = TASK_PRIORITIES.find(p => p.id === g.priority) ?? TASK_PRIORITIES[2];
-                        return (
-                          <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 10, background: pr.bg, border: `1px solid ${pr.border}`, borderRadius: 4, padding: "10px 14px" }}>
-                            <span style={{ width: 8, height: 8, borderRadius: "50%", background: pr.color, flexShrink: 0 }} />
-                            <span style={{ flex: 1, fontSize: 13, color: "#e0d8c0", fontWeight: pr.fontWeight }}>{g.text}</span>
-                            <span style={{ fontSize: 10, color: pr.color, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>{pr.label}</span>
+                      )}
+                      {/* Month goals section */}
+                      {monthCurGoals.length > 0 && (
+                        <div>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: "#00ff88", textTransform: "uppercase", letterSpacing: 1.5 }}>📅 Цей місяць</div>
+                            <button onClick={() => setActiveTab("longgoals")} style={{ background: "none", border: "none", color: "#6a5f40", fontSize: 11, cursor: "pointer", fontFamily: "'Space Mono',monospace" }}>Всі →</button>
                           </div>
-                        );
-                      })}
-                      {activeTasks.length > topTasks.length && (
-                        <div onClick={() => setActiveTab("goals")} style={{ fontSize: 11, color: "#6a5f40", textAlign: "center", cursor: "pointer", paddingTop: 4 }}>
-                          + ще {activeTasks.length - topTasks.length} задач →
+                          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                            {monthCurGoals.map(g => (
+                              <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(0,255,136,0.05)", border: "1px solid rgba(0,255,136,0.15)", borderRadius: 4, padding: "7px 10px" }}>
+                                <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#00ff88", flexShrink: 0 }} />
+                                <span style={{ flex: 1, fontSize: 12, color: "#cbd5e1", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.text}</span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
-                  )}
-                </div>
-              );
-            })()}
+                  );
+                })()}
+              </div>
+
+              {/* RIGHT: Activity */}
+              <div style={{ flex: 1, minWidth: 300 }}>
+                {(() => {
+                  const ACTIVITY_TRACKERS = ACTIVITY_DEFS;
+                  const todayRows = ACTIVITY_TRACKERS
+                    .map(tr => ({ tr, n: todayActivity[tr.key] ?? 0 }))
+                    .filter(r => r.n > 0);
+                  const todayTotalXP = todayRows.reduce((s, r) => s + r.n * r.tr.xp, 0);
+                  return (
+                    <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18 }}>
+                      <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 14 }}>⚡ Активність</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+                        {ACTIVITY_TRACKERS.map(tr => {
+                          const count = tr.kind === "learn"
+                            ? (learnTime[tr.key] ?? 0)
+                            : (skillTasksData[tr.key]?.count ?? 0);
+                          const packVal = packInputs[tr.key] ?? "";
+                          const packN = parseInt(packVal) || 0;
+                          const todayCount = todayActivity[tr.key] ?? 0;
+                          const doInc = (delta) => {
+                            if (tr.kind === "learn") addLearnTime(tr.key, delta);
+                            else {
+                              const sep = tr.key.indexOf("_");
+                              addProgressiveCount(tr.key.slice(0, sep), tr.key.slice(sep + 1), delta);
+                            }
+                            addFloat(tr.key, delta > 0 ? `+${delta}` : `${delta}`, delta > 0 ? tr.color : "#f43f5e");
+                          };
+                          const cardFloats = floats.filter(f => f.key === tr.key);
+                          const xpLabel = tr.note ? `${tr.note} · +${tr.xp} XP` : `+${tr.xp} XP/шт`;
+                          return (
+                            <div key={tr.key} style={{ position: "relative", background: `${tr.color}0d`, border: `1px solid ${tr.color}35`, borderRadius: 8, padding: "14px 12px 12px", display: "flex", flexDirection: "column", gap: 10, overflow: "visible" }}>
+                              {cardFloats.map(f => (
+                                <span key={f.id} className="float-text" style={{ color: f.color }}>{f.text}</span>
+                              ))}
+
+                              {/* Header row */}
+                              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                                <span style={{ fontSize: 18 }}>{tr.emoji}</span>
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ fontSize: 10, fontWeight: 700, color: "#9a8a72", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>{tr.label}</div>
+                                  <div style={{ fontSize: 9, color: "#4a4030", fontFamily: "'Space Mono',monospace" }}>{xpLabel}</div>
+                                </div>
+                                <div style={{ textAlign: "right" }}>
+                                  <div style={{ fontSize: 22, fontWeight: 900, color: tr.color, fontFamily: "'Space Mono',monospace", textShadow: `0 0 10px ${tr.color}66`, lineHeight: 1 }}>{count}</div>
+                                  {todayCount > 0 && (
+                                    <div style={{ fontSize: 9, color: `${tr.color}99`, fontFamily: "'Space Mono',monospace", marginTop: 2 }}>+{todayCount} сьогодні</div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Big + button */}
+                              <button
+                                className="act-plus"
+                                onClick={() => doInc(1)}
+                                style={{
+                                  width: "100%", padding: "14px 0",
+                                  borderRadius: 6,
+                                  background: `linear-gradient(180deg, ${tr.color}44 0%, ${tr.color}22 50%, ${tr.color}30 100%)`,
+                                  border: `2px solid ${tr.color}88`,
+                                  color: tr.color,
+                                  boxShadow: `0 4px 0 ${tr.color}44, 0 0 18px ${tr.color}33, inset 0 1px 0 ${tr.color}55`,
+                                  letterSpacing: 2,
+                                }}
+                              >+</button>
+
+                              {/* − / N / ±N row */}
+                              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                                <button
+                                  onClick={() => { const n = packN > 0 ? packN : 1; doInc(-n); if (packN > 0) setPackInputs(prev => ({ ...prev, [tr.key]: "" })); }}
+                                  style={{ padding: "4px 8px", borderRadius: 4, fontSize: 13, fontWeight: 700, cursor: "pointer", background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.25)", color: "#c04050", lineHeight: 1, letterSpacing: 1, whiteSpace: "nowrap" }}>
+                                  {packN > 0 ? `−${packN}` : "−"}
+                                </button>
+                                <input
+                                  type="number"
+                                  placeholder="N"
+                                  value={packVal}
+                                  onChange={e => setPackInputs(prev => ({ ...prev, [tr.key]: e.target.value }))}
+                                  onKeyDown={e => {
+                                    if (e.key === "Enter" && packN !== 0) {
+                                      doInc(packN);
+                                      setPackInputs(prev => ({ ...prev, [tr.key]: "" }));
+                                    }
+                                  }}
+                                  style={{ width: 38, background: "rgba(0,0,0,0.45)", border: `1px solid ${tr.color}28`, color: "#b0a080", padding: "4px 4px", borderRadius: 4, fontFamily: "'Space Mono',monospace", fontSize: 11, textAlign: "center" }}
+                                />
+                                <button
+                                  onClick={() => { if (packN > 0) { doInc(packN); setPackInputs(prev => ({ ...prev, [tr.key]: "" })); } }}
+                                  style={{ flex: 1, padding: "4px 0", borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: "pointer", background: `${tr.color}14`, border: `1px solid ${tr.color}33`, color: `${tr.color}bb`, fontFamily: "'Space Mono',monospace" }}
+                                >+N</button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Розбивка XP за сьогодні */}
+                      <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px dashed rgba(201,168,76,0.20)" }}>
+                        {todayRows.length === 0 ? (
+                          <div style={{ fontSize: 11, color: "#5a5040", fontFamily: "'Space Mono',monospace", textAlign: "center" }}>
+                            Сьогодні активності ще не додано
+                          </div>
+                        ) : (
+                          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "6px 14px" }}>
+                            <span style={{ fontSize: 10, fontWeight: 700, color: "#9a8a60", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1.5 }}>XP за сьогодні:</span>
+                            {todayRows.map(({ tr, n }) => (
+                              <span key={tr.key} style={{ fontSize: 11, color: "#b0a080", fontFamily: "'Space Mono',monospace" }}>
+                                <span style={{ marginRight: 3 }}>{tr.emoji}</span>
+                                {n} × {tr.xp} = <b style={{ color: tr.color }}>{n * tr.xp}</b>
+                              </span>
+                            ))}
+                            <span style={{ marginLeft: "auto", fontSize: 13, fontWeight: 800, color: "#00ff88", fontFamily: "'Space Mono',monospace", textShadow: "0 0 10px rgba(0,255,136,0.4)" }}>
+                              = +{todayTotalXP} XP
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
 
             {/* Skills grid */}
             <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18 }}>
@@ -2098,7 +2144,25 @@ export default function AITracker() {
                   <div style={{ fontSize: 12, color: pr.color, fontWeight: 800, marginBottom: 10, textTransform: "uppercase", letterSpacing: 1.5 }}>{pr.label}</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     {prTasks.map(g => (
-                      <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 10, background: pr.bg, borderRadius: 4, padding: "10px 12px" }}>
+                      <div key={g.id}
+                        draggable={true}
+                        onDragStart={() => { dragRef.current = { id: g.id, list: "goals" }; }}
+                        onDragOver={e => e.preventDefault()}
+                        onDrop={() => {
+                          if (dragRef.current?.list !== "goals") return;
+                          const fromId = dragRef.current.id;
+                          setGoals(prev => {
+                            const arr = [...prev];
+                            const fi = arr.findIndex(x => x.id === fromId);
+                            const ti = arr.findIndex(x => x.id === g.id);
+                            if (fi < 0 || ti < 0 || fi === ti) return prev;
+                            const [item] = arr.splice(fi, 1);
+                            arr.splice(ti, 0, item);
+                            return arr;
+                          });
+                        }}
+                        style={{ display: "flex", alignItems: "center", gap: 10, background: pr.bg, borderRadius: 4, padding: "10px 12px", cursor: "default" }}>
+                        <span style={{ color: "#3a3020", cursor: "grab", fontSize: 14, userSelect: "none", marginRight: 4 }}>⋮⋮</span>
                         <button onClick={() => setGoals(prev => prev.map(x => {
                           if (x.id !== g.id) return x;
                           if (!x.done && !x.xpAwarded) { gainXP(g.xp ?? 100, "(задачу виконано)", "goal"); return { ...x, done: true, xpAwarded: true }; }
@@ -2225,7 +2289,25 @@ export default function AITracker() {
                   <div style={{ fontSize: 12, color: per.color, fontWeight: 800, marginBottom: 10, textTransform: "uppercase", letterSpacing: 1.5 }}>{per.icon} {per.label}</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     {perGoals.map(g => (
-                      <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 10, background: `${per.color}08`, borderRadius: 4, padding: "10px 12px" }}>
+                      <div key={g.id}
+                        draggable={true}
+                        onDragStart={() => { dragRef.current = { id: g.id, list: "longgoals" }; }}
+                        onDragOver={e => e.preventDefault()}
+                        onDrop={() => {
+                          if (dragRef.current?.list !== "longgoals") return;
+                          const fromId = dragRef.current.id;
+                          setLongGoals(prev => {
+                            const arr = [...prev];
+                            const fi = arr.findIndex(x => x.id === fromId);
+                            const ti = arr.findIndex(x => x.id === g.id);
+                            if (fi < 0 || ti < 0 || fi === ti) return prev;
+                            const [item] = arr.splice(fi, 1);
+                            arr.splice(ti, 0, item);
+                            return arr;
+                          });
+                        }}
+                        style={{ display: "flex", alignItems: "center", gap: 10, background: `${per.color}08`, borderRadius: 4, padding: "10px 12px", cursor: "default" }}>
+                        <span style={{ color: "#3a3020", cursor: "grab", fontSize: 14, userSelect: "none", marginRight: 4 }}>⋮⋮</span>
                         <button onClick={() => setLongGoals(prev => prev.map(x => {
                           if (x.id !== g.id) return x;
                           if (!x.done && !x.xpAwarded) { gainXP(x.customXP ?? 200, "(ціль досягнута)", "goal"); return { ...x, done: true, xpAwarded: true }; }
@@ -2359,7 +2441,25 @@ export default function AITracker() {
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
                     {[...items, ...done].map(item => (
-                      <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 10, background: item.done ? "rgba(5,3,1,0.80)" : pt.bg, border: `1px solid ${item.done ? "rgba(8,5,2,0.68)" : pt.color + "22"}`, borderLeft: item.done ? undefined : `3px solid ${pt.color}88`, borderRadius: 4, padding: "11px 14px" }}>
+                      <div key={item.id}
+                        draggable={true}
+                        onDragStart={() => { dragRef.current = { id: item.id, list: "plan" }; }}
+                        onDragOver={e => e.preventDefault()}
+                        onDrop={() => {
+                          if (dragRef.current?.list !== "plan") return;
+                          const fromId = dragRef.current.id;
+                          setPlan(prev => {
+                            const arr = [...prev];
+                            const fi = arr.findIndex(x => x.id === fromId);
+                            const ti = arr.findIndex(x => x.id === item.id);
+                            if (fi < 0 || ti < 0 || fi === ti) return prev;
+                            const [itm] = arr.splice(fi, 1);
+                            arr.splice(ti, 0, itm);
+                            return arr;
+                          });
+                        }}
+                        style={{ display: "flex", alignItems: "center", gap: 10, background: item.done ? "rgba(5,3,1,0.80)" : pt.bg, border: `1px solid ${item.done ? "rgba(8,5,2,0.68)" : pt.color + "22"}`, borderLeft: item.done ? undefined : `3px solid ${pt.color}88`, borderRadius: 4, padding: "11px 14px", cursor: "default" }}>
+                        <span style={{ color: "#3a3020", cursor: "grab", fontSize: 14, userSelect: "none", marginRight: 4 }}>⋮⋮</span>
                         <button onClick={() => setPlan(prev => prev.map(x => {
                           if (x.id !== item.id) return x;
                           if (!x.done && !x.xpAwarded) {
