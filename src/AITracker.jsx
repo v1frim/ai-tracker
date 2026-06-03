@@ -648,6 +648,7 @@ export default function AITracker() {
     return (saved_ta?.date === todayStr()) ? saved_ta.data : {};
   });
   const [unlockedAchievements, setUnlockedAchievements] = useState(saved?.unlockedAchievements ?? ["oxford_dev"]);
+  const [achievementDates, setAchievementDates] = useState(saved?.achievementDates ?? { oxford_dev: "2026-01-01" });
   const [goalInput, setGoalInput] = useState("");
   const [goalPriority, setGoalPriority] = useState("important");
   const [goalEditId, setGoalEditId] = useState(null);
@@ -684,9 +685,9 @@ export default function AITracker() {
   const TAB_IDS = ["dashboard", "plan", "goals", "longgoals", "projects", "tools", "skillstasks", "achievements", "finances", "sessions", "progress", "stats"];
 
   useEffect(() => {
-    const state = { skillData, totalXP, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, activeDays, goals, longGoals, plan, aiMessages, aiModel, aiApiKeys, progressLog, todayXP, skillTasksData, learnTime };
+    const state = { skillData, totalXP, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, plan, aiMessages, aiModel, aiApiKeys, progressLog, todayXP, skillTasksData, learnTime };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [skillData, totalXP, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, activeDays, goals, longGoals, plan, aiMessages, aiModel, aiApiKeys, progressLog, todayXP, skillTasksData, learnTime]);
+  }, [skillData, totalXP, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, plan, aiMessages, aiModel, aiApiKeys, progressLog, todayXP, skillTasksData, learnTime]);
 
   useEffect(() => {
     localStorage.setItem("ai_tracker_today_act", JSON.stringify({ date: todayStr(), data: todayActivity }));
@@ -866,7 +867,13 @@ export default function AITracker() {
       }
     });
     if (newlyUnlocked.length > 0) {
+      const today = todayStr();
       setUnlockedAchievements(prev => [...prev, ...newlyUnlocked]);
+      setAchievementDates(prev => {
+        const next = { ...prev };
+        newlyUnlocked.forEach(id => { next[id] = today; });
+        return next;
+      });
       setTotalXP(prev => prev + bonusXP);
       logXP(bonusXP, "achievement", "досягнення");
       newlyUnlocked.forEach((id, idx) => {
@@ -1948,6 +1955,11 @@ export default function AITracker() {
                           <div className={isLeg ? "legendary-title" : ""} style={{ fontSize: 14, fontWeight: 800, color: isLeg ? undefined : done ? tier.color : "#9a8a60", marginBottom: 6, fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>{a.name}</div>
                           <div style={{ fontSize: 12, color: done ? "#b0a080" : "#7a6a48", marginBottom: 10, lineHeight: 1.5 }}>{a.desc}</div>
                           <div style={{ fontSize: 12, color: done ? tier.color : "#6a5a38", fontFamily: "'Space Mono',monospace", letterSpacing: 1 }}>+{a.xp} XP {done ? "✓" : "🔒"}</div>
+                          {done && achievementDates[a.id] && (
+                            <div style={{ fontSize: 10, color: "#5a4a30", fontFamily: "'Space Mono',monospace", marginTop: 5 }}>
+                              📅 {achievementDates[a.id]}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
