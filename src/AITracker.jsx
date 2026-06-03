@@ -832,6 +832,12 @@ export default function AITracker() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Журнал XP: записує кожну зміну з джерелом, щоб у статистиці було видно «що і скільки».
+  const logXP = useCallback((amount, source, label = "") => {
+    if (!amount) return;
+    setXpLog(prev => [{ id: Date.now() + Math.random(), ts: Date.now(), date: todayStr(), amount, source, label }, ...prev].slice(0, 600));
+  }, []);
+
   const checkAchievements = useCallback((tools, inc, proj, sd, currentUnlocked, currentStreak, totalSessions) => {
     const lt = learnTimeRef.current;
     const learnHours = ((lt.education ?? 0) + (lt.business ?? 0)) * 0.5;
@@ -854,12 +860,6 @@ export default function AITracker() {
       });
     }
   }, [showAchievementToast, logXP]);
-
-  // Журнал XP: записує кожну зміну з джерелом, щоб у статистиці було видно «що і скільки».
-  const logXP = useCallback((amount, source, label = "") => {
-    if (!amount) return;
-    setXpLog(prev => [{ id: Date.now() + Math.random(), ts: Date.now(), date: todayStr(), amount, source, label }, ...prev].slice(0, 600));
-  }, []);
 
   const gainXP = useCallback((amount, label = "", source = "other") => {
     setTotalXP(prev => prev + amount);
