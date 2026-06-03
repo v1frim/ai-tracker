@@ -210,8 +210,7 @@ const ACHIEVEMENTS = [
   { id: "streak_365", group: "streak", tier: "legendary", name: "Залізна воля",   desc: "365 днів поспіль з AI", xp: 8000, icon: "👑", check: (t, i, p, sd, streak) => streak >= 365, progress: (t, i, p, sd, streak) => ({ cur: streak, max: 365 }) },
 
   // ── Сесії ──
-  { id: "sessions_10",  group: "sessions", tier: "common",    name: "Звичка",       desc: "10 AI-сесій",   xp: 150,   icon: "🌱", check: (t, i, p, sd, st, ts) => ts >= 10,   progress: (t, i, p, sd, st, ts) => ({ cur: ts, max: 10 }) },
-  { id: "sessions_30",  group: "sessions", tier: "uncommon",  name: "Місяць з AI",  desc: "30 AI-сесій",   xp: 350,   icon: "📆", check: (t, i, p, sd, st, ts) => ts >= 30,   progress: (t, i, p, sd, st, ts) => ({ cur: ts, max: 30 }) },
+  { id: "sessions_30",  group: "sessions", tier: "common",    name: "Місяць з AI",  desc: "30 AI-сесій",   xp: 350,   icon: "📆", check: (t, i, p, sd, st, ts) => ts >= 30,   progress: (t, i, p, sd, st, ts) => ({ cur: ts, max: 30 }) },
   { id: "sessions_90",  group: "sessions", tier: "rare",      name: "Квартал",      desc: "90 AI-сесій",   xp: 800,   icon: "💪", check: (t, i, p, sd, st, ts) => ts >= 90,   progress: (t, i, p, sd, st, ts) => ({ cur: ts, max: 90 }) },
   { id: "sessions_180", group: "sessions", tier: "epic",      name: "Пів року",     desc: "180 AI-сесій",  xp: 1500,  icon: "🦾", check: (t, i, p, sd, st, ts) => ts >= 180,  progress: (t, i, p, sd, st, ts) => ({ cur: ts, max: 180 }) },
   { id: "sessions_365", group: "sessions", tier: "legendary", name: "Рік з AI",     desc: "365 AI-сесій",  xp: 4000,  icon: "🏵️", check: (t, i, p, sd, st, ts) => ts >= 365,  progress: (t, i, p, sd, st, ts) => ({ cur: ts, max: 365 }) },
