@@ -229,6 +229,18 @@ const DEFAULT_PROJECTS = [{ name: "Oxford_1000 — додаток для анг�
 const DEFAULT_SESSIONS = { dates: [], monthlyTarget: 50 };
 const STORAGE_KEY = "ai_tracker_v1";
 
+// Єдине джерело правди для блоку «Активність».
+// kind: "learn" → лічильник у learnTime; "skill" → у skillTasksData (ключ catId_taskId).
+const ACTIVITY_DEFS = [
+  { kind: "learn", key: "education",            emoji: "📚", label: "Навчання",    color: "#06b6d4", note: "30хв/раз", xp: 4 },
+  { kind: "learn", key: "business",             emoji: "💼", label: "Бізнес",      color: "#f59e0b", note: "30хв/раз", xp: 4 },
+  { kind: "learn", key: "edu_videos",           emoji: "📺", label: "Навч. відео", color: "#a855f7", note: "1 відео",  xp: 3 },
+  { kind: "skill", key: "image_images_gen",     emoji: "🎨", label: "Зображення",  color: "#ff6b35",                  xp: 2 },
+  { kind: "skill", key: "video_videos_created", emoji: "🎬", label: "Відео",       color: "#a855f7",                  xp: 8 },
+  { kind: "skill", key: "music_tracks_created", emoji: "🎵", label: "Музика",      color: "#ec4899",                  xp: 6 },
+];
+const ACTIVITY_XP = Object.fromEntries(ACTIVITY_DEFS.map(d => [d.key, d.xp]));
+
 const GOAL_CATEGORIES = [
   { id: "income", label: "Дохід", color: "#f59e0b", icon: "💰" },
   { id: "skills", label: "Навички", color: "#00ff88", icon: "🧠" },
@@ -549,6 +561,8 @@ export default function AITracker() {
 
   const [skillData, setSkillData] = useState(saved?.skillData ?? DEFAULT_SKILL_DATA);
   const [totalXP, setTotalXP] = useState(saved?.totalXP ?? 300);
+  const [activityXP, setActivityXP] = useState(saved?.activityXP);
+  const [xpLog, setXpLog] = useState(saved?.xpLog ?? []);
   // Finance v2 — entries + categories
   const [incomeEntries, setIncomeEntries] = useState(() => {
     if (saved?.incomeEntries) return saved.incomeEntries;
@@ -655,13 +669,30 @@ export default function AITracker() {
   const TAB_IDS = ["dashboard", "plan", "goals", "longgoals", "projects", "tools", "skillstasks", "achievements", "finances", "sessions", "progress", "stats"];
 
   useEffect(() => {
-    const state = { skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, activeDays, goals, longGoals, plan, aiMessages, aiModel, aiApiKeys, progressLog, todayXP, skillTasksData, learnTime };
+    const state = { skillData, totalXP, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, activeDays, goals, longGoals, plan, aiMessages, aiModel, aiApiKeys, progressLog, todayXP, skillTasksData, learnTime };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [skillData, totalXP, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, activeDays, goals, longGoals, plan, aiMessages, aiModel, aiApiKeys, progressLog, todayXP, skillTasksData, learnTime]);
+  }, [skillData, totalXP, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, sessions, activeDays, goals, longGoals, plan, aiMessages, aiModel, aiApiKeys, progressLog, todayXP, skillTasksData, learnTime]);
 
   useEffect(() => {
     localStorage.setItem("ai_tracker_today_act", JSON.stringify({ date: todayStr(), data: todayActivity }));
   }, [todayActivity]);
+
+  // Узгодження XP активності з лічильниками. Прив'язує внесок активності до
+  // значення «рахунок × ставка». При першому запуску просто фіксує базу
+  // (історію старих нарахувань відновити неможливо), далі — самовідновлює дрейф,
+  // тож надлишок більше ніколи не накопичується.
+  const reconciledRef = useRef(false);
+  useEffect(() => {
+    if (reconciledRef.current) return;
+    reconciledRef.current = true;
+    const correct = computeCorrectActivityXP();
+    if (activityXP == null) {
+      setActivityXP(correct);
+    } else if (activityXP !== correct) {
+      setTotalXP(t => Math.max(0, t + (correct - activityXP)));
+      setActivityXP(correct);
+    }
+  }, [activityXP, computeCorrectActivityXP]);
 
   // Computed totals in USD
   const toUSD = useCallback((amount, currency) => currency === "UAH" ? amount / uahRate : amount, [uahRate]);
@@ -790,6 +821,19 @@ export default function AITracker() {
   const learnTimeRef = useRef(learnTime);
   useEffect(() => { learnTimeRef.current = learnTime; }, [learnTime]);
 
+  const skillTasksRef = useRef(skillTasksData);
+  useEffect(() => { skillTasksRef.current = skillTasksData; }, [skillTasksData]);
+
+  // Скільки XP МАЄ давати активність прямо зараз (рахунок × ставка).
+  const computeCorrectActivityXP = useCallback(() => {
+    return ACTIVITY_DEFS.reduce((sum, d) => {
+      const cnt = d.kind === "learn"
+        ? (learnTimeRef.current[d.key] ?? 0)
+        : (skillTasksRef.current[d.key]?.count ?? 0);
+      return sum + cnt * d.xp;
+    }, 0);
+  }, []);
+
   const checkAchievements = useCallback((tools, inc, proj, sd, currentUnlocked, currentStreak, totalSessions) => {
     const lt = learnTimeRef.current;
     const learnHours = ((lt.education ?? 0) + (lt.business ?? 0)) * 0.5;
@@ -805,23 +849,32 @@ export default function AITracker() {
     if (newlyUnlocked.length > 0) {
       setUnlockedAchievements(prev => [...prev, ...newlyUnlocked]);
       setTotalXP(prev => prev + bonusXP);
+      logXP(bonusXP, "achievement", "досягнення");
       newlyUnlocked.forEach((id, idx) => {
         const a = ACHIEVEMENTS.find(x => x.id === id);
         setTimeout(() => showAchievementToast(a), 500 + idx * 1000);
       });
     }
-  }, [showAchievementToast]);
+  }, [showAchievementToast, logXP]);
 
-  const gainXP = useCallback((amount, label = "") => {
+  // Журнал XP: записує кожну зміну з джерелом, щоб у статистиці було видно «що і скільки».
+  const logXP = useCallback((amount, source, label = "") => {
+    if (!amount) return;
+    setXpLog(prev => [{ id: Date.now() + Math.random(), ts: Date.now(), date: todayStr(), amount, source, label }, ...prev].slice(0, 600));
+  }, []);
+
+  const gainXP = useCallback((amount, label = "", source = "other") => {
     setTotalXP(prev => prev + amount);
     setTodayXP(prev => prev.date === todayStr() ? { ...prev, total: prev.total + amount } : { date: todayStr(), total: amount });
+    logXP(amount, source, label);
     showNotif(`+${amount} XP ${label}`, "xp");
-  }, [showNotif]);
+  }, [showNotif, logXP]);
 
-  const loseXP = useCallback((amount) => {
+  const loseXP = useCallback((amount, source = "other", label = "") => {
     setTotalXP(prev => Math.max(0, prev - amount));
     setTodayXP(prev => prev.date === todayStr() ? { ...prev, total: Math.max(0, prev.total - amount) } : prev);
-  }, []);
+    logXP(-amount, source, label);
+  }, [logXP]);
 
   const recordActiveDay = useCallback(() => {
     const today = todayStr();
@@ -835,7 +888,7 @@ export default function AITracker() {
       if (existing.claimed.includes(milestoneIdx)) return prev;
       return { ...prev, [key]: { ...existing, claimed: [...existing.claimed, milestoneIdx] } };
     });
-    gainXP(xp, "навичка");
+    gainXP(xp, "навичка", "skill");
     recordActiveDay();
   }, [gainXP, recordActiveDay]);
 
@@ -845,68 +898,79 @@ export default function AITracker() {
       const existing = prev[key] || { count: 0, claimed: [] };
       return { ...prev, [key]: { ...existing, claimed: existing.claimed.filter(i => i !== milestoneIdx) } };
     });
-    loseXP(xp);
+    loseXP(xp, "skill", "навичка");
   }, [loseXP]);
 
-  const SKILL_ACT_XP = { image: 2, video: 8, music: 6 };
+  // Центральне нарахування XP за активність: рахує фактичну (після клампінгу) зміну
+  // лічильника й симетрично нараховує/знімає XP. Тримає activityXP = рахунок × ставка.
+  const applyActivityXP = useCallback((key, effectiveDelta) => {
+    if (effectiveDelta === 0) return;
+    const xp = (ACTIVITY_XP[key] ?? 0) * effectiveDelta;
+    if (xp > 0) gainXP(xp, "активність", "activity");
+    else if (xp < 0) loseXP(-xp, "activity", "активність");
+    setActivityXP(prev => Math.max(0, (prev ?? 0) + xp));
+    if (effectiveDelta > 0) recordActiveDay();
+    recordTodayActivity(key, effectiveDelta);
+  }, [gainXP, loseXP, recordActiveDay, recordTodayActivity]);
 
   const addProgressiveCount = useCallback((catId, taskId, delta) => {
     const key = `${catId}_${taskId}`;
-    setSkillTasksData(prev => {
-      const existing = prev[key] || { count: 0, claimed: [] };
-      return { ...prev, [key]: { ...existing, count: Math.max(0, existing.count + delta) } };
-    });
-    if (delta > 0) {
-      recordActiveDay();
-      const xpAmt = (SKILL_ACT_XP[catId] ?? 1) * Math.abs(delta);
-      if (xpAmt > 0) gainXP(xpAmt, "активність");
-    }
-    recordTodayActivity(`${catId}_${taskId}`, delta);
-  }, [gainXP, recordActiveDay, recordTodayActivity]);
-
-  const LEARN_XP = { education: 4, business: 4, edu_videos: 3 };
+    const cur = skillTasksRef.current[key]?.count ?? 0;
+    const newCount = Math.max(0, cur + delta);
+    const eff = newCount - cur;
+    if (eff === 0) return;
+    const existing = skillTasksRef.current[key] || { count: 0, claimed: [] };
+    const updated = { ...skillTasksRef.current, [key]: { ...existing, count: newCount } };
+    skillTasksRef.current = updated;
+    setSkillTasksData(updated);
+    applyActivityXP(key, eff);
+  }, [applyActivityXP]);
 
   const addLearnTime = useCallback((kind, delta) => {
-    if (delta > 0) {
-      const xpAmt = (LEARN_XP[kind] ?? 0) * Math.abs(delta);
-      if (xpAmt > 0) gainXP(xpAmt, "активність");
-    }
-    setLearnTime(prev => {
-      const next = { ...prev, [kind]: Math.max(0, (prev[kind] ?? 0) + delta) };
-      if (delta > 0) {
-        recordActiveDay();
-        setUnlockedAchievements(ua => {
-          const learnHours = ((next.education ?? 0) + (next.business ?? 0)) * 0.5;
-          const toUnlock = [];
-          let bonus = 0;
-          ACHIEVEMENTS.forEach(a => {
-            if (a.group !== "learning" || ua.includes(a.id)) return;
-            if (a.check(0, 0, 0, {}, 0, 0, learnHours)) { toUnlock.push(a.id); bonus += a.xp; }
-          });
-          if (toUnlock.length) {
-            setTotalXP(p => p + bonus);
-            toUnlock.forEach((id, idx) => {
-              const a = ACHIEVEMENTS.find(x => x.id === id);
-              setTimeout(() => showAchievementToast(a), 500 + idx * 1000);
-            });
-            return [...ua, ...toUnlock];
-          }
-          return ua;
+    const cur = learnTimeRef.current[kind] ?? 0;
+    const newVal = Math.max(0, cur + delta);
+    const eff = newVal - cur;
+    if (eff === 0) return;
+    const next = { ...learnTimeRef.current, [kind]: newVal };
+    learnTimeRef.current = next;
+    setLearnTime(next);
+    applyActivityXP(kind, eff);
+    if (eff > 0) {
+      setUnlockedAchievements(ua => {
+        const learnHours = ((next.education ?? 0) + (next.business ?? 0)) * 0.5;
+        const toUnlock = [];
+        let bonus = 0;
+        ACHIEVEMENTS.forEach(a => {
+          if (a.group !== "learning" || ua.includes(a.id)) return;
+          if (a.check(0, 0, 0, {}, 0, 0, learnHours)) { toUnlock.push(a.id); bonus += a.xp; }
         });
-      }
-      return next;
-    });
-    recordTodayActivity(kind, delta);
-  }, [gainXP, recordActiveDay, recordTodayActivity, showAchievementToast]);
+        if (toUnlock.length) {
+          setTotalXP(p => p + bonus);
+          logXP(bonus, "achievement", "досягнення");
+          toUnlock.forEach((id, idx) => {
+            const a = ACHIEVEMENTS.find(x => x.id === id);
+            setTimeout(() => showAchievementToast(a), 500 + idx * 1000);
+          });
+          return [...ua, ...toUnlock];
+        }
+        return ua;
+      });
+    }
+  }, [applyActivityXP, showAchievementToast, logXP]);
 
   const setProgressiveCount = useCallback((catId, taskId, value) => {
     const key = `${catId}_${taskId}`;
     const n = Math.max(0, parseInt(value) || 0);
-    setSkillTasksData(prev => {
-      const existing = prev[key] || { count: 0, claimed: [] };
-      return { ...prev, [key]: { ...existing, count: n } };
-    });
-  }, []);
+    const cur = skillTasksRef.current[key]?.count ?? 0;
+    const eff = n - cur;
+    if (eff === 0) return;
+    const existing = skillTasksRef.current[key] || { count: 0, claimed: [] };
+    const updated = { ...skillTasksRef.current, [key]: { ...existing, count: n } };
+    skillTasksRef.current = updated;
+    setSkillTasksData(updated);
+    // Лише активні трекери дають XP (image/video/music). Решта — просто лічильники.
+    if (ACTIVITY_XP[key] != null) applyActivityXP(key, eff);
+  }, [applyActivityXP]);
 
   const claimOneTimeTask = useCallback((catId, taskId, xp) => {
     const key = `${catId}_${taskId}`;
@@ -914,7 +978,7 @@ export default function AITracker() {
       if (prev[key] === true) return prev;
       return { ...prev, [key]: true };
     });
-    gainXP(xp, "навичка");
+    gainXP(xp, "навичка", "skill");
     recordActiveDay();
   }, [gainXP, recordActiveDay]);
 
@@ -926,7 +990,7 @@ export default function AITracker() {
       delete next[key];
       return next;
     });
-    loseXP(xp);
+    loseXP(xp, "skill", "навичка");
   }, [loseXP]);
 
   const learnTool = useCallback((skillId, tool) => {
@@ -935,7 +999,7 @@ export default function AITracker() {
       if (current.includes(tool)) return prev;
       const updated = { ...prev, [skillId]: { unlockedTools: [...current, tool] } };
       const newTotal = Object.values(updated).flatMap(s => s.unlockedTools).length;
-      gainXP(100, `(${tool})`);
+      gainXP(100, `(${tool})`, "skill");
       recordActiveDay();
       setUnlockedAchievements(ua => {
         checkAchievements(newTotal, totalIncome, projects.length, updated, ua, streak, sessions.dates.length);
@@ -954,7 +1018,7 @@ export default function AITracker() {
     setIncomeEntries(prev => {
       const next = [...prev, entry];
       const newTotal = next.reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
-      gainXP(xpPaid, `(+$${amtUSD.toFixed(2)})`);
+      gainXP(xpPaid, `(+$${amtUSD.toFixed(2)})`, "income");
       recordActiveDay();
       setUnlockedAchievements(ua => {
         checkAchievements(totalTools, newTotal, projects.length, skillData, ua, streak, sessions.dates.length);
@@ -986,7 +1050,7 @@ export default function AITracker() {
     setIncomeEntries(prev => prev.filter(e => e.id !== id));
     const xp = entry.xpPaid ?? 0;
     if (xp > 0) {
-      loseXP(xp);
+      loseXP(xp, "income", "↩ повернення доходу");
       showNotif(`↩ Повернуто −${xp} XP`, "xp");
     }
     setPendingDelete(prev => {
@@ -1002,7 +1066,7 @@ export default function AITracker() {
     if (pendingDelete.type === "income") {
       setIncomeEntries(prev => [...prev, pendingDelete.entry]);
       if (pendingDelete.refund && pendingDelete.xpPaid > 0) {
-        gainXP(pendingDelete.xpPaid, "↩ повернено");
+        gainXP(pendingDelete.xpPaid, "↩ повернено", "income");
       }
     } else {
       setExpenseEntries(prev => [...prev, pendingDelete.entry]);
@@ -1023,7 +1087,7 @@ export default function AITracker() {
     const cxp = Math.max(0, parseInt(projectCompletionXP) || 0);
     const newProjects = [...projects, { name: projectInput.trim(), date: new Date().toLocaleDateString("uk-UA"), status: "in_progress", creationXP: 100, completionXP: cxp, completionXPPaid: false }];
     setProjects(newProjects);
-    gainXP(100, `(${projectInput.trim()})`);
+    gainXP(100, `(${projectInput.trim()})`, "project");
     recordActiveDay();
     setProjectCompletionXP(200);
     setProjectInput("");
@@ -1040,7 +1104,7 @@ export default function AITracker() {
     const newStreak = calcStreak(newDates);
     const newSessions = { ...sessions, dates: newDates };
     setSessions(newSessions);
-    gainXP(50, "(AI-сесія)");
+    gainXP(50, "(AI-сесія)", "session");
     recordActiveDay();
     setUnlockedAchievements(ua => {
       checkAchievements(totalTools, totalIncome, projects.length, skillData, ua, newStreak, newDates.length);
@@ -1351,14 +1415,11 @@ export default function AITracker() {
 
             {/* Активність */}
             {(() => {
-              const ACTIVITY_TRACKERS = [
-                { kind: "learn", key: "education",            emoji: "📚", label: "Навчання",    color: "#06b6d4", note: "30хв/раз", xp: 4 },
-                { kind: "learn", key: "business",             emoji: "💼", label: "Бізнес",      color: "#f59e0b", note: "30хв/раз", xp: 4 },
-                { kind: "learn", key: "edu_videos",           emoji: "📺", label: "Навч. відео", color: "#a855f7", note: "1 відео",   xp: 3 },
-                { kind: "skill", key: "image_images_gen",     emoji: "🎨", label: "Зображення",  color: "#ff6b35",                   xp: 2 },
-                { kind: "skill", key: "video_videos_created", emoji: "🎬", label: "Відео",       color: "#a855f7",                   xp: 8 },
-                { kind: "skill", key: "music_tracks_created", emoji: "🎵", label: "Музика",      color: "#ec4899",                   xp: 6 },
-              ];
+              const ACTIVITY_TRACKERS = ACTIVITY_DEFS;
+              const todayRows = ACTIVITY_TRACKERS
+                .map(tr => ({ tr, n: todayActivity[tr.key] ?? 0 }))
+                .filter(r => r.n > 0);
+              const todayTotalXP = todayRows.reduce((s, r) => s + r.n * r.tr.xp, 0);
               return (
                 <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18 }}>
                   <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 14 }}>⚡ Активність</div>
@@ -1444,6 +1505,28 @@ export default function AITracker() {
                         </div>
                       );
                     })}
+                  </div>
+
+                  {/* Розбивка XP за сьогодні */}
+                  <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px dashed rgba(201,168,76,0.20)" }}>
+                    {todayRows.length === 0 ? (
+                      <div style={{ fontSize: 11, color: "#5a5040", fontFamily: "'Space Mono',monospace", textAlign: "center" }}>
+                        Сьогодні активності ще не додано
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "6px 14px" }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: "#9a8a60", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1.5 }}>XP за сьогодні:</span>
+                        {todayRows.map(({ tr, n }) => (
+                          <span key={tr.key} style={{ fontSize: 11, color: "#b0a080", fontFamily: "'Space Mono',monospace" }}>
+                            <span style={{ marginRight: 3 }}>{tr.emoji}</span>
+                            {n} × {tr.xp} = <b style={{ color: tr.color }}>{n * tr.xp}</b>
+                          </span>
+                        ))}
+                        <span style={{ marginLeft: "auto", fontSize: 13, fontWeight: 800, color: "#00ff88", fontFamily: "'Space Mono',monospace", textShadow: "0 0 10px rgba(0,255,136,0.4)" }}>
+                          = +{todayTotalXP} XP
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -1664,7 +1747,7 @@ export default function AITracker() {
                     const updated = { ...prev, [toolRevokeConfirm.skillId]: { unlockedTools: prev[toolRevokeConfirm.skillId].unlockedTools.filter(t => t !== toolRevokeConfirm.tool) } };
                     return updated;
                   });
-                  loseXP(100);
+                  loseXP(100, "skill", "↩ інструмент");
                   setToolRevokeConfirm(null);
                 }} style={{ flex: 1, background: "rgba(244,63,94,0.15)", border: "1px solid rgba(244,63,94,0.5)", color: "#f43f5e", padding: "10px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 13 }}>Так, зняти</button>
                 <button onClick={() => setToolRevokeConfirm(null)} style={{ flex: 1, background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.3)", color: "#c9a84c", padding: "10px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>Залишити</button>
@@ -1685,7 +1768,7 @@ export default function AITracker() {
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={() => {
                   setUnlockedAchievements(prev => prev.filter(id => id !== revokeConfirm.id));
-                  loseXP(revokeConfirm.xp);
+                  loseXP(revokeConfirm.xp, "achievement", "↩ досягнення");
                   setRevokeConfirm(null);
                 }} style={{ flex: 1, background: "rgba(244,63,94,0.15)", border: "1px solid rgba(244,63,94,0.5)", color: "#f43f5e", padding: "10px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 13 }}>Так, скасувати</button>
                 <button onClick={() => setRevokeConfirm(null)} style={{ flex: 1, background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.3)", color: "#c9a84c", padding: "10px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>Залишити</button>
@@ -1915,7 +1998,7 @@ export default function AITracker() {
                       <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 10, background: pr.bg, borderRadius: 4, padding: "10px 12px" }}>
                         <button onClick={() => setGoals(prev => prev.map(x => {
                           if (x.id !== g.id) return x;
-                          if (!x.done && !x.xpAwarded) { gainXP(g.xp ?? 100, "(задачу виконано)"); return { ...x, done: true, xpAwarded: true }; }
+                          if (!x.done && !x.xpAwarded) { gainXP(g.xp ?? 100, "(задачу виконано)", "goal"); return { ...x, done: true, xpAwarded: true }; }
                           return { ...x, done: !x.done };
                         }))} style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${pr.color}66`, background: "transparent", cursor: "pointer", flexShrink: 0, fontSize: 10, color: pr.color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }} />
                         {goalEditId === g.id ? (
@@ -2042,7 +2125,7 @@ export default function AITracker() {
                       <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 10, background: `${per.color}08`, borderRadius: 4, padding: "10px 12px" }}>
                         <button onClick={() => setLongGoals(prev => prev.map(x => {
                           if (x.id !== g.id) return x;
-                          if (!x.done && !x.xpAwarded) { gainXP(x.customXP ?? 200, "(ціль досягнута)"); return { ...x, done: true, xpAwarded: true }; }
+                          if (!x.done && !x.xpAwarded) { gainXP(x.customXP ?? 200, "(ціль досягнута)", "goal"); return { ...x, done: true, xpAwarded: true }; }
                           return { ...x, done: !x.done };
                         }))} style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${per.color}66`, background: "transparent", cursor: "pointer", flexShrink: 0, fontSize: 10, color: per.color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }} />
                         {longGoalEditId === g.id ? (
@@ -2167,7 +2250,7 @@ export default function AITracker() {
                         <button onClick={() => setPlan(prev => prev.map(x => {
                           if (x.id !== item.id) return x;
                           if (!x.done && !x.xpAwarded) {
-                            gainXP(75, "(план дій)");
+                            gainXP(75, "(план дій)", "plan");
                             return { ...x, done: true, xpAwarded: true };
                           }
                           return { ...x, done: !x.done };
@@ -2972,7 +3055,7 @@ export default function AITracker() {
                   const dp = projects[projectDeleteConfirm];
                   const totalDeduct = (dp?.creationXP ?? 200) + (dp?.completionXPPaid ? (dp?.completionXP ?? 0) : 0);
                   setProjects(prev => prev.filter((_, idx) => idx !== projectDeleteConfirm));
-                  loseXP(totalDeduct);
+                  loseXP(totalDeduct, "project", "↩ проект видалено");
                   setProjectDeleteConfirm(null);
                 }} style={{ flex: 1, background: "rgba(244,63,94,0.15)", border: "1px solid rgba(244,63,94,0.5)", color: "#f43f5e", padding: "10px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 13 }}>Так, видалити</button>
                 <button onClick={() => setProjectDeleteConfirm(null)} style={{ flex: 1, background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.3)", color: "#c9a84c", padding: "10px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>Скасувати</button>
@@ -3018,11 +3101,11 @@ export default function AITracker() {
                     if (idx !== i) return x;
                     const paid = x.completionXPPaid ?? false;
                     if (next === "done" && !paid && cxp > 0) {
-                      gainXP(cxp, `🚀 ${x.name}`);
+                      gainXP(cxp, `🚀 ${x.name}`, "project");
                       return { ...x, status: next, completionXPPaid: true };
                     }
                     if (next === "in_progress" && paid && cxp > 0) {
-                      loseXP(cxp);
+                      loseXP(cxp, "project", "↩ проект не завершено");
                       return { ...x, status: next, completionXPPaid: false };
                     }
                     return { ...x, status: next };
@@ -3191,8 +3274,61 @@ export default function AITracker() {
             { catId: "content",    emoji: "📱", label: "Контент",        tasks: [{ id: "posts_published", label: "Постів" }, { id: "followers_gained", label: "Підписників" }, { id: "content_views", label: "Переглядів" }] },
             { catId: "monetize",   emoji: "💰", label: "Монетизація",    tasks: [{ id: "ai_income", label: "Дохід ($)" }, { id: "clients", label: "Клієнтів" }] },
           ];
+          const XP_SOURCE_META = {
+            activity:    { emoji: "⚡", label: "Активність",   color: "#00ff88" },
+            session:     { emoji: "🔥", label: "AI-сесії",     color: "#f59e0b" },
+            skill:       { emoji: "🧩", label: "Навички",      color: "#6366f1" },
+            project:     { emoji: "🚀", label: "Проекти",      color: "#a855f7" },
+            achievement: { emoji: "🏆", label: "Досягнення",   color: "#fbbf24" },
+            income:      { emoji: "💰", label: "Дохід",        color: "#10b981" },
+            goal:        { emoji: "🎯", label: "Цілі / задачі", color: "#06b6d4" },
+            plan:        { emoji: "📋", label: "План дій",     color: "#ec4899" },
+            other:       { emoji: "•",  label: "Інше",         color: "#9a8a60" },
+          };
+          const xpBySource = xpLog.reduce((acc, e) => {
+            acc[e.source] = (acc[e.source] ?? 0) + e.amount;
+            return acc;
+          }, {});
+          // Активність знаємо точно з лічильників (навіть за період до журналу).
+          xpBySource.activity = activityXP ?? computeCorrectActivityXP();
+          const loggedSum = Object.values(xpBySource).reduce((s, v) => s + v, 0);
+          const untracked = totalXP - loggedSum;
+          const xpSourceRows = Object.entries(xpBySource)
+            .filter(([, v]) => v !== 0)
+            .sort((a, b) => b[1] - a[1]);
           return (
             <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+              {/* Джерела XP */}
+              <div>
+                <div className="wf-sec" style={{ marginBottom: 16 }}>⭐ Джерела XP <span style={{ fontSize: 11, color: "#6a5f40", fontWeight: 400 }}>· що дало досвід</span></div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
+                  {xpSourceRows.map(([src, val]) => {
+                    const m = XP_SOURCE_META[src] ?? XP_SOURCE_META.other;
+                    return (
+                      <div key={src} className="wf-card" style={{ padding: "14px 14px", border: `1px solid ${m.color}33`, borderTop: `2px solid ${m.color}`, display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ fontSize: 20 }}>{m.emoji}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 10, color: "#9a8a60", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>{m.label}</div>
+                          <div style={{ fontSize: 18, fontWeight: 800, color: m.color, fontFamily: "'Space Mono',monospace" }}>{val > 0 ? "+" : ""}{val.toLocaleString()}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: "6px 20px", fontSize: 11, fontFamily: "'Space Mono',monospace", color: "#9a8a60" }}>
+                  <span>Облічено журналом: <b style={{ color: "#c8b89a" }}>{loggedSum.toLocaleString()} XP</b></span>
+                  <span>Фактичний XP: <b style={{ color: "#c8b89a" }}>{totalXP.toLocaleString()}</b></span>
+                  {untracked !== 0 && (
+                    <span style={{ color: untracked > 0 ? "#f59e0b" : "#f43f5e" }}>
+                      {untracked > 0 ? "Поза журналом (до старту обліку): " : "Розбіжність: "}
+                      <b>{untracked > 0 ? "+" : ""}{untracked.toLocaleString()} XP</b>
+                    </span>
+                  )}
+                </div>
+                <div style={{ marginTop: 6, fontSize: 10, color: "#5a5040", fontFamily: "'Space Mono',monospace" }}>
+                  Журнал фіксує кожне нарахування з цього оновлення. «Активність» рахується точно з лічильників.
+                </div>
+              </div>
               {/* Фінанси */}
               <div>
                 <div className="wf-sec" style={{ marginBottom: 16 }}>💸 Фінанси</div>
