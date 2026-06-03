@@ -274,15 +274,44 @@ const TASK_PRIORITIES = [
   { id: "normal",    label: "Звичайні",   color: "#8a9ab0", bg: "rgba(138,154,176,0.06)", border: "rgba(138,154,176,0.20)", fontWeight: 500 },
 ];
 
-const GOAL_PERIODS = [
-  { id: "month",    label: "Цього місяця", color: "#00ff88",  icon: "📅" },
-  { id: "year",     label: "Цього року",   color: "#f59e0b",  icon: "📆" },
-  { id: "longterm", label: "Довгострокова",color: "#a855f7",  icon: "🌟" },
-];
+const MONTH_NAMES_UA = ["Січень","Лютий","Березень","Квітень","Травень","Червень","Липень","Серпень","Вересень","Жовтень","Листопад","Грудень"];
+
+function getWeekMonday(date = new Date()) {
+  const d = new Date(date);
+  d.setHours(0,0,0,0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return d;
+}
+
+function fmtShort(d) {
+  return `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")}`;
+}
+
+function getGoalPeriods(refDate = new Date()) {
+  const y = refDate.getFullYear();
+  const m = refDate.getMonth();
+  const mon = getWeekMonday(refDate);
+  const sun = new Date(mon); sun.setDate(sun.getDate() + 6);
+  const nextMon = new Date(mon); nextMon.setDate(nextMon.getDate() + 7);
+  const nextSun = new Date(nextMon); nextSun.setDate(nextSun.getDate() + 6);
+  const nextMo = (m + 1) % 12;
+  const nextMoY = m === 11 ? y + 1 : y;
+  return [
+    { id: "week_cur",   label: `Цей тиждень (${fmtShort(mon)}–${fmtShort(sun)})`,           color: "#06b6d4", icon: "📅", kind: "week" },
+    { id: "week_next",  label: `Наст. тиждень (${fmtShort(nextMon)}–${fmtShort(nextSun)})`, color: "#22d3ee", icon: "📅", kind: "week" },
+    { id: "month_cur",  label: `${MONTH_NAMES_UA[m]} ${y}`,                                  color: "#00ff88", icon: "📅", kind: "month" },
+    { id: "month_next", label: `${MONTH_NAMES_UA[nextMo]} ${nextMoY}`,                       color: "#10b981", icon: "📅", kind: "month" },
+    { id: "year_cur",   label: `${y}`,                                                        color: "#f59e0b", icon: "📆", kind: "year" },
+    { id: "year_next",  label: `${y + 1}`,                                                    color: "#c9a84c", icon: "📆", kind: "year" },
+    { id: "longterm",   label: "Довгострокова",                                               color: "#a855f7", icon: "🌟", kind: "longterm" },
+  ];
+}
+
+const GOAL_PERIODS = getGoalPeriods();
 
 const DEFAULT_LONG_GOALS = [
-  { id: "lg1", text: "Заробити $14,000 цього року", period: "year",     customXP: 500, done: false },
-  { id: "lg2", text: "Вивчити 20 AI-інструментів",  period: "year",     customXP: 300, done: false },
+  { id: "lg1", text: "Заробити $14,000 цього року", period: "year_cur",  customXP: 500, done: false },
+  { id: "lg2", text: "Вивчити 20 AI-інструментів",  period: "year_cur",  customXP: 300, done: false },
   { id: "lg3", text: "Запустити перший digital product", period: "longterm", customXP: 400, done: false },
 ];
 
@@ -656,8 +685,18 @@ export default function AITracker() {
   const [goalXP, setGoalXP] = useState(100);
   const [goalEditXP, setGoalEditXP] = useState(100);
   const [longGoals, setLongGoals] = useState(saved?.longGoals ?? DEFAULT_LONG_GOALS);
+  const [longGoalEpoch, setLongGoalEpoch] = useState(() => {
+    const s = saved?.longGoalEpoch;
+    if (s) return s;
+    const now = new Date();
+    return {
+      weekStart: fmtShort(getWeekMonday(now)),
+      monthKey: `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`,
+      yearKey: `${now.getFullYear()}`,
+    };
+  });
   const [longGoalInput, setLongGoalInput] = useState("");
-  const [longGoalPeriod, setLongGoalPeriod] = useState("month");
+  const [longGoalPeriod, setLongGoalPeriod] = useState("month_cur");
   const [longGoalXP, setLongGoalXP] = useState(200);
   const [longGoalEditId, setLongGoalEditId] = useState(null);
   const [longGoalEditText, setLongGoalEditText] = useState("");
@@ -681,13 +720,52 @@ export default function AITracker() {
   const [aiDropPos, setAiDropPos] = useState(null);
   const [aiAvailModels, setAiAvailModels] = useState(null);
   const aiMsgsRef = useRef(null);
+  const dragRef = useRef({});
 
-  const TAB_IDS = ["dashboard", "plan", "goals", "longgoals", "projects", "tools", "skillstasks", "achievements", "finances", "sessions", "progress", "stats"];
+  const TAB_IDS = ["dashboard", "goals", "plan", "longgoals", "projects", "tools", "skillstasks", "achievements", "finances", "sessions", "progress", "stats"];
 
   useEffect(() => {
-    const state = { skillData, totalXP, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, plan, aiMessages, aiModel, aiApiKeys, progressLog, todayXP, skillTasksData, learnTime };
+    const now = new Date();
+    const curWeekStart = fmtShort(getWeekMonday(now));
+    const curMonthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+    const curYearKey = `${now.getFullYear()}`;
+
+    setLongGoals(prev => prev.map(g => {
+      // migrate old format
+      let p = g.period;
+      if (p === "year") p = "year_cur";
+      if (p === "month") p = "month_cur";
+      return p !== g.period ? { ...g, period: p } : g;
+    }));
+
+    setLongGoalEpoch(prev => {
+      const updates = {};
+      if (prev.weekStart < curWeekStart) {
+        updates.weekStart = curWeekStart;
+        setLongGoals(gs => gs.map(g =>
+          g.period === "week_next" ? { ...g, period: "week_cur" } : g
+        ));
+      }
+      if (prev.monthKey < curMonthKey) {
+        updates.monthKey = curMonthKey;
+        setLongGoals(gs => gs.map(g =>
+          g.period === "month_next" ? { ...g, period: "month_cur" } : g
+        ));
+      }
+      if (prev.yearKey < curYearKey) {
+        updates.yearKey = curYearKey;
+        setLongGoals(gs => gs.map(g =>
+          g.period === "year_next" ? { ...g, period: "year_cur" } : g
+        ));
+      }
+      return Object.keys(updates).length ? { ...prev, ...updates } : prev;
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const state = { skillData, totalXP, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, longGoalEpoch, plan, aiMessages, aiModel, aiApiKeys, progressLog, todayXP, skillTasksData, learnTime };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [skillData, totalXP, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, plan, aiMessages, aiModel, aiApiKeys, progressLog, todayXP, skillTasksData, learnTime]);
+  }, [skillData, totalXP, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, longGoalEpoch, plan, aiMessages, aiModel, aiApiKeys, progressLog, todayXP, skillTasksData, learnTime]);
 
   useEffect(() => {
     localStorage.setItem("ai_tracker_today_act", JSON.stringify({ date: todayStr(), data: todayActivity }));
@@ -1139,8 +1217,8 @@ export default function AITracker() {
 
   const tabs = [
     { id: "dashboard",    label: "🏠 Головна" },
-    { id: "plan",         label: "📋 План дій" },
     { id: "goals",        label: "✅ Задачі" },
+    { id: "plan",         label: "📋 План дій" },
     { id: "longgoals",    label: "🎯 Цілі" },
     { id: "projects",    label: "🚀 Проекти" },
     { id: "tools",       label: "🛠️ Інструменти" },
