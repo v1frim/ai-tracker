@@ -252,6 +252,7 @@ const PLAN_TYPES = [
   { id: "content",  label: "Контент",  color: "#ec4899", bg: "rgba(236,72,153,0.08)" },
   { id: "learning", label: "Навчання", color: "#06b6d4", bg: "rgba(6,182,212,0.08)" },
   { id: "bots",     label: "Боти",     color: "#a855f7", bg: "rgba(168,85,247,0.08)" },
+  { id: "work",     label: "Робота",   color: "#f59e0b", bg: "rgba(245,158,11,0.08)" },
   { id: "other",    label: "Інше",     color: "#9a8a60", bg: "rgba(154,138,96,0.08)" },
 ];
 
@@ -663,6 +664,8 @@ export default function AITracker() {
   const [planInput, setPlanInput] = useState("");
   const [planType, setPlanType] = useState("other");
   const [planUrgency, setPlanUrgency] = useState("now");
+  const [planEditId, setPlanEditId] = useState(null);
+  const [planEditText, setPlanEditText] = useState("");
 
   // AI Chat Widget state
   const [aiOpen, setAiOpen] = useState(false);
@@ -2278,12 +2281,40 @@ export default function AITracker() {
                           style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${item.done ? "#9a8a60" : pt.color}`, background: item.done ? "#9a8a60" : "transparent", cursor: "pointer", flexShrink: 0, fontSize: 12, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
                           {item.done ? "✓" : ""}
                         </button>
-                        <span style={{ flex: 1, color: item.done ? "#5a4a30" : "#cbd5e1", fontSize: 12, textDecoration: item.done ? "line-through" : "none" }}>{item.text}</span>
-                        {!item.done && !item.xpAwarded && (
+                        {planEditId === item.id ? (
+                          <input
+                            value={planEditText}
+                            autoFocus
+                            onChange={e => setPlanEditText(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === "Enter") {
+                                const t = planEditText.trim();
+                                if (t) setPlan(prev => prev.map(x => x.id === item.id ? { ...x, text: t } : x));
+                                setPlanEditId(null);
+                              } else if (e.key === "Escape") {
+                                setPlanEditId(null);
+                              }
+                            }}
+                            onBlur={() => {
+                              const t = planEditText.trim();
+                              if (t) setPlan(prev => prev.map(x => x.id === item.id ? { ...x, text: t } : x));
+                              setPlanEditId(null);
+                            }}
+                            style={{ flex: 1, background: "rgba(8,5,2,0.85)", border: `1px solid ${pt.color}66`, borderRadius: 4, padding: "5px 9px", color: "#fff", fontSize: 12, fontFamily: "'Space Mono',monospace" }}
+                          />
+                        ) : (
+                          <span
+                            onDoubleClick={() => { if (!item.done) { setPlanEditId(item.id); setPlanEditText(item.text); } }}
+                            style={{ flex: 1, color: item.done ? "#5a4a30" : "#cbd5e1", fontSize: 12, textDecoration: item.done ? "line-through" : "none" }}
+                          >{item.text}</span>
+                        )}
+                        {!item.done && !item.xpAwarded && planEditId !== item.id && (
                           <span style={{ fontSize: 12, color: pt.color, background: pt.bg, border: `1px solid ${pt.color}33`, padding: "2px 7px", borderRadius: 3, whiteSpace: "nowrap" }}>+75 XP</span>
                         )}
-                        {!item.done && (
+                        {!item.done && planEditId !== item.id && (
                           <>
+                            <button onClick={() => { setPlanEditId(item.id); setPlanEditText(item.text); }}
+                              style={{ background: "none", border: "none", color: "#6a5f40", cursor: "pointer", fontSize: 13, padding: "0 4px" }} title="Редагувати">✎</button>
                             <select
                               value={item.type ?? "other"}
                               onChange={e => setPlan(prev => prev.map(x => x.id === item.id ? { ...x, type: e.target.value } : x))}
@@ -2300,8 +2331,10 @@ export default function AITracker() {
                             </select>
                           </>
                         )}
-                        <button onClick={() => setPlan(prev => prev.filter(x => x.id !== item.id))}
-                          style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 16, padding: "0 4px" }}>×</button>
+                        {planEditId !== item.id && (
+                          <button onClick={() => setPlan(prev => prev.filter(x => x.id !== item.id))}
+                            style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 16, padding: "0 4px" }}>×</button>
+                        )}
                       </div>
                     ))}
                   </div>
