@@ -616,6 +616,7 @@ export default function AITracker() {
   const [notification, setNotification] = useState(null);
   const [achieveToasts, setAchieveToasts] = useState([]);
   const [floats, setFloats] = useState([]);
+  const [packInputs, setPackInputs] = useState({});
   const [unlockedAchievements, setUnlockedAchievements] = useState(saved?.unlockedAchievements ?? ["oxford_dev"]);
   const [goalInput, setGoalInput] = useState("");
   const [goalPriority, setGoalPriority] = useState("important");
@@ -1344,7 +1345,6 @@ export default function AITracker() {
                 { kind: "skill", key: "video_videos_created", emoji: "🎬", label: "Відео",       color: "#a855f7",                   xp: 8 },
                 { kind: "skill", key: "music_tracks_created", emoji: "🎵", label: "Музика",      color: "#ec4899",                   xp: 6 },
               ];
-              const [packInputs, setPackInputs] = React.useState({});
               return (
                 <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18 }}>
                   <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 14 }}>⚡ Активність</div>
