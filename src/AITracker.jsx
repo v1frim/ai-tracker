@@ -409,7 +409,7 @@ function todayStr() {
 
 // Розгортувані періоди для метрики: Сьогодні / Місяць / Рік + повна розбивка.
 // entries: [{ date: "YYYY-MM-DD", delta: number }] — лише для цієї метрики.
-function MetricPeriods({ entries = [], color = "#c9a84c", fmt = (n) => n.toLocaleString(), align = "center" }) {
+function MetricPeriods({ entries = [], color = "#c9a84c", fmt = (n) => n.toLocaleString(), align = "center", children, cardStyle, className }) {
   const [open, setOpen] = useState(false);
   const today = todayStr();
   const curMonth = today.slice(0, 7);
@@ -439,20 +439,24 @@ function MetricPeriods({ entries = [], color = "#c9a84c", fmt = (n) => n.toLocal
   const listBox = { maxHeight: 132, overflowY: "auto", display: "flex", flexDirection: "column", gap: 3, paddingRight: 4 };
   const colTitle = { fontSize: 9, color: "#6a5f40", textTransform: "uppercase", letterSpacing: 1, marginBottom: 5, fontFamily: "'Exo 2',sans-serif" };
 
+  const toggle = () => { if (hasHist) setOpen((o) => !o); };
   return (
-    <div style={{ marginTop: 6, width: "100%" }}>
-      <div style={{ display: "flex", gap: 10, justifyContent: align, alignItems: "center", flexWrap: "wrap" }}>
+    <div
+      onClick={toggle}
+      className={className}
+      style={{ ...cardStyle, cursor: hasHist ? "pointer" : "default" }}
+    >
+      {children}
+      <div style={{ marginTop: 6, width: "100%", display: "flex", gap: 10, justifyContent: align, alignItems: "center", flexWrap: "wrap" }}>
         <Cell lbl="Сьог:" val={tToday} />
         <Cell lbl="Міс:" val={tMonth} />
         <Cell lbl="Рік:" val={tYear} />
         {hasHist && (
-          <button onClick={() => setOpen((o) => !o)} style={{ background: "none", border: "none", color: "#8a7850", cursor: "pointer", fontSize: 10, fontFamily: "'Space Mono',monospace", padding: 0 }}>
-            {open ? "▲" : "▼"}
-          </button>
+          <span style={{ color: "#8a7850", fontSize: 10, fontFamily: "'Space Mono',monospace" }}>{open ? "▲" : "▼"}</span>
         )}
       </div>
       {open && (
-        <div style={{ marginTop: 8, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, textAlign: "left", background: "rgba(0,0,0,0.25)", borderRadius: 4, padding: "8px 10px" }}>
+        <div onClick={(e) => e.stopPropagation()} style={{ marginTop: 8, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, textAlign: "left", background: "rgba(0,0,0,0.25)", borderRadius: 4, padding: "8px 10px", cursor: "default" }}>
           <div>
             <div style={colTitle}>По місяцях</div>
             <div style={listBox}>
@@ -3673,11 +3677,12 @@ export default function AITracker() {
                       { label: net >= 0 ? "Профіт +" : "Збиток −", value: `$${Math.abs(net).toFixed(2)}`, color: netColor, entries: netEntries },
                     ];
                   })().map(s => (
-                    <div key={s.label} className="wf-card" style={{ padding: "16px 14px", textAlign: "center", border: `1px solid ${s.color}33`, borderTop: `2px solid ${s.color}`, display: "flex", flexDirection: "column", alignItems: "center" }}>
+                    <MetricPeriods key={s.label} entries={s.entries} color={s.color} fmt={v => `$${v.toFixed(2)}`}
+                      className="wf-card"
+                      cardStyle={{ padding: "16px 14px", textAlign: "center", border: `1px solid ${s.color}33`, borderTop: `2px solid ${s.color}`, display: "flex", flexDirection: "column", alignItems: "center" }}>
                       <div style={{ fontSize: 11, color: "#9a8a60", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 2, marginBottom: 8 }}>{s.label}</div>
                       <div style={{ fontSize: 22, fontWeight: 800, color: s.color, fontFamily: "'Space Mono',monospace" }}>{s.value}</div>
-                      <MetricPeriods entries={s.entries} color={s.color} fmt={v => `$${v.toFixed(2)}`} />
-                    </div>
+                    </MetricPeriods>
                   ))}
                 </div>
               </div>
@@ -3699,14 +3704,15 @@ export default function AITracker() {
                       { label: "Всього годин", emoji: "🎯", hours: totalH, sub: `edu+biz`,                            color: "#00ff88", entries: logFor("education", "business").map(e => ({ date: e.date, delta: e.delta * 0.5 })), fmt: hoursFmt },
                     ];
                   })().map(s => (
-                    <div key={s.label} className="wf-card" style={{ padding: "16px 14px", textAlign: "center", border: `1px solid ${s.color}33`, borderTop: `2px solid ${s.color}`, display: "flex", flexDirection: "column", alignItems: "center" }}>
+                    <MetricPeriods key={s.label} entries={s.entries} color={s.color} fmt={s.fmt}
+                      className="wf-card"
+                      cardStyle={{ padding: "16px 14px", textAlign: "center", border: `1px solid ${s.color}33`, borderTop: `2px solid ${s.color}`, display: "flex", flexDirection: "column", alignItems: "center" }}>
                       <div style={{ fontSize: 11, color: "#9a8a60", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 2, marginBottom: 8 }}>{s.emoji} {s.label}</div>
                       <div style={{ fontSize: 22, fontWeight: 800, color: s.color, fontFamily: "'Space Mono',monospace" }}>
                         {s.hours !== null ? <>{s.hours.toLocaleString()} <span style={{ fontSize: 13 }}>год</span></> : s.count}
                       </div>
                       <div style={{ fontSize: 11, color: "#6a5f40", fontFamily: "'Space Mono',monospace", marginTop: 4 }}>{s.sub}</div>
-                      <MetricPeriods entries={s.entries} color={s.color} fmt={s.fmt} />
-                    </div>
+                    </MetricPeriods>
                   ))}
                 </div>
               </div>
@@ -3731,13 +3737,13 @@ export default function AITracker() {
                         </div>
                         <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fit, minmax(200px, 1fr))`, gap: "8px 18px" }}>
                           {tasks.map(c => (
-                            <div key={c.label} style={{ padding: "6px 0" }}>
+                            <MetricPeriods key={c.label} entries={c.entries} color={catColor} align="flex-start"
+                              cardStyle={{ padding: "6px 8px", borderRadius: 4 }}>
                               <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 12 }}>
                                 <span style={{ color: "#6a5f40" }}>{c.label}: </span>
                                 <span style={{ color: c.count > 0 ? catColor : "#4a4030", fontWeight: 700 }}>{c.count.toLocaleString()}</span>
                               </div>
-                              <MetricPeriods entries={c.entries} color={catColor} align="flex-start" />
-                            </div>
+                            </MetricPeriods>
                           ))}
                         </div>
                       </div>
