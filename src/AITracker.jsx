@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 
 const SKILLS = [
   { id: "llm", name: "LLM / Чат-боти", emoji: "🧠", color: "#00ff88", tools: ["ChatGPT", "Claude", "Gemini", "Grok", "Mistral", "DeepSeek"] },
@@ -15,21 +15,227 @@ const SKILLS = [
 
 const TOTAL_TOOLS = SKILLS.reduce((a, s) => a + s.tools.length, 0);
 
+const SKILL_TASKS = [
+  {
+    id: "llm", name: "LLM / Чат-боти", emoji: "🧠", color: "#00ff88",
+    progressive: [
+      { id: "prompts",    label: "Написати промптів",                milestones: [{count:1,xp:100},{count:50,xp:400},{count:200,xp:1000},{count:1000,xp:3000}] },
+      { id: "real_tasks", label: "Вирішити реальних задач через AI", milestones: [{count:1,xp:150},{count:20,xp:600},{count:100,xp:1500},{count:500,xp:4000}] },
+      { id: "streak",     label: "Днів поспіль використовував AI",   milestones: [{count:3,xp:200},{count:14,xp:600},{count:30,xp:1200},{count:100,xp:3000}] },
+    ],
+    oneTime: [
+      { id: "system_prompt",     label: "Зробив власний system prompt",             xp: 500  },
+      { id: "compare_models",    label: "Порівняв 3+ моделі на одному завданні",    xp: 400  },
+      { id: "taught_ai",         label: "Навчив когось іншого користуватись AI",    xp: 1000 },
+      { id: "income_text",       label: "Перший дохід завдяки AI-тексту",           xp: 2000 },
+      { id: "automated_routine", label: "Автоматизував рутинне завдання через AI",  xp: 800  },
+    ],
+  },
+  {
+    id: "image", name: "Генерація зображень", emoji: "🎨", color: "#ff6b35",
+    progressive: [
+      { id: "images_gen",        label: "Згенерувати зображень",               milestones: [{count:1,xp:100},{count:10,xp:350},{count:100,xp:1000},{count:1000,xp:3500}] },
+      { id: "images_commercial", label: "Зображень для комерційних цілей",     milestones: [{count:1,xp:200},{count:10,xp:600},{count:100,xp:2000},{count:500,xp:4000}] },
+      { id: "images_sold",       label: "Продати/передати зображення клієнту", milestones: [{count:1,xp:500},{count:5,xp:1200},{count:20,xp:2500}] },
+    ],
+    oneTime: [
+      { id: "negative_prompting", label: "Освоїв техніку negative prompting",      xp: 300  },
+      { id: "product_cards",      label: "Зробив 10 карток товарів для магазину",  xp: 600  },
+      { id: "first_income_img",   label: "Перший заробіток на AI-зображеннях",     xp: 2000 },
+      { id: "client_approved",    label: "Клієнт схвалив зображення з першого разу", xp: 400 },
+    ],
+  },
+  {
+    id: "video", name: "Генерація відео", emoji: "🎬", color: "#a855f7",
+    progressive: [
+      { id: "videos_created",    label: "Створити відео",                  milestones: [{count:1,xp:150},{count:10,xp:500},{count:100,xp:1500},{count:500,xp:4000}] },
+      { id: "videos_commercial", label: "Відео для клієнтів / комерції",   milestones: [{count:1,xp:300},{count:5,xp:800},{count:25,xp:2000},{count:100,xp:4500}] },
+    ],
+    oneTime: [
+      { id: "first_social_video",  label: "Перше AI-відео для соцмереж",      xp: 500  },
+      { id: "1k_views",            label: "Відео набрало 1,000+ переглядів",   xp: 1000 },
+      { id: "10k_views",           label: "Відео набрало 10,000+ переглядів",  xp: 2500 },
+      { id: "first_income_video",  label: "Заробив перший $ на AI-відео",      xp: 2000 },
+      { id: "video_series",        label: "Зробив серію з 5 відео",            xp: 800  },
+    ],
+  },
+  {
+    id: "voice", name: "Голос / Аудіо", emoji: "🎙️", color: "#06b6d4",
+    progressive: [
+      { id: "audio_files",         label: "Створити озвучок / аудіо-файлів",    milestones: [{count:1,xp:100},{count:10,xp:350},{count:100,xp:1000},{count:500,xp:3000}] },
+      { id: "audio_minutes",       label: "Хвилин озвученого контенту",         milestones: [{count:10,xp:150},{count:60,xp:500},{count:300,xp:1200},{count:1000,xp:3000}] },
+      { id: "voice_practice_days", label: "Днів практики з голосовими AI",      milestones: [{count:1,xp:100},{count:7,xp:300},{count:30,xp:900},{count:90,xp:2500}] },
+    ],
+    oneTime: [
+      { id: "voice_clone",      label: "Клонував голос (власний або персонажа)", xp: 800  },
+      { id: "commercial_voice", label: "Озвучив перше комерційне відео",         xp: 1000 },
+      { id: "income_voice",     label: "Заробив $ на озвучці",                   xp: 2000 },
+      { id: "podcast_episode",  label: "Зробив подкаст-епізод з AI-голосом",    xp: 1000 },
+    ],
+  },
+  {
+    id: "music", name: "Музика", emoji: "🎵", color: "#ec4899",
+    progressive: [
+      { id: "tracks_created",   label: "Створити музичних треків", milestones: [{count:1,xp:100},{count:10,xp:350},{count:100,xp:1000},{count:500,xp:3000}] },
+      { id: "tracks_published", label: "Опублікованих треків",     milestones: [{count:1,xp:300},{count:5,xp:800},{count:20,xp:2000},{count:100,xp:5000}] },
+    ],
+    oneTime: [
+      { id: "youtube_track",   label: "Перший трек у YouTube відео",       xp: 800  },
+      { id: "streaming_track", label: "Трек на стримінгу (Spotify тощо)", xp: 1500 },
+      { id: "licensed_pack",   label: "Пакет з 5 ліцензованих треків",    xp: 800  },
+      { id: "income_music",    label: "Заробив $ на AI-музиці",            xp: 2000 },
+    ],
+  },
+  {
+    id: "automation", name: "Автоматизація / Агенти", emoji: "⚙️", color: "#f59e0b",
+    progressive: [
+      { id: "automations_created", label: "Створити автоматизацій (воронок)",           milestones: [{count:1,xp:200},{count:5,xp:600},{count:20,xp:1500},{count:100,xp:4000}] },
+      { id: "hours_saved",         label: "Заощаджених годин завдяки автоматизації",    milestones: [{count:1,xp:100},{count:10,xp:400},{count:50,xp:1200},{count:200,xp:3000}] },
+    ],
+    oneTime: [
+      { id: "first_biz_auto",   label: "Автоматизував перший бізнес-процес",        xp: 1000 },
+      { id: "first_ai_agent",   label: "Запустив першого AI-агента",                xp: 800  },
+      { id: "client_auto",      label: "Зробив автоматизацію для клієнта",          xp: 2000 },
+      { id: "agent_24h",        label: "Агент працював 24 год без участі людини",   xp: 1500 },
+      { id: "income_auto",      label: "Заробив $ на автоматизації",                xp: 2000 },
+    ],
+  },
+  {
+    id: "code", name: "Код / Боти", emoji: "💻", color: "#6366f1",
+    progressive: [
+      { id: "lines_written",  label: "Рядків коду написано",          milestones: [{count:100,xp:100},{count:1000,xp:400},{count:10000,xp:1500},{count:50000,xp:4000}] },
+      { id: "projects_launched", label: "Запущених проектів / сайтів", milestones: [{count:1,xp:300},{count:3,xp:700},{count:10,xp:2000},{count:30,xp:5000}] },
+    ],
+    oneTime: [
+      { id: "first_deploy",    label: "Перший сайт задеплоєний (Oxford_1000!)", xp: 800  },
+      { id: "telegram_bot",    label: "Перший Telegram-бот",                    xp: 1000 },
+      { id: "100_users",       label: "Проект набрав 100 активних користувачів", xp: 2000 },
+      { id: "paid_client_code", label: "Перший платний клієнт за код",          xp: 2000 },
+      { id: "first_saas",      label: "Перший SaaS продукт",                    xp: 3000 },
+    ],
+  },
+  {
+    id: "design", name: "AI Дизайн", emoji: "✨", color: "#f43f5e",
+    progressive: [
+      { id: "mockups_created", label: "Дизайн-макетів створено",       milestones: [{count:1,xp:100},{count:10,xp:350},{count:100,xp:1000},{count:500,xp:3000}] },
+      { id: "logos_created",   label: "Логотипів / брендів створено",  milestones: [{count:1,xp:200},{count:5,xp:600},{count:25,xp:1500},{count:100,xp:4000}] },
+    ],
+    oneTime: [
+      { id: "first_logo_client", label: "Перший логотип для клієнта", xp: 1000 },
+      { id: "full_brandbook",    label: "Повний брендбук з AI",       xp: 2000 },
+      { id: "ui_ux_mockup",      label: "UI/UX макет додатку",        xp: 1500 },
+      { id: "income_design",     label: "Заробив $ на AI-дизайні",    xp: 2000 },
+    ],
+  },
+  {
+    id: "content", name: "Контент / Публікації", emoji: "📱", color: "#10b981",
+    progressive: [
+      { id: "posts_published",  label: "Опублікованих постів (Інста/ТГ/YouTube)", milestones: [{count:1,xp:100},{count:10,xp:350},{count:100,xp:1000},{count:500,xp:3000}] },
+      { id: "followers_gained", label: "Підписників здобуто",                    milestones: [{count:10,xp:100},{count:100,xp:400},{count:1000,xp:1500},{count:10000,xp:5000}] },
+      { id: "content_views",    label: "Переглядів контенту",                     milestones: [{count:100,xp:100},{count:1000,xp:400},{count:10000,xp:1200},{count:100000,xp:3500}] },
+    ],
+    oneTime: [
+      { id: "viral_post",       label: "Перший вірусний пост (1000+ переглядів)", xp: 1000 },
+      { id: "30_days_posting",  label: "30 днів щоденних публікацій",             xp: 1500 },
+      { id: "content_monetize", label: "Перша монетизація контенту",              xp: 2000 },
+    ],
+  },
+  {
+    id: "monetize", name: "Монетизація", emoji: "💰", color: "#fbbf24",
+    progressive: [
+      { id: "ai_income",  label: "Дохід з AI-проектів ($)",  milestones: [{count:1,xp:200},{count:100,xp:800},{count:1000,xp:2500},{count:10000,xp:6000}] },
+      { id: "clients",    label: "Клієнтів / продажів",      milestones: [{count:1,xp:300},{count:5,xp:800},{count:20,xp:2000},{count:100,xp:5000}] },
+    ],
+    oneTime: [
+      { id: "first_paid_client",  label: "Перший платний клієнт",            xp: 1000 },
+      { id: "digital_product",    label: "Перший цифровий продукт на продаж", xp: 1500 },
+      { id: "1k_month",           label: "Перший місяць $1,000+ з AI",        xp: 3000 },
+      { id: "passive_income",     label: "Перший пасивний дохід",             xp: 2000 },
+    ],
+  },
+];
+
+// Рівні складності — 6 ступенів рідкісності
+const TIERS = {
+  common:    { label: "Common",    color: "#9a7850", glow: "rgba(154,120,80,0.40)"  },
+  uncommon:  { label: "Uncommon",  color: "#a0b8c8", glow: "rgba(160,184,200,0.45)" },
+  rare:      { label: "Rare",      color: "#4a9fd4", glow: "rgba(74,159,212,0.50)"  },
+  epic:      { label: "Epic",      color: "#a855f7", glow: "rgba(168,85,247,0.55)"  },
+  legendary: { label: "Legendary", color: "#ffb700", glow: "rgba(255,183,0,0.70)"   },
+  prime:     { label: "Prime",     color: "#ef4444", glow: "rgba(239,68,68,0.60)"   },
+};
+
+// Групи досягнень (для рендеру з заголовками)
+const ACH_GROUPS = [
+  { id: "tools",    label: "🧠 Інструменти" },
+  { id: "income",   label: "💰 Дохід" },
+  { id: "projects", label: "🚀 Проекти" },
+  { id: "code",     label: "💻 Рядки коду" },
+  { id: "streak",   label: "🔥 Стріки" },
+  { id: "sessions", label: "⚡ Сесії" },
+  { id: "learning", label: "📚 Вивчення ШІ" },
+  { id: "special",  label: "🏅 Особливі" },
+];
+
 const ACHIEVEMENTS = [
-  { id: "first_tool", name: "Перший крок", desc: "Вивчи будь-який AI-інструмент", xp: 50, icon: "🔧", check: (t) => t >= 1 },
-  { id: "five_tools", name: "Дослідник", desc: "Вивчи 5 AI-інструментів", xp: 150, icon: "🔍", check: (t) => t >= 5 },
-  { id: "ten_tools", name: "Колекціонер", desc: "Вивчи 10 AI-інструментів", xp: 300, icon: "🗂️", check: (t) => t >= 10 },
-  { id: "first_project", name: "Будівничий", desc: "Заверши перший AI-проект", xp: 200, icon: "🚀", check: (t, i, p) => p >= 1 },
-  { id: "three_projects", name: "Серійний творець", desc: "Заверши 3 проекти", xp: 400, icon: "🏗️", check: (t, i, p) => p >= 3 },
-  { id: "first_dollar", name: "Перший долар", desc: "Зароби перші $1 з AI", xp: 200, icon: "💵", check: (t, i) => i >= 1 },
-  { id: "hundred_dollar", name: "Перша сотня", desc: "Зароби $100 з AI", xp: 500, icon: "💯", check: (t, i) => i >= 100 },
-  { id: "thousand_dollar", name: "Перша тисяча", desc: "Зароби $1000 з AI", xp: 1000, icon: "🏆", check: (t, i) => i >= 1000 },
-  { id: "streak_7", name: "Тижневий стрік", desc: "7 днів поспіль з AI", xp: 250, icon: "🔥", check: (t, i, p, sd, streak) => streak >= 7 },
-  { id: "streak_30", name: "Місячний стрік", desc: "30 днів поспіль з AI", xp: 800, icon: "⚡", check: (t, i, p, sd, streak) => streak >= 30 },
-  { id: "sessions_50", name: "50 сесій", desc: "Проведи 50 AI-сесій", xp: 500, icon: "💪", check: (t, i, p, sd, streak, totalSess) => totalSess >= 50 },
-  { id: "all_categories", name: "Поліглот ШІ", desc: "Вивчи хоча б 1 інструмент у кожній категорії", xp: 500, icon: "🌐",
-    check: (t, i, p, skillData) => SKILLS.every(s => skillData[s.id]?.unlockedTools?.length > 0) },
-  { id: "oxford_dev", name: "Oxford Dev", desc: "Запущено! (Oxford_1000 вже є 🎉)", xp: 300, icon: "📚", check: () => true },
+  // ── Інструменти ──
+  { id: "first_tool",    group: "tools", tier: "common",    name: "Перший крок",          desc: "Вивчи 1 AI-інструмент",                xp: 50,   icon: "🔧", check: (t) => t >= 1,           progress: (t) => ({ cur: t, max: 1 }) },
+  { id: "five_tools",    group: "tools", tier: "uncommon",  name: "Дослідник",            desc: "Вивчи 5 AI-інструментів",              xp: 150,  icon: "🔍", check: (t) => t >= 5,           progress: (t) => ({ cur: t, max: 5 }) },
+  { id: "ten_tools",     group: "tools", tier: "rare",      name: "Колекціонер",          desc: "Вивчи 10 AI-інструментів",             xp: 300,  icon: "🗂️", check: (t) => t >= 10,          progress: (t) => ({ cur: t, max: 10 }) },
+  { id: "all_categories",group: "tools", tier: "epic",      name: "Поліглот ШІ",          desc: "По 1 інструменту в кожній категорії",  xp: 500,  icon: "🌐",
+    check: (t, i, p, skillData) => SKILLS.every(s => skillData[s.id]?.unlockedTools?.length > 0),
+    progress: (t, i, p, skillData) => ({ cur: SKILLS.filter(s => skillData[s.id]?.unlockedTools?.length > 0).length, max: SKILLS.length }) },
+  { id: "twenty_tools",  group: "tools", tier: "legendary", name: "Майстер інструментів", desc: "Вивчи 20 AI-інструментів",             xp: 800,  icon: "🧰", check: (t) => t >= 20,          progress: (t) => ({ cur: t, max: 20 }) },
+  { id: "all_tools",     group: "tools", tier: "prime",     name: "Арсенал",              desc: `Вивчи всі ${TOTAL_TOOLS} інструментів`, xp: 2000, icon: "🌟", check: (t) => t >= TOTAL_TOOLS, progress: (t) => ({ cur: t, max: TOTAL_TOOLS }) },
+
+  // ── Дохід ──
+  { id: "first_dollar",   group: "income", tier: "common",    name: "Перший долар",  desc: "Зароби перший $1 з AI",   xp: 100,  icon: "💵", check: (t, i) => i >= 1,       progress: (t, i) => ({ cur: i, max: 1 }) },
+  { id: "hundred_dollar", group: "income", tier: "uncommon",  name: "Перша сотня",   desc: "Зароби $100 з AI",        xp: 300,  icon: "💯", check: (t, i) => i >= 100,     progress: (t, i) => ({ cur: i, max: 100 }) },
+  { id: "thousand_dollar",group: "income", tier: "rare",      name: "Перша тисяча",  desc: "Зароби $1,000 з AI",      xp: 700,  icon: "🏆", check: (t, i) => i >= 1000,    progress: (t, i) => ({ cur: i, max: 1000 }) },
+  { id: "tenk_dollar",    group: "income", tier: "epic",      name: "П'ять нулів",   desc: "Зароби $10,000 з AI",     xp: 1500, icon: "💎", check: (t, i) => i >= 10000,   progress: (t, i) => ({ cur: i, max: 10000 }) },
+  { id: "hundredk_dollar",group: "income", tier: "prime",     name: "Шестизначний",  desc: "Зароби $100,000 з AI",    xp: 5000, icon: "👑", check: (t, i) => i >= 100000,  progress: (t, i) => ({ cur: i, max: 100000 }) },
+  { id: "million_dollar", group: "income", tier: "legendary", name: "Мільйонер",     desc: "Зароби $1,000,000 з AI",  xp: 15000,icon: "🤑", check: (t, i) => i >= 1000000, progress: (t, i) => ({ cur: i, max: 1000000 }) },
+
+  // ── Проекти ──
+  { id: "first_project",  group: "projects", tier: "common",    name: "Будівничий",       desc: "Заверши перший AI-проект", xp: 200,  icon: "🚀", check: (t, i, p) => p >= 1,  progress: (t, i, p) => ({ cur: p, max: 1 }) },
+  { id: "three_projects", group: "projects", tier: "uncommon",  name: "Серійний творець", desc: "Заверши 3 проекти",        xp: 400,  icon: "🏗️", check: (t, i, p) => p >= 3,  progress: (t, i, p) => ({ cur: p, max: 3 }) },
+  { id: "five_projects",  group: "projects", tier: "epic",      name: "Продуктолог",      desc: "Заверши 5 проектів",       xp: 900,  icon: "🏭", check: (t, i, p) => p >= 5,  progress: (t, i, p) => ({ cur: p, max: 5 }) },
+  { id: "ten_projects",   group: "projects", tier: "legendary", name: "Імперія",          desc: "Заверши 10 проектів",      xp: 2000, icon: "🏛️", check: (t, i, p) => p >= 10, progress: (t, i, p) => ({ cur: p, max: 10 }) },
+
+  // ── Стріки ──
+  { id: "streak_3",   group: "streak", tier: "common",    name: "Розгін",         desc: "3 дні поспіль з AI",    xp: 100,  icon: "✨", check: (t, i, p, sd, streak) => streak >= 3,   progress: (t, i, p, sd, streak) => ({ cur: streak, max: 3 }) },
+  { id: "streak_7",   group: "streak", tier: "uncommon",  name: "Тижневий стрік", desc: "7 днів поспіль з AI",   xp: 250,  icon: "🔥", check: (t, i, p, sd, streak) => streak >= 7,   progress: (t, i, p, sd, streak) => ({ cur: streak, max: 7 }) },
+  { id: "streak_30",  group: "streak", tier: "epic",      name: "Місячний стрік", desc: "30 днів поспіль з AI",  xp: 1000, icon: "⚡", check: (t, i, p, sd, streak) => streak >= 30,  progress: (t, i, p, sd, streak) => ({ cur: streak, max: 30 }) },
+  { id: "streak_90",  group: "streak", tier: "rare",      name: "Три місяці",     desc: "90 днів поспіль з AI",  xp: 2000, icon: "🌊", check: (t, i, p, sd, streak) => streak >= 90,  progress: (t, i, p, sd, streak) => ({ cur: streak, max: 90 }) },
+  { id: "streak_180", group: "streak", tier: "prime",     name: "Пів року",       desc: "180 днів поспіль з AI", xp: 4000, icon: "🌋", check: (t, i, p, sd, streak) => streak >= 180, progress: (t, i, p, sd, streak) => ({ cur: streak, max: 180 }) },
+  { id: "streak_365", group: "streak", tier: "legendary", name: "Залізна воля",   desc: "365 днів поспіль з AI", xp: 8000, icon: "👑", check: (t, i, p, sd, streak) => streak >= 365, progress: (t, i, p, sd, streak) => ({ cur: streak, max: 365 }) },
+
+  // ── Сесії ──
+  { id: "sessions_30",  group: "sessions", tier: "common",    name: "Місяць з AI",  desc: "30 AI-сесій",   xp: 350,   icon: "📆", check: (t, i, p, sd, st, ts) => ts >= 30,   progress: (t, i, p, sd, st, ts) => ({ cur: ts, max: 30 }) },
+  { id: "sessions_90",  group: "sessions", tier: "rare",      name: "Квартал",      desc: "90 AI-сесій",   xp: 800,   icon: "💪", check: (t, i, p, sd, st, ts) => ts >= 90,   progress: (t, i, p, sd, st, ts) => ({ cur: ts, max: 90 }) },
+  { id: "sessions_180", group: "sessions", tier: "epic",      name: "Пів року",     desc: "180 AI-сесій",  xp: 1500,  icon: "🦾", check: (t, i, p, sd, st, ts) => ts >= 180,  progress: (t, i, p, sd, st, ts) => ({ cur: ts, max: 180 }) },
+  { id: "sessions_365", group: "sessions", tier: "legendary", name: "Рік з AI",     desc: "365 AI-сесій",  xp: 4000,  icon: "🏵️", check: (t, i, p, sd, st, ts) => ts >= 365,  progress: (t, i, p, sd, st, ts) => ({ cur: ts, max: 365 }) },
+  { id: "sessions_730", group: "sessions", tier: "prime",     name: "Два роки",     desc: "730 AI-сесій",  xp: 8000,  icon: "🌟", check: (t, i, p, sd, st, ts) => ts >= 730,  progress: (t, i, p, sd, st, ts) => ({ cur: ts, max: 730 }) },
+  { id: "sessions_1095",group: "sessions", tier: "prime",     name: "Три роки",     desc: "1095 AI-сесій", xp: 15000, icon: "👁️", check: (t, i, p, sd, st, ts) => ts >= 1095, progress: (t, i, p, sd, st, ts) => ({ cur: ts, max: 1095 }) },
+
+  // ── Вивчення ШІ (годин) ──
+  { id: "learn_10",    group: "learning", tier: "common",    name: "Початківець",  desc: "10 год вивчення ШІ (навч+бізнес)",      xp: 200,   icon: "📖", check: (t, i, p, sd, st, ts, h) => h >= 10,    progress: (t, i, p, sd, st, ts, h) => ({ cur: h, max: 10 }) },
+  { id: "learn_50",    group: "learning", tier: "uncommon",  name: "Учень",        desc: "50 год вивчення ШІ (навч+бізнес)",      xp: 500,   icon: "📗", check: (t, i, p, sd, st, ts, h) => h >= 50,    progress: (t, i, p, sd, st, ts, h) => ({ cur: h, max: 50 }) },
+  { id: "learn_250",   group: "learning", tier: "rare",      name: "Студент ШІ",   desc: "250 год вивчення ШІ (навч+бізнес)",     xp: 1200,  icon: "📘", check: (t, i, p, sd, st, ts, h) => h >= 250,   progress: (t, i, p, sd, st, ts, h) => ({ cur: h, max: 250 }) },
+  { id: "learn_1000",  group: "learning", tier: "epic",      name: "Експерт",      desc: "1,000 год вивчення ШІ (навч+бізнес)",   xp: 3000,  icon: "🎓", check: (t, i, p, sd, st, ts, h) => h >= 1000,  progress: (t, i, p, sd, st, ts, h) => ({ cur: h, max: 1000 }) },
+  { id: "learn_5000",  group: "learning", tier: "legendary", name: "Майстер ШІ",   desc: "5,000 год вивчення ШІ (навч+бізнес)",   xp: 8000,  icon: "🧠", check: (t, i, p, sd, st, ts, h) => h >= 5000,  progress: (t, i, p, sd, st, ts, h) => ({ cur: h, max: 5000 }) },
+  { id: "learn_10000", group: "learning", tier: "prime",     name: "10,000 годин", desc: "10,000 год — правило майстерності",      xp: 20000, icon: "🏆", check: (t, i, p, sd, st, ts, h) => h >= 10000, progress: (t, i, p, sd, st, ts, h) => ({ cur: h, max: 10000 }) },
+
+  // ── Рядки коду (синхронізація з GitHub) ──
+  { id: "code_5k",   group: "code", tier: "common",    name: "Перші рядки",  desc: "5,000 рядків коду на GitHub",   xp: 300,   icon: "⌨️", check: (t,i,p,sd,st,ts,h,cl) => cl >= 5000,   progress: (t,i,p,sd,st,ts,h,cl) => ({ cur: cl, max: 5000 }) },
+  { id: "code_25k",  group: "code", tier: "uncommon",  name: "Кодер",        desc: "25,000 рядків коду на GitHub",  xp: 800,   icon: "💻", check: (t,i,p,sd,st,ts,h,cl) => cl >= 25000,  progress: (t,i,p,sd,st,ts,h,cl) => ({ cur: cl, max: 25000 }) },
+  { id: "code_75k",  group: "code", tier: "epic",      name: "Інженер",      desc: "75,000 рядків коду на GitHub",  xp: 2000,  icon: "🖥️", check: (t,i,p,sd,st,ts,h,cl) => cl >= 75000,  progress: (t,i,p,sd,st,ts,h,cl) => ({ cur: cl, max: 75000 }) },
+  { id: "code_150k", group: "code", tier: "rare",      name: "Архітектор",   desc: "150,000 рядків коду на GitHub", xp: 4000,  icon: "🏛️", check: (t,i,p,sd,st,ts,h,cl) => cl >= 150000, progress: (t,i,p,sd,st,ts,h,cl) => ({ cur: cl, max: 150000 }) },
+  { id: "code_300k", group: "code", tier: "prime",     name: "Кодомайстер",  desc: "300,000 рядків коду на GitHub", xp: 8000,  icon: "⚙️", check: (t,i,p,sd,st,ts,h,cl) => cl >= 300000, progress: (t,i,p,sd,st,ts,h,cl) => ({ cur: cl, max: 300000 }) },
+  { id: "code_500k", group: "code", tier: "legendary", name: "Легенда коду", desc: "500,000 рядків коду на GitHub", xp: 15000, icon: "👑", check: (t,i,p,sd,st,ts,h,cl) => cl >= 500000, progress: (t,i,p,sd,st,ts,h,cl) => ({ cur: cl, max: 500000 }) },
+
+  // ── Особливі ──
+  { id: "oxford_dev", group: "special", tier: "epic", name: "Oxford Dev", desc: "Запущено! (Oxford_1000 вже є 🎉)", xp: 300, icon: "📚", check: () => true },
 ];
 
 const DEFAULT_SKILL_DATA = Object.fromEntries(SKILLS.map(s => [s.id, { unlockedTools: [] }]));
@@ -37,8 +243,296 @@ const DEFAULT_PROJECTS = [{ name: "Oxford_1000 — додаток для анг�
 const DEFAULT_SESSIONS = { dates: [], monthlyTarget: 50 };
 const STORAGE_KEY = "ai_tracker_v1";
 
+// Єдине джерело правди для блоку «Активність».
+// kind: "learn" → лічильник у learnTime; "skill" → у skillTasksData (ключ catId_taskId).
+const ACTIVITY_DEFS = [
+  { kind: "learn", key: "education",            emoji: "📚", label: "Навчання",    color: "#06b6d4", note: "30хв/раз", xp: 4 },
+  { kind: "learn", key: "business",             emoji: "💼", label: "Бізнес",      color: "#f59e0b", note: "30хв/раз", xp: 4 },
+  { kind: "learn", key: "edu_videos",           emoji: "📺", label: "Навч. відео", color: "#a855f7", note: "1 відео",  xp: 3 },
+  { kind: "skill", key: "image_images_gen",     emoji: "🎨", label: "Зображення",  color: "#ff6b35",                  xp: 2 },
+  { kind: "skill", key: "video_videos_created", emoji: "🎬", label: "Відео",       color: "#a855f7",                  xp: 8 },
+  { kind: "skill", key: "music_tracks_created", emoji: "🎵", label: "Музика",      color: "#ec4899",                  xp: 6 },
+];
+const ACTIVITY_XP = Object.fromEntries(ACTIVITY_DEFS.map(d => [d.key, d.xp]));
+
+const GOAL_CATEGORIES = [
+  { id: "income", label: "Дохід", color: "#f59e0b", icon: "💰" },
+  { id: "skills", label: "Навички", color: "#00ff88", icon: "🧠" },
+  { id: "project", label: "Проект", color: "#6366f1", icon: "🚀" },
+  { id: "other", label: "Інше", color: "#6a5f40", icon: "🎯" },
+];
+
+const PLAN_TYPES = [
+  { id: "content",  label: "Контент",  color: "#ec4899", bg: "rgba(236,72,153,0.08)" },
+  { id: "learning", label: "Навчання", color: "#06b6d4", bg: "rgba(6,182,212,0.08)" },
+  { id: "bots",     label: "Боти",     color: "#a855f7", bg: "rgba(168,85,247,0.08)" },
+  { id: "work",     label: "Робота",   color: "#f59e0b", bg: "rgba(245,158,11,0.08)" },
+  { id: "other",    label: "Інше",     color: "#9a8a60", bg: "rgba(154,138,96,0.08)" },
+];
+
+const PROJECT_CATEGORIES = [
+  { id: "ai",       label: "ШІ / ML",   color: "#00ff88", icon: "🤖" },
+  { id: "web",      label: "Веб",       color: "#6366f1", icon: "🌐" },
+  { id: "bot",      label: "Бот",       color: "#a855f7", icon: "🤖" },
+  { id: "content",  label: "Контент",   color: "#ec4899", icon: "📹" },
+  { id: "work",     label: "Робота / Клієнти", color: "#ef4444", icon: "🤝" },
+  { id: "business", label: "Бізнес",    color: "#f59e0b", icon: "💼" },
+  { id: "learning", label: "Навчання",  color: "#06b6d4", icon: "📚" },
+  { id: "other",    label: "Інше",      color: "#9a8a60", icon: "📦" },
+];
+
+const PROJECT_STATUSES = [
+  { id: "in_progress", label: "🔄 в процесі", color: "#f59e0b", bg: "rgba(245,158,11,0.10)", border: "rgba(245,158,11,0.30)" },
+  { id: "paused",      label: "⏸ на паузі",  color: "#06b6d4", bg: "rgba(6,182,212,0.10)",  border: "rgba(6,182,212,0.30)" },
+  { id: "done",        label: "✓ виконано",   color: "#00ff88", bg: "rgba(0,255,136,0.10)",  border: "rgba(0,255,136,0.30)" },
+];
+
+const getItemPeriod = (completedAt) => {
+  if (!completedAt) return { key: "p9_old", label: "Раніше" };
+  const d = new Date(completedAt);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const itemDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diff = Math.floor((today - itemDay) / 86400000);
+  if (diff === 0) return { key: "p0_today",  label: "Сьогодні" };
+  if (diff === 1) return { key: "p1_yesterday", label: "Вчора" };
+  if (diff <= 7)  return { key: "p2_week",   label: "Цей тиждень" };
+  if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear())
+    return { key: "p3_month", label: "Цей місяць" };
+  if (d.getFullYear() === now.getFullYear())
+    return { key: "p4_year",  label: String(now.getFullYear()) };
+  return { key: `p5_${d.getFullYear()}`, label: String(d.getFullYear()) };
+};
+
+const PLAN_URGENCIES = [
+  { id: "now",   label: "Зараз", order: 0 },
+  { id: "soon",  label: "Скоро", order: 1 },
+  { id: "later", label: "Потім", order: 2 },
+];
+
+const DEFAULT_GOALS = [
+  { id: "dg1", text: "Навчитися та застосувати 3 нові AI-інструменти", priority: "important", xp: 150, done: false },
+  { id: "dg2", text: "Зробити перший продаж через AI", priority: "urgent", xp: 200, done: false },
+  { id: "dg3", text: "Написати пост про прогрес в AI", priority: "normal", xp: 50, done: false },
+];
+
+const TASK_PRIORITIES = [
+  { id: "urgent",    label: "Термінові",  color: "#f43f5e", bg: "rgba(244,63,94,0.10)",  border: "rgba(244,63,94,0.30)",  fontWeight: 800 },
+  { id: "important", label: "Важливі",    color: "#c9a84c", bg: "rgba(201,168,76,0.08)", border: "rgba(201,168,76,0.28)", fontWeight: 700 },
+  { id: "normal",    label: "Звичайні",   color: "#8a9ab0", bg: "rgba(138,154,176,0.06)", border: "rgba(138,154,176,0.20)", fontWeight: 500 },
+];
+
+const MONTH_NAMES_UA = ["Січень","Лютий","Березень","Квітень","Травень","Червень","Липень","Серпень","Вересень","Жовтень","Листопад","Грудень"];
+
+function getWeekMonday(date = new Date()) {
+  const d = new Date(date);
+  d.setHours(0,0,0,0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return d;
+}
+
+function fmtShort(d) {
+  return `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")}`;
+}
+
+function getGoalPeriods(refDate = new Date()) {
+  const y = refDate.getFullYear();
+  const m = refDate.getMonth();
+  const mon = getWeekMonday(refDate);
+  const sun = new Date(mon); sun.setDate(sun.getDate() + 6);
+  const nextMon = new Date(mon); nextMon.setDate(nextMon.getDate() + 7);
+  const nextSun = new Date(nextMon); nextSun.setDate(nextSun.getDate() + 6);
+  const nextMo = (m + 1) % 12;
+  const nextMoY = m === 11 ? y + 1 : y;
+  return [
+    { id: "week_cur",   label: `Цей тиждень (${fmtShort(mon)}–${fmtShort(sun)})`,           color: "#06b6d4", icon: "📅", kind: "week" },
+    { id: "week_next",  label: `Наст. тиждень (${fmtShort(nextMon)}–${fmtShort(nextSun)})`, color: "#22d3ee", icon: "📅", kind: "week" },
+    { id: "month_cur",  label: `${MONTH_NAMES_UA[m]} ${y}`,                                  color: "#00ff88", icon: "📅", kind: "month" },
+    { id: "month_next", label: `${MONTH_NAMES_UA[nextMo]} ${nextMoY}`,                       color: "#10b981", icon: "📅", kind: "month" },
+    { id: "year_cur",   label: `${y}`,                                                        color: "#f59e0b", icon: "📆", kind: "year" },
+    { id: "year_next",  label: `${y + 1}`,                                                    color: "#c9a84c", icon: "📆", kind: "year" },
+    { id: "longterm",   label: "Довгострокова",                                               color: "#a855f7", icon: "🌟", kind: "longterm" },
+  ];
+}
+
+const GOAL_PERIODS = getGoalPeriods();
+
+const DEFAULT_LONG_GOALS = [
+  { id: "lg1", text: "Заробити $14,000 цього року", period: "year_cur",  customXP: 500, done: false },
+  { id: "lg2", text: "Вивчити 20 AI-інструментів",  period: "year_cur",  customXP: 300, done: false },
+  { id: "lg3", text: "Запустити перший digital product", period: "longterm", customXP: 400, done: false },
+];
+
+const DEFAULT_PLAN = [
+  { id: "dp1", text: "Affiliate — партнерські комісії за продаж AI-сервісів", type: "other", urgency: "now",   done: false },
+  { id: "dp2", text: "Digital Products — шаблони, пресети, гайди, паки",       type: "other", urgency: "now",   done: false },
+  { id: "dp3", text: "Послуги — AI-послуги клієнтам (картки, контент, боти)",   type: "other", urgency: "now",   done: false },
+  { id: "dp4", text: "Контент — монетизація соц. мереж (YouTube, TikTok, Telegram)", type: "other", urgency: "soon",  done: false },
+  { id: "dp5", text: "Навчання — AI-курси, гайди, консультації",                type: "other", urgency: "soon",  done: false },
+  { id: "dp6", text: "SaaS / Боти — програмні сервіси за підпискою",            type: "other", urgency: "later", done: false },
+  { id: "dp7", text: "Ком'юніті — закриті спільноти і підписки",                type: "other", urgency: "later", done: false },
+  { id: "dp8", text: "Контент-фабрика — B2B виробництво контенту для інших",    type: "other", urgency: "later", done: false },
+  { id: "dp9", text: "Автоматизація — продаж AI-пайплайнів для бізнесу",        type: "other", urgency: "later", done: false },
+];
+
+const LEAGUES = [
+  { id: "grey",      name: "Сіра",        minLevel: 1,   maxLevel: 9,   color: "#a0a8b8", bg: "linear-gradient(135deg,#3a3c42,#6a6e78)", glow: "rgba(160,168,184,0.45)" },
+  { id: "bronze",    name: "Бронзова",    minLevel: 10,  maxLevel: 19,  color: "#c08040", bg: "linear-gradient(135deg,#6a3c10,#c08040)", glow: "rgba(192,128,64,0.5)"  },
+  { id: "silver",    name: "Срібна",      minLevel: 20,  maxLevel: 34,  color: "#c8d4e0", bg: "linear-gradient(135deg,#6a7880,#b0bcc8)", glow: "rgba(200,212,224,0.5)" },
+  { id: "gold",      name: "Золота",      minLevel: 35,  maxLevel: 54,  color: "#c9a84c", bg: "linear-gradient(135deg,#7a5818,#c9a84c)", glow: "rgba(201,168,76,0.55)" },
+  { id: "diamond",   name: "Діамантова", minLevel: 55,  maxLevel: 79,  color: "#a855f7", bg: "linear-gradient(135deg,#5a1a9a,#a855f7)", glow: "rgba(168,85,247,0.55)" },
+  { id: "royal",     name: "Королівська",minLevel: 80,  maxLevel: 99,  color: "#f43f5e", bg: "linear-gradient(135deg,#8a1030,#f43f5e)", glow: "rgba(244,63,94,0.55)"  },
+  { id: "legendary", name: "Легендарна", minLevel: 100, maxLevel: 100, color: "#ff2020", bg: "linear-gradient(135deg,#8a0000,#ff2020)", glow: "rgba(255,32,32,0.6)"   },
+];
+
+function getLeague(level) {
+  for (let i = LEAGUES.length - 1; i >= 0; i--) {
+    if (level >= LEAGUES[i].minLevel) return LEAGUES[i];
+  }
+  return LEAGUES[0];
+}
+
+function LeagueBadge({ level, size = 36 }) {
+  const lg = getLeague(level);
+  const isLegendary = lg.id === "legendary";
+  const fs = Math.round(size * 0.33);
+  return (
+    <div title={`${lg.name} ліга`} style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
+      <svg width={size} height={size} viewBox="0 0 36 36" style={{ display: "block" }}>
+        <defs>
+          <linearGradient id={`lg-${lg.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor={lg.color} stopOpacity="0.9" />
+            <stop offset="100%" stopColor={lg.color} stopOpacity="0.5" />
+          </linearGradient>
+        </defs>
+        {isLegendary ? (
+          <polygon points="18,2 34,10 34,26 18,34 2,26 2,10" fill={`url(#lg-${lg.id})`} stroke={lg.color} strokeWidth="1.5" strokeOpacity="0.9" />
+        ) : (
+          <polygon points="18,2 34,10 34,26 18,34 2,26 2,10" fill="rgba(8,5,2,0.85)" stroke={lg.color} strokeWidth="1.5" strokeOpacity="0.8" />
+        )}
+        {isLegendary && <polygon points="18,7 30,13 30,23 18,29 6,23 6,13" fill="rgba(120,0,0,0.5)" />}
+      </svg>
+      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {isLegendary
+          ? <span style={{ fontSize: fs + 2, lineHeight: 1 }}>⭐</span>
+          : <span style={{ fontSize: fs, fontWeight: 800, color: lg.color, fontFamily: "'Exo 2',sans-serif", lineHeight: 1 }}>{level}</span>}
+      </div>
+    </div>
+  );
+}
+
+const DEFAULT_INCOME_CATS = [
+  { id: "affiliate",  name: "Affiliate",        color: "#10b981", icon: "🤝" },
+  { id: "products",   name: "Digital Products",  color: "#6366f1", icon: "📦" },
+  { id: "services",   name: "Послуги",           color: "#f59e0b", icon: "🛠️" },
+  { id: "content",    name: "Контент",           color: "#ec4899", icon: "📱" },
+  { id: "inc_other",  name: "Інше",             color: "#9a8a60", icon: "💰" },
+];
+
+const DEFAULT_EXPENSE_CATS = [
+  { id: "claude_sub",  name: "Claude",   color: "#c9a84c", icon: "🤖" },
+  { id: "chatgpt_sub", name: "ChatGPT",  color: "#10b981", icon: "💬" },
+  { id: "syntx_sub",   name: "Syntx",    color: "#6366f1", icon: "💻" },
+  { id: "gemini_sub",  name: "Gemini",   color: "#4a9fd4", icon: "✨" },
+  { id: "exp_other",   name: "Інше",     color: "#9a8a60", icon: "💸" },
+];
+
+function monthLabel(ym) {
+  const m = parseInt(ym.split("-")[1]) - 1;
+  return ["Січ","Лют","Бер","Кві","Тра","Чер","Лип","Сер","Вер","Жов","Лис","Гру"][m];
+}
+
+function getLastMonths(n) {
+  return Array.from({ length: n }, (_, i) => {
+    const d = new Date();
+    d.setDate(1); // prevent month overflow on day 29/30/31
+    d.setMonth(d.getMonth() - (n - 1 - i));
+    return d.toISOString().slice(0, 7);
+  });
+}
+
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
+}
+
+// Розгортувані періоди для метрики: Сьогодні / Місяць / Рік + повна розбивка.
+// entries: [{ date: "YYYY-MM-DD", delta: number }] — лише для цієї метрики.
+function MetricPeriods({ entries = [], color = "#c9a84c", fmt = (n) => n.toLocaleString(), align = "center", children, cardStyle, className }) {
+  const [open, setOpen] = useState(false);
+  const today = todayStr();
+  const curMonth = today.slice(0, 7);
+  const curYear = today.slice(0, 4);
+  const sum = (pred) => entries.reduce((s, e) => (pred(e) ? s + e.delta : s), 0);
+  const tToday = sum((e) => e.date === today);
+  const tMonth = sum((e) => e.date.slice(0, 7) === curMonth);
+  const tYear = sum((e) => e.date.slice(0, 4) === curYear);
+
+  const byMonth = {}, byYear = {};
+  entries.forEach((e) => {
+    const mk = e.date.slice(0, 7), yk = e.date.slice(0, 4);
+    byMonth[mk] = (byMonth[mk] ?? 0) + e.delta;
+    byYear[yk] = (byYear[yk] ?? 0) + e.delta;
+  });
+  const monthRows = Object.entries(byMonth).filter(([, v]) => v).sort((a, b) => b[0].localeCompare(a[0]));
+  const yearRows = Object.entries(byYear).filter(([, v]) => v).sort((a, b) => b[0].localeCompare(a[0]));
+  const hasHist = entries.length > 0;
+
+  const monthName = (mk) => { const [y, m] = mk.split("-"); return `${MONTH_NAMES_UA[+m - 1]} ${y}`; };
+  const Cell = ({ lbl, val }) => (
+    <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 10, whiteSpace: "nowrap" }}>
+      <span style={{ color: "#6a5f40" }}>{lbl} </span>
+      <span style={{ color: val ? color : "#4a4030", fontWeight: 700 }}>{val ? fmt(val) : "0"}</span>
+    </span>
+  );
+  const listBox = { maxHeight: 132, overflowY: "auto", display: "flex", flexDirection: "column", gap: 3, paddingRight: 4 };
+  const colTitle = { fontSize: 9, color: "#6a5f40", textTransform: "uppercase", letterSpacing: 1, marginBottom: 5, fontFamily: "'Exo 2',sans-serif" };
+
+  const toggle = () => { if (hasHist) setOpen((o) => !o); };
+  return (
+    <div
+      onClick={toggle}
+      className={className}
+      style={{ ...cardStyle, cursor: hasHist ? "pointer" : "default" }}
+    >
+      {children}
+      <div style={{ marginTop: 6, width: "100%", display: "flex", gap: 10, justifyContent: align, alignItems: "center", flexWrap: "wrap" }}>
+        <Cell lbl="Сьог:" val={tToday} />
+        <Cell lbl="Міс:" val={tMonth} />
+        <Cell lbl="Рік:" val={tYear} />
+        {hasHist && (
+          <span style={{ color: "#8a7850", fontSize: 10, fontFamily: "'Space Mono',monospace" }}>{open ? "▲" : "▼"}</span>
+        )}
+      </div>
+      {open && (
+        <div onClick={(e) => e.stopPropagation()} style={{ marginTop: 8, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, textAlign: "left", background: "rgba(0,0,0,0.25)", borderRadius: 4, padding: "8px 10px", cursor: "default" }}>
+          <div>
+            <div style={colTitle}>По місяцях</div>
+            <div style={listBox}>
+              {monthRows.length === 0 ? <span style={{ fontSize: 10, color: "#4a4030" }}>—</span> :
+                monthRows.map(([mk, v]) => (
+                  <div key={mk} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 10, fontFamily: "'Space Mono',monospace" }}>
+                    <span style={{ color: mk === curMonth ? color : "#8a7850" }}>{monthName(mk)}</span>
+                    <b style={{ color }}>{fmt(v)}</b>
+                  </div>
+                ))}
+            </div>
+          </div>
+          <div>
+            <div style={colTitle}>По роках</div>
+            <div style={listBox}>
+              {yearRows.length === 0 ? <span style={{ fontSize: 10, color: "#4a4030" }}>—</span> :
+                yearRows.map(([yk, v]) => (
+                  <div key={yk} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 10, fontFamily: "'Space Mono',monospace" }}>
+                    <span style={{ color: yk === curYear ? color : "#8a7850" }}>{yk}</span>
+                    <b style={{ color }}>{fmt(v)}</b>
+                  </div>
+                ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function calcStreak(dates) {
@@ -63,6 +557,20 @@ function sessionsThisMonth(dates) {
   return dates.filter(d => d.startsWith(ym)).length;
 }
 
+function calcLongestStreak(dates) {
+  if (!dates.length) return 0;
+  const sorted = [...new Set(dates)].sort();
+  let max = 1, cur = 1;
+  for (let i = 1; i < sorted.length; i++) {
+    const diff = (new Date(sorted[i]) - new Date(sorted[i - 1])) / 86400000;
+    if (diff === 1) { cur++; if (cur > max) max = cur; }
+    else cur = 1;
+  }
+  return max;
+}
+
+const APP_START_DATE = "2026-06-01";
+
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -73,8 +581,22 @@ function loadState() {
   }
 }
 
-function calcLevel(xp) { return Math.floor(Math.sqrt(xp / 80)) + 1; }
-function xpForLevel(lvl) { return (lvl - 1) * (lvl - 1) * 80; }
+// Level model (Ulives-style): LVL 1-3 base 400+100/lvl, LVL 4-100 base 700+200/lvl
+// Cumulative XP at LVL 100 = exactly 1,000,000
+function xpForLevel(lvl) {
+  if (lvl <= 1) return 0;
+  if (lvl === 2) return 400;
+  if (lvl === 3) return 900;
+  const n = lvl - 3; // levels above 3
+  return 900 + n * 700 + 100 * (n - 1) * n;
+}
+
+function calcLevel(xp) {
+  if (xp < 400) return 1;
+  if (xp < 900) return 2;
+  const n = Math.floor((-600 + Math.sqrt(360000 + 400 * (xp - 900))) / 200);
+  return Math.min(100, n + 3);
+}
 
 // Last N days as array of date strings (oldest first)
 function lastNDays(n) {
@@ -87,25 +609,587 @@ function lastNDays(n) {
   return days;
 }
 
+// ── Animated deep-space background — lit clouds + detailed planets ───────────
+
+const STARS = Array.from({ length: 80 }, (_, i) => ({
+  id: i,
+  left: Math.random() * 100,
+  top:  Math.random() * 100,
+  size: Math.random() < 0.82 ? 1.4 : 2.4,
+  delay: Math.random() * 4,
+  dur:  2.6 + Math.random() * 3.4,
+}));
+
+// Shimmering lit cloud patches spread across the full viewport.
+// cA = base colour, cB = bright "lit" highlight (top-left light source), cC = shadow-side tint
+const CLOUDS = [
+  { id:"cl1",  left:5,   top:22, w:55,h:22, cA:"rgba(20,80,210,0.55)",  cB:"rgba(65,165,255,0.32)", cC:"rgba(55,15,145,0.2)",  blur:58, depth:0.04, phase:0.5, dur:19, anim:"A" },
+  { id:"cl2",  left:88,  top:14, w:48,h:18, cA:"rgba(80,20,180,0.50)",  cB:"rgba(205,82,255,0.30)", cC:"rgba(30,62,205,0.15)", blur:52, depth:0.06, phase:1.8, dur:24, anim:"B" },
+  { id:"cl3",  left:46,  top:6,  w:62,h:22, cA:"rgba(15,70,165,0.45)",  cB:"rgba(42,148,228,0.26)", cC:"rgba(62,26,162,0.18)", blur:64, depth:0.03, phase:3.1, dur:28, anim:"C" },
+  { id:"cl4",  left:72,  top:47, w:44,h:17, cA:"rgba(60,10,150,0.48)",  cB:"rgba(168,46,228,0.28)", cC:"rgba(22,82,202,0.16)", blur:50, depth:0.07, phase:0.9, dur:21, anim:"A" },
+  { id:"cl5",  left:16,  top:72, w:54,h:23, cA:"rgba(10,65,155,0.50)",  cB:"rgba(32,128,208,0.28)", cC:"rgba(82,20,172,0.18)", blur:60, depth:0.05, phase:2.4, dur:26, anim:"B" },
+  { id:"cl6",  left:57,  top:84, w:48,h:19, cA:"rgba(90,20,165,0.46)",  cB:"rgba(188,64,248,0.26)", cC:"rgba(16,76,188,0.16)", blur:56, depth:0.04, phase:4.2, dur:30, anim:"C" },
+  { id:"cl7",  left:32,  top:56, w:36,h:15, cA:"rgba(10,80,175,0.42)",  cB:"rgba(52,158,238,0.23)", cC:"rgba(72,16,162,0.15)", blur:46, depth:0.08, phase:1.5, dur:22, anim:"A" },
+  { id:"cl8",  left:80,  top:77, w:42,h:17, cA:"rgba(70,15,155,0.48)",  cB:"rgba(208,54,252,0.26)", cC:"rgba(22,92,202,0.17)", blur:54, depth:0.05, phase:3.6, dur:25, anim:"B" },
+  { id:"cl9",  left:93,  top:52, w:34,h:14, cA:"rgba(20,90,195,0.44)",  cB:"rgba(62,174,252,0.25)", cC:"rgba(78,20,168,0.16)", blur:45, depth:0.06, phase:0.3, dur:20, anim:"C" },
+  { id:"cl10", left:22,  top:92, w:56,h:21, cA:"rgba(15,65,158,0.48)",  cB:"rgba(40,134,218,0.27)", cC:"rgba(66,19,158,0.17)", blur:62, depth:0.04, phase:2.0, dur:27, anim:"A" },
+  { id:"cl11", left:62,  top:32, w:40,h:16, cA:"rgba(100,25,185,0.44)", cB:"rgba(228,84,252,0.23)", cC:"rgba(19,80,198,0.15)", blur:50, depth:0.07, phase:4.8, dur:23, anim:"B" },
+  { id:"cl12", left:3,   top:47, w:32,h:13, cA:"rgba(10,72,165,0.42)",  cB:"rgba(34,144,228,0.21)", cC:"rgba(74,20,160,0.14)", blur:43, depth:0.05, phase:1.1, dur:29, anim:"C" },
+  { id:"cl13", left:42,  top:97, w:58,h:20, cA:"rgba(12,75,168,0.46)",  cB:"rgba(37,150,220,0.25)", cC:"rgba(70,21,160,0.16)", blur:58, depth:0.03, phase:3.3, dur:31, anim:"A" },
+  { id:"cl14", left:83,  top:32, w:38,h:14, cA:"rgba(85,18,168,0.43)",  cB:"rgba(194,58,250,0.23)", cC:"rgba(16,76,198,0.15)", blur:47, depth:0.06, phase:5.0, dur:18, anim:"B" },
+  { id:"cl15", left:50,  top:62, w:44,h:17, cA:"rgba(18,78,178,0.44)",  cB:"rgba(47,152,230,0.24)", cC:"rgba(80,21,172,0.16)", blur:53, depth:0.05, phase:2.7, dur:24, anim:"C" },
+  { id:"cl16", left:25,  top:35, w:40,h:15, cA:"rgba(25,90,185,0.40)",  cB:"rgba(57,162,238,0.22)", cC:"rgba(57,14,148,0.14)", blur:49, depth:0.04, phase:0.7, dur:27, anim:"A" },
+  { id:"cl17", left:68,  top:18, w:34,h:13, cA:"rgba(70,12,155,0.40)",  cB:"rgba(178,50,238,0.22)", cC:"rgba(13,66,178,0.14)", blur:43, depth:0.06, phase:3.9, dur:22, anim:"B" },
+];
+
+// Detailed planet definitions inspired by reference images.
+// proc variants (palette+bands) render swirling gas-giant structure via SVG
+// turbulence displacement; simple variants (sphere) are lightweight gradient moons.
+const PLANET_DEFS = {
+  // Blue/violet gas giant (ref): turbulent horizontal bands + intense cyan rim glow
+  a: {
+    glow: { color:"#2f86ff", scale:1.5, op:0.55 }, rim: { color:"#a6dbff", op:0.95 }, shade:0.58,
+    base:"#0a1340",
+    palette:["#0b1850","#26408c","#3a62b4","#6488d4","#9fb4e6","#cdb9e0","#6a4fa8"],
+    bands:[
+      { c:0, y:-0.92, h:0.60, op:0.95 }, { c:2, y:-0.60, h:0.16, op:0.72 },
+      { c:4, y:-0.46, h:0.09, op:0.58 }, { c:1, y:-0.30, h:0.22, op:0.86 },
+      { c:5, y:-0.13, h:0.07, op:0.50 }, { c:3, y: 0.00, h:0.20, op:0.80 },
+      { c:6, y: 0.16, h:0.12, op:0.60 }, { c:1, y: 0.33, h:0.22, op:0.86 },
+      { c:4, y: 0.50, h:0.08, op:0.50 }, { c:0, y: 0.90, h:0.60, op:0.95 },
+    ],
+    warp:0.15, freq:"0.011 0.026", seed:7,
+    spec:{ ox:-0.34, oy:-0.40, rx:0.30, ry:0.16, rot:-28, op:0.22 },
+  },
+  // Saturn-like: warm banded body, purple haze + wide golden rings
+  c: {
+    glow: { color:"#6f54d8", scale:1.5, op:0.50 }, rim: { color:"#c3a8ff", op:0.82 }, shade:0.58,
+    base:"#160e34",
+    palette:["#19103e","#372c68","#5e4f96","#9384c4","#cbb892","#ffe1a3","#7c6cba"],
+    bands:[
+      { c:0, y:-0.92, h:0.60, op:0.95 }, { c:5, y:-0.58, h:0.14, op:0.66 },
+      { c:3, y:-0.42, h:0.10, op:0.58 }, { c:1, y:-0.26, h:0.22, op:0.84 },
+      { c:4, y:-0.10, h:0.08, op:0.55 }, { c:2, y: 0.04, h:0.20, op:0.78 },
+      { c:6, y: 0.20, h:0.12, op:0.58 }, { c:1, y: 0.36, h:0.22, op:0.84 },
+      { c:5, y: 0.54, h:0.08, op:0.52 }, { c:0, y: 0.92, h:0.60, op:0.95 },
+    ],
+    warp:0.13, freq:"0.010 0.024", seed:5,
+    rings:[
+      { rx:2.16, ry:0.58, color:"#a08040", op:0.32, wf:0.080 },
+      { rx:1.84, ry:0.50, color:"#d0b060", op:0.74, wf:0.062 },
+      { rx:1.48, ry:0.40, color:"#ffd080", op:0.56, wf:0.046 },
+    ],
+    ringAngle:-18,
+    spec:{ ox:-0.32, oy:-0.36, rx:0.30, ry:0.16, rot:-25, op:0.22 },
+  },
+  // Purple neon planet with magenta rings (ref)
+  b: {
+    glow: { color:"#c22dff", scale:1.7, op:0.60 }, rim: { color:"#ff8cff", op:0.90 }, shade:0.66,
+    base:"#0a0326",
+    palette:["#0c0430","#2a0c5e","#471596","#6e2bbe","#9d52dd","#d98cff","#5a1a8a"],
+    bands:[
+      { c:0, y:-0.92, h:0.60, op:0.95 }, { c:4, y:-0.58, h:0.14, op:0.66 },
+      { c:2, y:-0.42, h:0.10, op:0.58 }, { c:1, y:-0.26, h:0.22, op:0.86 },
+      { c:5, y:-0.10, h:0.07, op:0.52 }, { c:3, y: 0.04, h:0.20, op:0.80 },
+      { c:6, y: 0.20, h:0.12, op:0.60 }, { c:1, y: 0.36, h:0.22, op:0.86 },
+      { c:4, y: 0.54, h:0.08, op:0.52 }, { c:0, y: 0.92, h:0.60, op:0.95 },
+    ],
+    warp:0.14, freq:"0.012 0.030", seed:3,
+    rings:[
+      { rx:1.92, ry:0.56, color:"#9920cc", op:0.30, wf:0.050 },
+      { rx:1.70, ry:0.50, color:"#dd80ff", op:0.66, wf:0.034 },
+      { rx:1.42, ry:0.42, color:"#ff5cff", op:0.42, wf:0.024 },
+    ],
+    ringAngle:-20,
+    spec:{ ox:-0.36, oy:-0.40, rx:0.27, ry:0.14, rot:-30, op:0.24 },
+  },
+  // Ice-slate distant moon (simple gradient sphere)
+  d: {
+    sphere:{ cx:"36%", cy:"32%", stops:[["0%","#c8d8f0"],["50%","#5a6c96"],["100%","#121828"]] },
+    glow: { color:"#4060a0", scale:1.34, op:0.40 }, rim: { color:"#9fb6d8", op:0.60 }, shade:0.60,
+    spec:{ ox:-0.33, oy:-0.37, rx:0.28, ry:0.16, rot:-26, op:0.16 },
+  },
+  // Pale moon (simple gradient sphere)
+  e: {
+    sphere:{ cx:"38%", cy:"34%", stops:[["0%","#e8eef8"],["55%","#8898b8"],["100%","#202838"]] },
+    glow: { color:"#506080", scale:1.26, op:0.30 }, rim: { color:"#b0c0d8", op:0.50 }, shade:0.58,
+    spec:{ ox:-0.30, oy:-0.35, rx:0.26, ry:0.14, rot:-22, op:0.13 },
+  },
+};
+
+// Planets: 3 large procedural gas giants (a/c/b) + small gradient moons (d/e)
+const PLANETS = [
+  { id:"p1", left:6,  top:60, size:240, depth:0.10, phase:0.0, v:"a" },
+  { id:"p2", left:75, top:10, size:160, depth:0.18, phase:1.6, v:"c" },
+  { id:"p3", left:56, top:67, size:100, depth:0.30, phase:3.1, v:"b" },
+  { id:"p4", left:87, top:64, size:62,  depth:0.44, phase:0.8, v:"d" },
+  { id:"p5", left:27, top:15, size:50,  depth:0.52, phase:2.3, v:"e" },
+  { id:"p6", left:45, top:41, size:36,  depth:0.62, phase:4.0, v:"d" },
+  { id:"p7", left:15, top:31, size:24,  depth:0.74, phase:5.1, v:"e" },
+];
+
+function PlanetSvg({ s, v }) {
+  const def = PLANET_DEFS[v] || PLANET_DEFS.e;
+  const hasRings = !!def.rings;
+  const proc = !!def.palette;
+  const S = Math.round(s * (hasRings ? 2.5 : 2.05));
+  const cx = S / 2, cy = S / 2, r = s / 2;
+  const uid = `plx_${v}_${s}`;
+  return (
+    <svg width={S} height={S} viewBox={`0 0 ${S} ${S}`} style={{ display:"block", overflow:"visible" }}>
+      <defs>
+        {/* outer glow halo */}
+        <radialGradient id={`${uid}g`} cx="50%" cy="50%" r="50%">
+          <stop offset="0%"   stopColor={def.glow.color} stopOpacity={def.glow.op}/>
+          <stop offset="46%"  stopColor={def.glow.color} stopOpacity={def.glow.op * 0.22}/>
+          <stop offset="100%" stopColor={def.glow.color} stopOpacity="0"/>
+        </radialGradient>
+        {/* bright atmospheric rim near the limb */}
+        <radialGradient id={`${uid}rim`} cx="50%" cy="50%" r="50%">
+          <stop offset="0%"    stopColor={def.rim.color} stopOpacity="0"/>
+          <stop offset="84%"   stopColor={def.rim.color} stopOpacity="0"/>
+          <stop offset="93%"   stopColor={def.rim.color} stopOpacity={def.rim.op * 0.55}/>
+          <stop offset="98.5%" stopColor={def.rim.color} stopOpacity={def.rim.op}/>
+          <stop offset="100%"  stopColor={def.rim.color} stopOpacity="0"/>
+        </radialGradient>
+        {/* top-left directional light */}
+        <radialGradient id={`${uid}lt`} cx="30%" cy="26%" r="58%">
+          <stop offset="0%"  stopColor="#ffffff" stopOpacity="0.42"/>
+          <stop offset="34%" stopColor="#ffffff" stopOpacity="0.12"/>
+          <stop offset="62%" stopColor="#ffffff" stopOpacity="0"/>
+        </radialGradient>
+        {/* terminator shade bottom-right */}
+        <radialGradient id={`${uid}sh`} cx="72%" cy="76%" r="78%">
+          <stop offset="30%"  stopColor="rgba(0,0,0,0)"/>
+          <stop offset="100%" stopColor={`rgba(2,2,14,${def.shade})`}/>
+        </radialGradient>
+        {proc && (
+          <filter id={`${uid}w`} x="-25%" y="-25%" width="150%" height="150%">
+            <feTurbulence type="fractalNoise" baseFrequency={def.freq} numOctaves="3" seed={def.seed} stitchTiles="stitch" result="n"/>
+            <feDisplacementMap in="SourceGraphic" in2="n" scale={Math.max(6, s * def.warp)} xChannelSelector="R" yChannelSelector="G"/>
+          </filter>
+        )}
+        {proc && (
+          <radialGradient id={`${uid}sb`} cx="34%" cy="30%" r="80%">
+            <stop offset="0%"   stopColor={def.palette[def.palette.length - 3]}/>
+            <stop offset="58%"  stopColor={def.base}/>
+            <stop offset="100%" stopColor={def.base}/>
+          </radialGradient>
+        )}
+        {!proc && (
+          <radialGradient id={`${uid}sp`} cx={def.sphere.cx} cy={def.sphere.cy} r="78%">
+            {def.sphere.stops.map(([off,col],i) => <stop key={i} offset={off} stopColor={col}/>)}
+          </radialGradient>
+        )}
+        <clipPath id={`${uid}clip`}><circle cx={cx} cy={cy} r={r}/></clipPath>
+      </defs>
+
+      {/* outer glow halo */}
+      <circle cx={cx} cy={cy} r={r * def.glow.scale} fill={`url(#${uid}g)`}/>
+
+      {/* rings drawn behind the sphere */}
+      {hasRings && (
+        <g transform={`rotate(${def.ringAngle} ${cx} ${cy})`}>
+          {def.rings.map((rg, i) => (
+            <ellipse key={i} cx={cx} cy={cy} rx={r * rg.rx} ry={r * rg.ry}
+              fill="none" stroke={rg.color} strokeOpacity={rg.op} strokeWidth={Math.max(1, s * rg.wf)}/>
+          ))}
+        </g>
+      )}
+
+      {/* sphere body */}
+      <g clipPath={`url(#${uid}clip)`}>
+        {proc ? (
+          <>
+            <circle cx={cx} cy={cy} r={r} fill={`url(#${uid}sb)`}/>
+            {/* horizontal colour bands warped into swirls by turbulence displacement */}
+            <g filter={`url(#${uid}w)`}>
+              {def.bands.map((b, i) => (
+                <rect key={i} x={cx - r * 1.25} y={cy + b.y * r - (b.h * r) / 2}
+                  width={r * 2.5} height={b.h * r} fill={def.palette[b.c]} fillOpacity={b.op}/>
+              ))}
+            </g>
+          </>
+        ) : (
+          <circle cx={cx} cy={cy} r={r} fill={`url(#${uid}sp)`}/>
+        )}
+        {/* spherical shading */}
+        <circle cx={cx} cy={cy} r={r} fill={`url(#${uid}lt)`}/>
+        <circle cx={cx} cy={cy} r={r} fill={`url(#${uid}sh)`}/>
+      </g>
+
+      {/* bright atmospheric rim */}
+      <circle cx={cx} cy={cy} r={r} fill={`url(#${uid}rim)`}/>
+
+      {/* specular highlight */}
+      <ellipse
+        cx={cx + r * def.spec.ox} cy={cy + r * def.spec.oy}
+        rx={r * def.spec.rx} ry={r * def.spec.ry}
+        fill="#ffffff" fillOpacity={def.spec.op}
+        transform={`rotate(${def.spec.rot} ${cx + r * def.spec.ox} ${cy + r * def.spec.oy})`}/>
+    </svg>
+  );
+}
+
+function FloatingBg() {
+  const wrapRef = useRef(null);
+  const tgtRef  = useRef({ x: 0, y: 0 });
+  const curRef  = useRef({ x: 0, y: 0 });
+  const rafRef  = useRef(null);
+
+  useEffect(() => {
+    const onMove = (e) => {
+      tgtRef.current.x = (e.clientX / window.innerWidth  - 0.5) * 2;
+      tgtRef.current.y = (e.clientY / window.innerHeight - 0.5) * 2;
+    };
+    const tick = () => {
+      curRef.current.x += (tgtRef.current.x - curRef.current.x) * 0.035;
+      curRef.current.y += (tgtRef.current.y - curRef.current.y) * 0.035;
+      const t = Date.now() / 1000;
+      wrapRef.current?.querySelectorAll("[data-bg]").forEach(el => {
+        const depth = +el.dataset.depth, phase = +el.dataset.phase;
+        const amp = +(el.dataset.amp ?? 1);
+        const tx = curRef.current.x * depth * -46;
+        const ty = curRef.current.y * depth * -46;
+        const fy = Math.sin(t * 0.32 + phase) * 10 * amp;
+        const fx = Math.cos(t * 0.24 + phase) *  6 * amp;
+        const cen = el.dataset.center ? "translate(-50%,-50%) " : "";
+        el.style.transform = `${cen}translate(${tx + fx}px,${ty + fy}px)`;
+      });
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    window.addEventListener("mousemove", onMove, { passive: true });
+    tick();
+    return () => { window.removeEventListener("mousemove", onMove); cancelAnimationFrame(rafRef.current); };
+  }, []);
+
+  return (
+    <div ref={wrapRef} style={{ position:"fixed", inset:0, overflow:"hidden", pointerEvents:"none", zIndex:0, isolation:"isolate" }}>
+      <style>{`
+        @keyframes bgTwinkle  { 0%,100%{opacity:0.15} 50%{opacity:1} }
+        @keyframes bgCloudA   { 0%,100%{opacity:0.55} 35%{opacity:0.88} 65%{opacity:0.62} }
+        @keyframes bgCloudB   { 0%,100%{opacity:0.45} 45%{opacity:0.82} 70%{opacity:0.52} }
+        @keyframes bgCloudC   { 0%,100%{opacity:0.50} 30%{opacity:0.84} 60%{opacity:0.58} 80%{opacity:0.44} }
+      `}</style>
+
+      {/* deep-space base */}
+      <div style={{ position:"absolute", inset:0, background:"radial-gradient(ellipse at 72% 28%, #0c2350 0%, #061427 42%, #02060f 100%)" }}/>
+
+      {/* lit shimmering clouds — three-layer gradient simulates directional lighting */}
+      {CLOUDS.map(c => (
+        <div key={c.id} data-bg data-depth={c.depth} data-phase={c.phase} data-amp="0.5" data-center="1"
+          style={{
+            position:"absolute", left:`${c.left}%`, top:`${c.top}%`,
+            width:`${c.w}vmax`, height:`${c.h}vmax`,
+            borderRadius:"50%",
+            background:`
+              radial-gradient(ellipse at 28% 25%, ${c.cB} 0%, transparent 50%),
+              radial-gradient(ellipse at 62% 62%, ${c.cA} 0%, transparent 66%),
+              radial-gradient(ellipse at 82% 80%, ${c.cC} 0%, transparent 54%)
+            `,
+            filter:`blur(${c.blur}px)`,
+            transform:"translate(-50%,-50%)",
+            animation:`bgCloud${c.anim} ${c.dur}s ease-in-out infinite`,
+            willChange:"transform, opacity",
+            mixBlendMode:"screen",
+          }}/>
+      ))}
+
+      {/* starfield */}
+      {STARS.map(st => (
+        <div key={st.id} style={{
+          position:"absolute", left:`${st.left}%`, top:`${st.top}%`,
+          width:st.size, height:st.size, borderRadius:"50%",
+          background:"#d4e8ff", boxShadow:"0 0 4px #9cc8ff",
+          animation:`bgTwinkle ${st.dur}s ease-in-out ${st.delay}s infinite`}}/>
+      ))}
+
+      {/* parallax planets */}
+      {PLANETS.map(p => (
+        <div key={p.id} data-bg data-depth={p.depth} data-phase={p.phase}
+          style={{ position:"absolute", left:`${p.left}%`, top:`${p.top}%`, willChange:"transform" }}>
+          <PlanetSvg s={p.size} v={p.v}/>
+        </div>
+      ))}
+    </div>
+  );
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function AITracker() {
   const saved = loadState();
 
   const [skillData, setSkillData] = useState(saved?.skillData ?? DEFAULT_SKILL_DATA);
   const [totalXP, setTotalXP] = useState(saved?.totalXP ?? 300);
-  const [income, setIncome] = useState(saved?.income ?? 0);
-  const [incomeInput, setIncomeInput] = useState("");
+  const [activityXP, setActivityXP] = useState(saved?.activityXP);
+  const [xpLog, setXpLog] = useState(saved?.xpLog ?? []);
+  // Finance v2 — entries + categories
+  const [incomeEntries, setIncomeEntries] = useState(() => {
+    if (saved?.incomeEntries) return saved.incomeEntries;
+    // migrate legacy income number
+    if (saved?.income > 0) return [{ id: "legacy_inc", catId: "inc_other", amount: saved.income, currency: "USD", date: new Date().toISOString().slice(0,10), note: "Перенесено" }];
+    return [];
+  });
+  const [expenseEntries, setExpenseEntries] = useState(() => {
+    if (saved?.expenseEntries) return saved.expenseEntries;
+    if (saved?.expenses > 0) return [{ id: "legacy_exp", catId: "exp_other", amount: saved.expenses, currency: "USD", date: new Date().toISOString().slice(0,10), note: "Перенесено", recurring: false }];
+    return [];
+  });
+  const [incomeCats, setIncomeCats] = useState(saved?.incomeCats ?? DEFAULT_INCOME_CATS);
+  const [expenseCats, setExpenseCats] = useState(saved?.expenseCats ?? DEFAULT_EXPENSE_CATS);
+  const [uahRate, setUahRate] = useState(saved?.uahRate ?? 44.29);
+  const [uahRateUpdatedAt, setUahRateUpdatedAt] = useState(saved?.uahRateUpdatedAt ?? null);
+  const [rateFetching, setRateFetching] = useState(false);
+  const [incForm, setIncForm] = useState({ amount: "", currency: "USD", catId: "inc_other", note: "", date: todayStr() });
+  const [expForm, setExpForm] = useState({ amount: "", currency: "USD", catId: "exp_other", note: "", date: todayStr() });
+  const [newCatName, setNewCatName] = useState("");
+  const [addingCat, setAddingCat] = useState(null); // "income" | "expense" | null
+  const [pendingDelete, setPendingDelete] = useState(null); // { id, type, entry, xpPaid, timerId }
+  const [expandedCatRows, setExpandedCatRows] = useState({});
+  const [analyticsYear, setAnalyticsYear] = useState(new Date().getFullYear());
+  const [chartTooltip, setChartTooltip] = useState(null);
+  const [subscriptions, setSubscriptions] = useState(saved?.subscriptions ?? []);
+  const [subCheckedMonth, setSubCheckedMonth] = useState(saved?.subCheckedMonth ?? null);
+  const [subPrompt, setSubPrompt] = useState(null); // { items: [{...sub, checked: bool}] }
+  const [subForm, setSubForm] = useState({ name: "", catId: "exp_other", amount: "", currency: "USD", startDate: todayStr() });
+  const [showSubForm, setShowSubForm] = useState(false);
+  const [journalOpen, setJournalOpen] = useState(false);
+  const [showAllSubs, setShowAllSubs] = useState(false);
+  const [revokeConfirm, setRevokeConfirm] = useState(null); // { id, name, xp }
+  const [toolRevokeConfirm, setToolRevokeConfirm] = useState(null); // { skillId, tool }
+  const [projectDeleteConfirm, setProjectDeleteConfirm] = useState(null); // index
   const [projects, setProjects] = useState(saved?.projects ?? DEFAULT_PROJECTS);
+  const [projectCategory, setProjectCategory] = useState("ai");
+  const [tasksDoneOpen, setTasksDoneOpen] = useState(false);
+  const [goalsDoneOpen, setGoalsDoneOpen] = useState(false);
+  const [planDoneOpen, setPlanDoneOpen] = useState(false);
+  const [donePeriodsCollapsed, setDonePeriodsCollapsed] = useState({});
   const [projectInput, setProjectInput] = useState("");
+  const [projectCompletionXP, setProjectCompletionXP] = useState(200);
   const [sessions, setSessions] = useState(saved?.sessions ?? DEFAULT_SESSIONS);
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [activeDays, setActiveDays] = useState(saved?.activeDays ?? []);
+  const [goals, setGoals] = useState(saved?.goals ?? DEFAULT_GOALS);
+  const [plan, setPlan] = useState(() => {
+    const raw = saved?.plan ?? DEFAULT_PLAN;
+    // migrate old priority-based tasks to type+urgency
+    const urgencyMap = { now: "now", soon: "soon", later: "later", scale: "later" };
+    return raw.map(t => t.type ? t : { ...t, type: "other", urgency: urgencyMap[t.priority] ?? "later" });
+  });
+  const [progressLog, setProgressLog] = useState(saved?.progressLog ?? []);
+  const [metricLog, setMetricLog] = useState(saved?.metricLog ?? []);
+  const [progressInput, setProgressInput] = useState("");
+  const [progressDate, setProgressDate] = useState(todayStr());
+  const [progressTags, setProgressTags] = useState([]);
+  const [progressShowAll, setProgressShowAll] = useState(false);
+  const [progressEditId, setProgressEditId] = useState(null);
+  const [progressEditText, setProgressEditText] = useState("");
+  const [todayXP, setTodayXP] = useState(() => {
+    const s = saved?.todayXP;
+    if (s?.date === todayStr()) {
+      const maxPossible = saved?.totalXP ?? 0;
+      return { ...s, total: Math.min(s.total, maxPossible) };
+    }
+    return { date: todayStr(), total: 0 };
+  });
+  const [activeTab, setActiveTab] = useState(() => sessionStorage.getItem("ai_tracker_tab") ?? "dashboard");
   const [selectedSkill, setSelectedSkill] = useState(null);
+  const [selectedSkillTask, setSelectedSkillTask] = useState(null);
+  const [skillTasksData, setSkillTasksData] = useState(saved?.skillTasksData ?? {});
+  const [skillTaskInputs, setSkillTaskInputs] = useState({});
+  const [learnTime, setLearnTime] = useState(saved?.learnTime ?? { education: 0, business: 0, edu_videos: 0 });
+  const [learnTimeInputs, setLearnTimeInputs] = useState({ education: "", business: "", edu_videos: "" });
   const [notification, setNotification] = useState(null);
+  const [achieveToasts, setAchieveToasts] = useState([]);
+  const [floats, setFloats] = useState([]);
+  const [packInputs, setPackInputs] = useState({});
+  const [todayActivity, setTodayActivity] = useState(() => {
+    const saved_ta = (() => { try { return JSON.parse(localStorage.getItem("ai_tracker_today_act") ?? "null"); } catch { return null; } })();
+    return (saved_ta?.date === todayStr()) ? saved_ta.data : {};
+  });
   const [unlockedAchievements, setUnlockedAchievements] = useState(saved?.unlockedAchievements ?? ["oxford_dev"]);
+  const [achievementDates, setAchievementDates] = useState(saved?.achievementDates ?? { oxford_dev: "2026-01-01" });
+  const [goalInput, setGoalInput] = useState("");
+  const [goalPriority, setGoalPriority] = useState("important");
+  const [goalEditId, setGoalEditId] = useState(null);
+  const [goalEditText, setGoalEditText] = useState("");
+  const [goalXP, setGoalXP] = useState(100);
+  const [goalEditXP, setGoalEditXP] = useState(100);
+  const [longGoals, setLongGoals] = useState(saved?.longGoals ?? DEFAULT_LONG_GOALS);
+  const [longGoalEpoch, setLongGoalEpoch] = useState(() => {
+    const s = saved?.longGoalEpoch;
+    if (s) return s;
+    const now = new Date();
+    return {
+      weekStart: fmtShort(getWeekMonday(now)),
+      monthKey: `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`,
+      yearKey: `${now.getFullYear()}`,
+    };
+  });
+  const [longGoalInput, setLongGoalInput] = useState("");
+  const [longGoalPeriod, setLongGoalPeriod] = useState("month_cur");
+  const [longGoalXP, setLongGoalXP] = useState(200);
+  const [longGoalEditId, setLongGoalEditId] = useState(null);
+  const [longGoalEditText, setLongGoalEditText] = useState("");
+  const [longGoalEditXP, setLongGoalEditXP] = useState(200);
+  const [planInput, setPlanInput] = useState("");
+  const [planType, setPlanType] = useState("other");
+  const [planUrgency, setPlanUrgency] = useState("now");
+  const [planEditId, setPlanEditId] = useState(null);
+  const [planEditText, setPlanEditText] = useState("");
+  const [planXP, setPlanXP] = useState(75);
+  const [planEditXP, setPlanEditXP] = useState(75);
+  const [goalsSubTab, setGoalsSubTab] = useState("tasks");
+  const [focusFilter, setFocusFilter] = useState("pinned");
+
+  // AI Chat Widget state
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiMessages, setAiMessages] = useState(saved?.aiMessages ?? []);
+  const [aiInput, setAiInput] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiModel, setAiModel] = useState(saved?.aiModel ?? "gpt-4o-mini");
+  const [aiApiKeys, setAiApiKeys] = useState(saved?.aiApiKeys ?? { openai: "", anthropic: "", gemini: "" });
+  const [githubSync, setGithubSync] = useState(saved?.githubSync ?? { user: "", token: "", lastSync: null, totalLines: 0, repos: [] });
+  const [ghPanelOpen, setGhPanelOpen] = useState(false);
+  const [ghSyncing, setGhSyncing] = useState(false);
+  const [ghSyncMsg, setGhSyncMsg] = useState("");
+  const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
+  const [aiAttachments, setAiAttachments] = useState([]);
+  const [aiModelOpen, setAiModelOpen] = useState(false);
+  const [aiDropPos, setAiDropPos] = useState(null);
+  const [aiAvailModels, setAiAvailModels] = useState(null);
+  const aiMsgsRef = useRef(null);
+  const dragRef = useRef({});
+
+  const TAB_IDS = ["dashboard", "goalsplan", "projects", "tools", "skillstasks", "achievements", "finances", "sessions", "progress", "stats"];
 
   useEffect(() => {
-    const state = { skillData, totalXP, income, projects, unlockedAchievements, sessions };
+    const now = new Date();
+    const curWeekStart = fmtShort(getWeekMonday(now));
+    const curMonthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+    const curYearKey = `${now.getFullYear()}`;
+
+    setLongGoals(prev => prev.map(g => {
+      // migrate old format
+      let p = g.period;
+      if (p === "year") p = "year_cur";
+      if (p === "month") p = "month_cur";
+      return p !== g.period ? { ...g, period: p } : g;
+    }));
+
+    setLongGoalEpoch(prev => {
+      const updates = {};
+      if (prev.weekStart < curWeekStart) {
+        updates.weekStart = curWeekStart;
+        setLongGoals(gs => gs.map(g =>
+          g.period === "week_next" ? { ...g, period: "week_cur" } : g
+        ));
+      }
+      if (prev.monthKey < curMonthKey) {
+        updates.monthKey = curMonthKey;
+        setLongGoals(gs => gs.map(g =>
+          g.period === "month_next" ? { ...g, period: "month_cur" } : g
+        ));
+      }
+      if (prev.yearKey < curYearKey) {
+        updates.yearKey = curYearKey;
+        setLongGoals(gs => gs.map(g =>
+          g.period === "year_next" ? { ...g, period: "year_cur" } : g
+        ));
+      }
+      return Object.keys(updates).length ? { ...prev, ...updates } : prev;
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const state = { skillData, totalXP, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, longGoalEpoch, plan, aiMessages, aiModel, aiApiKeys, githubSync, progressLog, metricLog, todayXP, skillTasksData, learnTime };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [skillData, totalXP, income, projects, unlockedAchievements, sessions]);
+  }, [skillData, totalXP, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, longGoalEpoch, plan, aiMessages, aiModel, aiApiKeys, githubSync, progressLog, metricLog, todayXP, skillTasksData, learnTime]);
+
+  useEffect(() => {
+    localStorage.setItem("ai_tracker_today_act", JSON.stringify({ date: todayStr(), data: todayActivity }));
+  }, [todayActivity]);
+
+  // Computed totals in USD
+  const toUSD = useCallback((amount, currency) => currency === "UAH" ? amount / uahRate : amount, [uahRate]);
+  const totalIncome = useMemo(() => incomeEntries.reduce((s, e) => s + toUSD(e.amount, e.currency), 0), [incomeEntries, toUSD]);
+  const totalExpenses = useMemo(() => expenseEntries.reduce((s, e) => s + toUSD(e.amount, e.currency), 0), [expenseEntries, toUSD]);
+
+  // Auto-fetch UAH rate from PrivatBank when opening Finances tab (if stale > 1h)
+  const fetchRate = useCallback(async () => {
+    setRateFetching(true);
+    try {
+      // Primary: open.er-api.com (free, no auth, CORS-friendly)
+      const res = await fetch("https://open.er-api.com/v6/latest/USD");
+      const data = await res.json();
+      if (data?.rates?.UAH) {
+        setUahRate(+data.rates.UAH.toFixed(2));
+        setUahRateUpdatedAt(new Date().toISOString());
+        setRateFetching(false);
+        return;
+      }
+    } catch (_) {}
+    try {
+      // Fallback: frankfurter.app
+      const res2 = await fetch("https://api.frankfurter.app/latest?to=UAH");
+      const data2 = await res2.json();
+      if (data2?.rates?.UAH) {
+        setUahRate(+data2.rates.UAH.toFixed(2));
+        setUahRateUpdatedAt(new Date().toISOString());
+      }
+    } catch (_) {}
+    setRateFetching(false);
+  }, []);
+
+  useEffect(() => {
+    if (activeTab !== "finances") return;
+    const isStale = !uahRateUpdatedAt || (Date.now() - new Date(uahRateUpdatedAt).getTime()) > 60 * 60 * 1000;
+    if (isStale) fetchRate();
+    // Prompt for subscriptions whose billing day has arrived this month
+    const now = new Date();
+    const currentYM = now.toISOString().slice(0, 7);
+    const todayDay = now.getDate();
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const subsToPrompt = subscriptions.filter(s => {
+      if (s.active === false || s.lastBilledYM === currentYM) return false;
+      // if billing day exceeds days in this month, treat as last day of month
+      const effectiveDay = Math.min(s.billingDay ?? 1, daysInMonth);
+      return todayDay >= effectiveDay;
+    });
+    if (subsToPrompt.length > 0) {
+      setSubPrompt({ items: subsToPrompt.map(s => ({ ...s, checked: true })) });
+    }
+  }, [activeTab]); // eslint-disable-line
+
+  // Tab key cycles through navigation tabs
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key !== "Tab" || e.target.matches("input, textarea, button")) return;
+      e.preventDefault();
+      setActiveTab(prev => {
+        const idx = TAB_IDS.indexOf(prev);
+        const next = e.shiftKey
+          ? (idx - 1 + TAB_IDS.length) % TAB_IDS.length
+          : (idx + 1) % TAB_IDS.length;
+        return TAB_IDS[next];
+      });
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  useEffect(() => { sessionStorage.setItem("ai_tracker_tab", activeTab); }, [activeTab]);
+
+  useEffect(() => {
+    if (aiOpen && aiMsgsRef.current) {
+      aiMsgsRef.current.scrollTop = aiMsgsRef.current.scrollHeight;
+    }
+  }, [aiOpen, aiMessages]);
+
+  // On mount: clean up any data before APP_START_DATE (reset to fresh start)
+  useEffect(() => {
+    setSessions(prev => ({ ...prev, dates: prev.dates.filter(d => d >= APP_START_DATE) }));
+    setActiveDays(prev => prev.filter(d => d >= APP_START_DATE));
+  }, []);
 
   const totalLevel = calcLevel(totalXP);
   const curLevelXP = xpForLevel(totalLevel);
@@ -114,40 +1198,300 @@ export default function AITracker() {
   const totalTools = Object.values(skillData).flatMap(s => s.unlockedTools).length;
 
   const streak = useMemo(() => calcStreak(sessions.dates), [sessions.dates]);
+  const longestStreak = useMemo(() => calcLongestStreak(sessions.dates), [sessions.dates]);
   const monthSessions = useMemo(() => sessionsThisMonth(sessions.dates), [sessions.dates]);
   const doneToday = sessions.dates.includes(todayStr());
+
+  // XP за сьогодні — рахуємо з журналу XP + активності (єдине джерело правди),
+  // щоб верхня панель не розходилася з «Джерелами XP».
+  const todayXpTotal = useMemo(() => {
+    const today = todayStr();
+    const actToday = ACTIVITY_DEFS.reduce((s, d) => s + (todayActivity[d.key] ?? 0) * d.xp, 0);
+    const logToday = xpLog.filter(e => e.date === today && e.source !== "activity").reduce((s, e) => s + e.amount, 0);
+    return Math.max(0, actToday + logToday);
+  }, [xpLog, todayActivity]);
   const heatmapDays = useMemo(() => lastNDays(56), []);
   const sessionSet = useMemo(() => new Set(sessions.dates), [sessions.dates]);
+  const totalActiveDays = activeDays.length;
+  const daysSinceStart = useMemo(() => {
+    const diff = new Date(todayStr()) - new Date(APP_START_DATE);
+    return Math.max(1, Math.floor(diff / 86400000) + 1);
+  }, []);
+  const daysPassedThisMonth = new Date().getDate();
+  const daysInCurrentMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
 
   const showNotif = useCallback((msg, type = "xp") => {
     setNotification({ msg, type, id: Date.now() });
     setTimeout(() => setNotification(null), 2800);
   }, []);
 
+  const showAchievementToast = useCallback((ach) => {
+    const tid = Date.now() + Math.random();
+    setAchieveToasts(prev => [...prev.slice(-3), { id: tid, dying: false, ...ach }]);
+    setTimeout(() => setAchieveToasts(prev => prev.map(t => t.id === tid ? { ...t, dying: true } : t)), 3800);
+    setTimeout(() => setAchieveToasts(prev => prev.filter(t => t.id !== tid)), 4300);
+  }, []);
+
+  const addFloat = useCallback((key, text, color) => {
+    const fid = Date.now() + Math.random();
+    setFloats(prev => [...prev.slice(-8), { id: fid, key, text, color }]);
+    setTimeout(() => setFloats(prev => prev.filter(f => f.id !== fid)), 900);
+  }, []);
+
+  const recordTodayActivity = useCallback((key, delta) => {
+    setTodayActivity(prev => ({ ...prev, [key]: Math.max(0, (prev[key] ?? 0) + delta) }));
+  }, []);
+
+  const learnTimeRef = useRef(learnTime);
+  useEffect(() => { learnTimeRef.current = learnTime; }, [learnTime]);
+
+  const skillTasksRef = useRef(skillTasksData);
+  useEffect(() => { skillTasksRef.current = skillTasksData; }, [skillTasksData]);
+
+  // Скільки XP МАЄ давати активність прямо зараз (рахунок × ставка).
+  const computeCorrectActivityXP = useCallback(() => {
+    return ACTIVITY_DEFS.reduce((sum, d) => {
+      const cnt = d.kind === "learn"
+        ? (learnTimeRef.current[d.key] ?? 0)
+        : (skillTasksRef.current[d.key]?.count ?? 0);
+      return sum + cnt * d.xp;
+    }, 0);
+  }, []);
+
+  // Узгодження: тут — після computeCorrectActivityXP, щоб уникнути TDZ.
+  const reconciledRef = useRef(false);
+  useEffect(() => {
+    if (reconciledRef.current) return;
+    reconciledRef.current = true;
+    const correct = computeCorrectActivityXP();
+    if (activityXP == null) {
+      setActivityXP(correct);
+    } else if (activityXP !== correct) {
+      setTotalXP(t => Math.max(0, t + (correct - activityXP)));
+      setActivityXP(correct);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Журнал XP: записує кожну зміну з джерелом, щоб у статистиці було видно «що і скільки».
+  const logXP = useCallback((amount, source, label = "") => {
+    if (!amount) return;
+    setXpLog(prev => [{ id: Date.now() + Math.random(), ts: Date.now(), date: todayStr(), amount, source, label }, ...prev].slice(0, 600));
+  }, []);
+
   const checkAchievements = useCallback((tools, inc, proj, sd, currentUnlocked, currentStreak, totalSessions) => {
+    const lt = learnTimeRef.current;
+    const learnHours = ((lt.education ?? 0) + (lt.business ?? 0)) * 0.5;
+    const codeLines = skillTasksRef.current["code_lines_written"]?.count ?? 0;
     const newlyUnlocked = [];
     let bonusXP = 0;
     ACHIEVEMENTS.forEach(a => {
       if (currentUnlocked.includes(a.id)) return;
-      if (a.check(tools, inc, proj, sd, currentStreak, totalSessions)) {
+      if (a.check(tools, inc, proj, sd, currentStreak, totalSessions, learnHours, codeLines)) {
         newlyUnlocked.push(a.id);
         bonusXP += a.xp;
       }
     });
     if (newlyUnlocked.length > 0) {
+      const today = todayStr();
       setUnlockedAchievements(prev => [...prev, ...newlyUnlocked]);
+      setAchievementDates(prev => {
+        const next = { ...prev };
+        newlyUnlocked.forEach(id => { next[id] = today; });
+        return next;
+      });
       setTotalXP(prev => prev + bonusXP);
+      logXP(bonusXP, "achievement", "досягнення");
       newlyUnlocked.forEach((id, idx) => {
         const a = ACHIEVEMENTS.find(x => x.id === id);
-        setTimeout(() => showNotif(`🏆 ${a.name} розблоковано!`, "achievement"), 600 + idx * 900);
+        setTimeout(() => showAchievementToast(a), 500 + idx * 1000);
       });
     }
-  }, [showNotif]);
+  }, [showAchievementToast, logXP]);
 
-  const gainXP = useCallback((amount, label = "") => {
+  const renderDoneSection = (items, { sectionKey, open, setOpen, onUndo, onDelete, labelFn, xpFn }) => {
+    if (!items.length) return null;
+    const groups = {};
+    const groupOrder = [];
+    items.forEach(item => {
+      const p = getItemPeriod(item.completedAt);
+      if (!groups[p.key]) { groups[p.key] = { label: p.label, key: p.key, items: [] }; groupOrder.push(p.key); }
+      groups[p.key].items.push(item);
+    });
+    groupOrder.sort();
+    return (
+      <div style={{ background: "rgba(5,3,1,0.82)", border: "1px solid rgba(0,255,136,0.22)", borderRadius: 4, overflow: "hidden" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", cursor: "pointer", background: open ? "rgba(0,255,136,0.07)" : "rgba(0,255,136,0.03)", userSelect: "none" }} onClick={() => setOpen(v => !v)}>
+          <span style={{ fontSize: 12, color: "#00ff88", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5 }}>✓ Досягнуто</span>
+          <span style={{ fontSize: 11, background: "rgba(0,255,136,0.12)", border: "1px solid rgba(0,255,136,0.25)", color: "#00ff88", padding: "1px 8px", borderRadius: 20, fontFamily: "'Space Mono',monospace" }}>{items.length}</span>
+          <span style={{ marginLeft: "auto", color: "#00aa55", fontSize: 13 }}>{open ? "▲" : "▼"}</span>
+        </div>
+        {open && (
+          <div style={{ maxHeight: 420, overflowY: "auto", paddingBottom: 6 }}>
+            {groupOrder.map(gk => {
+              const g = groups[gk];
+              const collapsed = donePeriodsCollapsed[`${sectionKey}_${gk}`];
+              return (
+                <div key={gk}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 16px 5px", cursor: "pointer", borderTop: "1px solid rgba(0,255,136,0.07)" }}
+                    onClick={() => setDonePeriodsCollapsed(prev => ({ ...prev, [`${sectionKey}_${gk}`]: !collapsed }))}>
+                    <span style={{ fontSize: 10, color: "#3a6a3a", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2 }}>{g.label}</span>
+                    <span style={{ fontSize: 10, color: "#2a4a2a" }}>· {g.items.length}</span>
+                    <span style={{ color: "#2a4a2a", fontSize: 10, marginLeft: "auto" }}>{collapsed ? "▶" : "▼"}</span>
+                  </div>
+                  {!collapsed && g.items.map((item, ii) => {
+                    const xp = xpFn?.(item);
+                    return (
+                      <div key={item.id ?? `${sectionKey}_${ii}`} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 16px 6px 28px" }}>
+                        <button onClick={() => onUndo(item)}
+                          style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid #00ff88", background: "#00ff88", cursor: "pointer", flexShrink: 0, fontSize: 9, color: "#000", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>✓</button>
+                        <span style={{ flex: 1, color: "#5a6a50", fontSize: 12, textDecoration: "line-through", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{labelFn(item)}</span>
+                        {xp > 0 && <span style={{ fontSize: 10, color: "#3a5030", fontFamily: "'Space Mono',monospace", flexShrink: 0 }}>+{xp} XP</span>}
+                        <button onClick={() => onDelete(item)}
+                          style={{ background: "none", border: "none", color: "#4a4030", cursor: "pointer", fontSize: 15, padding: "0 2px", flexShrink: 0 }}>×</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const gainXP = useCallback((amount, label = "", source = "other") => {
     setTotalXP(prev => prev + amount);
+    setTodayXP(prev => prev.date === todayStr() ? { ...prev, total: prev.total + amount } : { date: todayStr(), total: amount });
+    logXP(amount, source, label);
     showNotif(`+${amount} XP ${label}`, "xp");
-  }, [showNotif]);
+  }, [showNotif, logXP]);
+
+  const loseXP = useCallback((amount, source = "other", label = "") => {
+    setTotalXP(prev => Math.max(0, prev - amount));
+    setTodayXP(prev => prev.date === todayStr() ? { ...prev, total: Math.max(0, prev.total - amount) } : prev);
+    logXP(-amount, source, label);
+  }, [logXP]);
+
+  const recordActiveDay = useCallback(() => {
+    const today = todayStr();
+    setActiveDays(prev => prev.includes(today) ? prev : [...prev, today]);
+  }, []);
+
+  const claimProgressiveMilestone = useCallback((catId, taskId, milestoneIdx, xp) => {
+    const key = `${catId}_${taskId}`;
+    setSkillTasksData(prev => {
+      const existing = prev[key] || { count: 0, claimed: [] };
+      if (existing.claimed.includes(milestoneIdx)) return prev;
+      return { ...prev, [key]: { ...existing, claimed: [...existing.claimed, milestoneIdx] } };
+    });
+    gainXP(xp, "навичка", "skill");
+    recordActiveDay();
+  }, [gainXP, recordActiveDay]);
+
+  const revokeProgressiveMilestone = useCallback((catId, taskId, milestoneIdx, xp) => {
+    const key = `${catId}_${taskId}`;
+    setSkillTasksData(prev => {
+      const existing = prev[key] || { count: 0, claimed: [] };
+      return { ...prev, [key]: { ...existing, claimed: existing.claimed.filter(i => i !== milestoneIdx) } };
+    });
+    loseXP(xp, "skill", "навичка");
+  }, [loseXP]);
+
+  // Центральне нарахування XP за активність: рахує фактичну (після клампінгу) зміну
+  // лічильника й симетрично нараховує/знімає XP. Тримає activityXP = рахунок × ставка.
+  const applyActivityXP = useCallback((key, effectiveDelta) => {
+    if (effectiveDelta === 0) return;
+    const xp = (ACTIVITY_XP[key] ?? 0) * effectiveDelta;
+    if (xp > 0) gainXP(xp, "активність", "activity");
+    else if (xp < 0) loseXP(-xp, "activity", "активність");
+    setActivityXP(prev => Math.max(0, (prev ?? 0) + xp));
+    if (effectiveDelta > 0) recordActiveDay();
+    recordTodayActivity(key, effectiveDelta);
+  }, [gainXP, loseXP, recordActiveDay, recordTodayActivity]);
+
+  const addProgressiveCount = useCallback((catId, taskId, delta) => {
+    const key = `${catId}_${taskId}`;
+    const cur = skillTasksRef.current[key]?.count ?? 0;
+    const newCount = Math.max(0, cur + delta);
+    const eff = newCount - cur;
+    if (eff === 0) return;
+    const existing = skillTasksRef.current[key] || { count: 0, claimed: [] };
+    const updated = { ...skillTasksRef.current, [key]: { ...existing, count: newCount } };
+    skillTasksRef.current = updated;
+    setSkillTasksData(updated);
+    setMetricLog(prev => [{ ts: Date.now(), date: todayStr(), key, delta: eff }, ...prev].slice(0, 3000));
+    applyActivityXP(key, eff);
+  }, [applyActivityXP]);
+
+  const addLearnTime = useCallback((kind, delta) => {
+    const cur = learnTimeRef.current[kind] ?? 0;
+    const newVal = Math.max(0, cur + delta);
+    const eff = newVal - cur;
+    if (eff === 0) return;
+    const next = { ...learnTimeRef.current, [kind]: newVal };
+    learnTimeRef.current = next;
+    setLearnTime(next);
+    setMetricLog(prev => [{ ts: Date.now(), date: todayStr(), key: kind, delta: eff }, ...prev].slice(0, 3000));
+    applyActivityXP(kind, eff);
+    if (eff > 0) {
+      setUnlockedAchievements(ua => {
+        const learnHours = ((next.education ?? 0) + (next.business ?? 0)) * 0.5;
+        const toUnlock = [];
+        let bonus = 0;
+        ACHIEVEMENTS.forEach(a => {
+          if (a.group !== "learning" || ua.includes(a.id)) return;
+          if (a.check(0, 0, 0, {}, 0, 0, learnHours)) { toUnlock.push(a.id); bonus += a.xp; }
+        });
+        if (toUnlock.length) {
+          setTotalXP(p => p + bonus);
+          logXP(bonus, "achievement", "досягнення");
+          toUnlock.forEach((id, idx) => {
+            const a = ACHIEVEMENTS.find(x => x.id === id);
+            setTimeout(() => showAchievementToast(a), 500 + idx * 1000);
+          });
+          return [...ua, ...toUnlock];
+        }
+        return ua;
+      });
+    }
+  }, [applyActivityXP, showAchievementToast, logXP]);
+
+  const setProgressiveCount = useCallback((catId, taskId, value) => {
+    const key = `${catId}_${taskId}`;
+    const n = Math.max(0, parseInt(value) || 0);
+    const cur = skillTasksRef.current[key]?.count ?? 0;
+    const eff = n - cur;
+    if (eff === 0) return;
+    const existing = skillTasksRef.current[key] || { count: 0, claimed: [] };
+    const updated = { ...skillTasksRef.current, [key]: { ...existing, count: n } };
+    skillTasksRef.current = updated;
+    setSkillTasksData(updated);
+    // Лише активні трекери дають XP (image/video/music). Решта — просто лічильники.
+    if (ACTIVITY_XP[key] != null) applyActivityXP(key, eff);
+  }, [applyActivityXP]);
+
+  const claimOneTimeTask = useCallback((catId, taskId, xp) => {
+    const key = `${catId}_${taskId}`;
+    setSkillTasksData(prev => {
+      if (prev[key] === true) return prev;
+      return { ...prev, [key]: true };
+    });
+    gainXP(xp, "навичка", "skill");
+    recordActiveDay();
+  }, [gainXP, recordActiveDay]);
+
+  const revokeOneTimeTask = useCallback((catId, taskId, xp) => {
+    const key = `${catId}_${taskId}`;
+    setSkillTasksData(prev => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    loseXP(xp, "skill", "навичка");
+  }, [loseXP]);
 
   const learnTool = useCallback((skillId, tool) => {
     setSkillData(prev => {
@@ -155,39 +1499,102 @@ export default function AITracker() {
       if (current.includes(tool)) return prev;
       const updated = { ...prev, [skillId]: { unlockedTools: [...current, tool] } };
       const newTotal = Object.values(updated).flatMap(s => s.unlockedTools).length;
-      gainXP(100, `(${tool})`);
+      gainXP(100, `(${tool})`, "skill");
+      recordActiveDay();
       setUnlockedAchievements(ua => {
-        checkAchievements(newTotal, income, projects.length, updated, ua, streak, sessions.dates.length);
+        checkAchievements(newTotal, totalIncome, projects.length, updated, ua, streak, sessions.dates.length);
         return ua;
       });
       return updated;
     });
-  }, [gainXP, checkAchievements, income, projects, streak, sessions.dates.length]);
+  }, [gainXP, recordActiveDay, checkAchievements, totalIncome, projects, streak, sessions.dates.length]);
 
-  const addIncome = useCallback(() => {
-    const amt = parseFloat(incomeInput);
+  const addIncomeEntry = useCallback(() => {
+    const amt = parseFloat(incForm.amount);
     if (!amt || amt <= 0) return;
-    const newIncome = income + amt;
-    setIncome(newIncome);
-    gainXP(Math.ceil(amt * 3), `(+$${amt})`);
-    setIncomeInput("");
-    setUnlockedAchievements(ua => {
-      checkAchievements(totalTools, newIncome, projects.length, skillData, ua, streak, sessions.dates.length);
-      return ua;
+    const amtUSD = incForm.currency === "UAH" ? amt / uahRate : amt;
+    const xpPaid = Math.ceil(amtUSD * 3);
+    const entry = { id: `inc_${Date.now()}`, catId: incForm.catId, amount: amt, currency: incForm.currency, date: incForm.date || todayStr(), note: incForm.note, xpPaid };
+    setIncomeEntries(prev => {
+      const next = [...prev, entry];
+      const newTotal = next.reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
+      gainXP(xpPaid, `(+$${amtUSD.toFixed(2)})`, "income");
+      recordActiveDay();
+      setUnlockedAchievements(ua => {
+        checkAchievements(totalTools, newTotal, projects.length, skillData, ua, streak, sessions.dates.length);
+        return ua;
+      });
+      return next;
     });
-  }, [incomeInput, income, gainXP, checkAchievements, totalTools, projects, skillData, streak, sessions.dates.length]);
+    setIncForm(f => ({ ...f, amount: "", note: "", date: todayStr() }));
+  }, [incForm, uahRate, toUSD, gainXP, recordActiveDay, checkAchievements, totalTools, projects, skillData, streak, sessions.dates.length]);
+
+  // Delete entry with 5s undo window
+  const startDelete = useCallback((id, type) => {
+    const entries = type === "income" ? incomeEntries : expenseEntries;
+    const entry = entries.find(e => e.id === id);
+    if (!entry) return;
+    if (type === "income") setIncomeEntries(prev => prev.filter(e => e.id !== id));
+    else setExpenseEntries(prev => prev.filter(e => e.id !== id));
+    setPendingDelete(prev => {
+      if (prev?.timerId) clearTimeout(prev.timerId);
+      const timerId = setTimeout(() => setPendingDelete(null), 5000);
+      return { id, type, entry, xpPaid: 0, timerId };
+    });
+  }, [incomeEntries, expenseEntries]);
+
+  // Refund income entry: remove it + deduct XP
+  const refundIncomeEntry = useCallback((id) => {
+    const entry = incomeEntries.find(e => e.id === id);
+    if (!entry) return;
+    setIncomeEntries(prev => prev.filter(e => e.id !== id));
+    const xp = entry.xpPaid ?? 0;
+    if (xp > 0) {
+      loseXP(xp, "income", "↩ повернення доходу");
+      showNotif(`↩ Повернуто −${xp} XP`, "xp");
+    }
+    setPendingDelete(prev => {
+      if (prev?.timerId) clearTimeout(prev.timerId);
+      const timerId = setTimeout(() => setPendingDelete(null), 5000);
+      return { id, type: "income", entry, xpPaid: xp, refund: true, timerId };
+    });
+  }, [incomeEntries, loseXP, showNotif]);
+
+  const undoDelete = useCallback(() => {
+    if (!pendingDelete) return;
+    if (pendingDelete.timerId) clearTimeout(pendingDelete.timerId);
+    if (pendingDelete.type === "income") {
+      setIncomeEntries(prev => [...prev, pendingDelete.entry]);
+      if (pendingDelete.refund && pendingDelete.xpPaid > 0) {
+        gainXP(pendingDelete.xpPaid, "↩ повернено", "income");
+      }
+    } else {
+      setExpenseEntries(prev => [...prev, pendingDelete.entry]);
+    }
+    setPendingDelete(null);
+  }, [pendingDelete, gainXP, showNotif]);
+
+  const addExpenseEntry = useCallback(() => {
+    const amt = parseFloat(expForm.amount);
+    if (!amt || amt <= 0) return;
+    const entry = { id: `exp_${Date.now()}`, catId: expForm.catId, amount: amt, currency: expForm.currency, date: expForm.date || todayStr(), note: expForm.note };
+    setExpenseEntries(prev => [...prev, entry]);
+    setExpForm(f => ({ ...f, amount: "", note: "", date: todayStr() }));
+  }, [expForm]);
 
   const addProject = useCallback(() => {
     if (!projectInput.trim()) return;
-    const newProjects = [...projects, { name: projectInput.trim(), date: new Date().toLocaleDateString("uk-UA") }];
+    const cxp = Math.max(0, parseInt(projectCompletionXP) || 0);
+    const newProjects = [...projects, { name: projectInput.trim(), date: new Date().toLocaleDateString("uk-UA"), status: "in_progress", creationXP: 0, completionXP: cxp, completionXPPaid: false, category: projectCategory }];
     setProjects(newProjects);
-    gainXP(200, `(${projectInput.trim()})`);
+    recordActiveDay();
+    setProjectCompletionXP(200);
     setProjectInput("");
     setUnlockedAchievements(ua => {
-      checkAchievements(totalTools, income, newProjects.length, skillData, ua, streak, sessions.dates.length);
+      checkAchievements(totalTools, totalIncome, newProjects.length, skillData, ua, streak, sessions.dates.length);
       return ua;
     });
-  }, [projectInput, projects, gainXP, checkAchievements, totalTools, income, skillData, streak, sessions.dates.length]);
+  }, [projectInput, projects, gainXP, recordActiveDay, checkAchievements, totalTools, totalIncome, skillData, streak, sessions.dates.length]);
 
   const logSession = useCallback(() => {
     if (doneToday) return;
@@ -196,12 +1603,154 @@ export default function AITracker() {
     const newStreak = calcStreak(newDates);
     const newSessions = { ...sessions, dates: newDates };
     setSessions(newSessions);
-    gainXP(50, "(AI-сесія)");
+    gainXP(5, "(AI-сесія)", "session");
+    recordActiveDay();
     setUnlockedAchievements(ua => {
-      checkAchievements(totalTools, income, projects.length, skillData, ua, newStreak, newDates.length);
+      checkAchievements(totalTools, totalIncome, projects.length, skillData, ua, newStreak, newDates.length);
       return ua;
     });
-  }, [doneToday, sessions, gainXP, checkAchievements, totalTools, income, projects, skillData]);
+  }, [doneToday, sessions, gainXP, recordActiveDay, checkAchievements, totalTools, totalIncome, projects, skillData]);
+
+  // Синхронізація рядків коду з GitHub (усі репозиторії користувача).
+  // Рахуємо фактичні рядки у файлах кожного репо (дерево гілки + raw-вміст).
+  const syncGithubLines = useCallback(async () => {
+    const user = githubSync.user.trim();
+    const token = githubSync.token.trim();
+    if (!user) { setGhSyncMsg("⚠ Вкажи GitHub username"); return; }
+    setGhSyncing(true);
+    setGhSyncMsg("Отримую список репозиторіїв…");
+    const headers = { Accept: "application/vnd.github+json" };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    try {
+      // 1. Список репозиторіїв (з пагінацією)
+      let repos = [];
+      for (let page = 1; page <= 10; page++) {
+        const url = token
+          ? `https://api.github.com/user/repos?per_page=100&affiliation=owner&sort=pushed&page=${page}`
+          : `https://api.github.com/users/${encodeURIComponent(user)}/repos?per_page=100&sort=pushed&page=${page}`;
+        const r = await fetch(url, { headers });
+        if (!r.ok) {
+          if (r.status === 401) throw new Error("Невірний токен (401)");
+          if (r.status === 403) throw new Error("Ліміт запитів GitHub (403) — додай токен");
+          if (r.status === 404) throw new Error("Користувача не знайдено (404)");
+          throw new Error(`GitHub помилка ${r.status}`);
+        }
+        const batch = await r.json();
+        repos = repos.concat(batch);
+        if (batch.length < 100) break;
+      }
+      repos = repos.filter(repo => !repo.fork);
+      if (!repos.length) { setGhSyncMsg("Репозиторіїв не знайдено"); setGhSyncing(false); return; }
+
+      // 2. По кожному репо — рахуємо фактичні рядки у файлах (як показує GitHub),
+      //    через дерево гілки + raw-вміст. Це швидко й детерміновано (без лінивої статистики).
+      //    Кешуємо результат: повторні синки чіпають лише репо, що змінились (pushed_at).
+      const TEXT_EXT = new Set(["js","jsx","ts","tsx","mjs","cjs","html","htm","css","scss","sass","less","py","java","c","cc","cpp","cxx","h","hpp","cs","go","rs","rb","php","swift","kt","kts","json","md","markdown","yml","yaml","xml","toml","ini","cfg","conf","sh","bash","zsh","sql","vue","svelte","astro","txt","r","lua","dart","ex","exs","pl","pm","scala","clj","hs","elm","gradle","properties","gitignore","dockerfile","makefile"]);
+      const SKIP_FILE = new Set(["package-lock.json","yarn.lock","pnpm-lock.yaml","composer.lock","poetry.lock","gemfile.lock","cargo.lock"]);
+      const isTextFile = (path) => {
+        const base = path.split("/").pop().toLowerCase();
+        if (SKIP_FILE.has(base)) return false;
+        if (base.includes(".min.")) return false;
+        const ext = base.includes(".") ? base.split(".").pop() : base;
+        return TEXT_EXT.has(ext);
+      };
+      const countLines = (content) => {
+        const nl = (content.match(/\n/g) || []).length;
+        return content.endsWith("\n") ? nl : nl + (content.length ? 1 : 0);
+      };
+
+      const cache = {};
+      (githubSync.repos || []).forEach(r => { if (r.name) cache[r.name] = { lines: r.lines, pushedAt: r.pushedAt }; });
+      const keepCached = (repo) => {
+        const c = cache[repo.name];
+        if (c && c.lines > 0) { perRepo.push({ name: repo.name, lines: c.lines, pushedAt: c.pushedAt }); totalNet += c.lines; }
+      };
+
+      const perRepo = [];
+      let totalNet = 0;
+      let cachedCount = 0;      // взято з кешу без запиту
+      let rateLimited = false;  // натрапили на 403
+
+      const fetchRaw = async (repo, path) => {
+        const enc = path.split("/").map(encodeURIComponent).join("/");
+        if (repo.private && token) {
+          const r = await fetch(`https://api.github.com/repos/${repo.owner.login}/${repo.name}/contents/${enc}?ref=${encodeURIComponent(repo.default_branch)}`, { headers: { ...headers, Accept: "application/vnd.github.raw" } });
+          if (r.status === 403) { rateLimited = true; return null; }
+          if (!r.ok) return null;
+          return await r.text();
+        }
+        const r = await fetch(`https://raw.githubusercontent.com/${repo.owner.login}/${repo.name}/${encodeURIComponent(repo.default_branch)}/${enc}`);
+        if (!r.ok) return null;
+        return await r.text();
+      };
+
+      for (let i = 0; i < repos.length; i++) {
+        const repo = repos[i];
+        const c = cache[repo.name];
+        // репо не змінилось з минулого синку → беремо з кешу, без запиту
+        if (c && c.pushedAt && c.pushedAt === repo.pushed_at && typeof c.lines === "number") {
+          if (c.lines > 0) { perRepo.push({ name: repo.name, lines: c.lines, pushedAt: repo.pushed_at }); totalNet += c.lines; }
+          cachedCount++;
+          continue;
+        }
+        if (rateLimited) { keepCached(repo); continue; }
+        setGhSyncMsg(`Аналізую ${i + 1}/${repos.length}: ${repo.name}…`);
+
+        // дерево гілки за замовчуванням (1 запит) → список файлів
+        const tr = await fetch(`https://api.github.com/repos/${repo.owner.login}/${repo.name}/git/trees/${encodeURIComponent(repo.default_branch || "main")}?recursive=1`, { headers });
+        if (tr.status === 403) { rateLimited = true; keepCached(repo); continue; }
+        if (!tr.ok) { keepCached(repo); continue; }
+        const tree = await tr.json();
+        const blobs = (tree.tree || []).filter(t => t.type === "blob" && isTextFile(t.path) && (t.size ?? 0) < 1_500_000);
+
+        // рахуємо рядки у файлах з обмеженою паралельністю
+        let repoLines = 0;
+        const queue = [...blobs];
+        const worker = async () => {
+          while (queue.length && !rateLimited) {
+            const b = queue.shift();
+            const content = await fetchRaw(repo, b.path);
+            if (content != null) repoLines += countLines(content);
+          }
+        };
+        await Promise.all(Array.from({ length: Math.min(8, blobs.length) || 1 }, worker));
+
+        if (rateLimited) { keepCached(repo); continue; }
+        if (repoLines > 0) { perRepo.push({ name: repo.name, lines: repoLines, pushedAt: repo.pushed_at }); totalNet += repoLines; }
+      }
+      perRepo.sort((a, b) => b.lines - a.lines);
+
+      // 3. Зберігаємо все, що маємо (включно з кешем), щоб прогрес не губився
+      const haveData = perRepo.length > 0 || cachedCount > 0;
+      if (haveData) {
+        setProgressiveCount("code", "lines_written", totalNet);
+        setGithubSync(prev => ({ ...prev, user, token, lastSync: Date.now(), totalLines: totalNet, repos: perRepo }));
+        setUnlockedAchievements(ua => {
+          checkAchievements(totalTools, totalIncome, projects.length, skillData, ua, streak, sessions.dates.length);
+          return ua;
+        });
+      }
+
+      // 4. Підсумкове повідомлення
+      if (rateLimited) {
+        const hint = token ? "Спробуй ще раз за кілька хвилин." : "Додай Personal Access Token, щоб зняти ліміт.";
+        setGhSyncMsg(`⚠ Ліміт запитів GitHub (403). ${haveData ? `Збережено ${totalNet.toLocaleString()} рядків. ` : ""}${hint}`);
+        setGhSyncing(false);
+        return;
+      }
+      if (!haveData) {
+        setGhSyncMsg(`Не знайшов файлів з кодом у ${repos.length} репо`);
+        setGhSyncing(false);
+        return;
+      }
+      const cacheNote = cachedCount > 0 ? ` · ${cachedCount} з кешу` : "";
+      setGhSyncMsg(`✓ ${totalNet.toLocaleString()} рядків з ${perRepo.length} репо${cacheNote}`);
+    } catch (e) {
+      setGhSyncMsg(`⚠ ${e.message}`);
+    } finally {
+      setGhSyncing(false);
+    }
+  }, [githubSync.user, githubSync.token, githubSync.repos, setProgressiveCount, checkAchievements, totalTools, totalIncome, projects, skillData, streak, sessions.dates]);
 
   const updateMonthlyTarget = useCallback((val) => {
     const t = parseInt(val);
@@ -209,12 +1758,16 @@ export default function AITracker() {
   }, []);
 
   const tabs = [
-    { id: "dashboard", label: "📊 Дашборд" },
-    { id: "sessions", label: "🔥 Сесії" },
-    { id: "skills", label: "🧩 Навички" },
+    { id: "dashboard",    label: "🏠 Головна" },
+    { id: "goalsplan",    label: "🎯 Цілі & план" },
+    { id: "projects",     label: "🚀 Проекти" },
+    { id: "tools",        label: "🛠️ Інструменти" },
+    { id: "skillstasks",  label: "💪 Навички" },
     { id: "achievements", label: "🏆 Досягнення" },
-    { id: "income", label: "💰 Дохід" },
-    { id: "projects", label: "🚀 Проекти" },
+    { id: "finances",     label: "💸 Фінанси" },
+    { id: "sessions",     label: "🔥 Сесії" },
+    { id: "progress",     label: "📝 Прогрес" },
+    { id: "stats",        label: "📊 Статистика" },
   ];
 
   // Heatmap: group days into weeks
@@ -227,11 +1780,11 @@ export default function AITracker() {
   }, [heatmapDays]);
 
   return (
-    <div style={{ fontFamily: "'Courier New', monospace", background: "#080a12", minHeight: "100vh", color: "#e2e8f0" }}>
+    <div style={{ fontFamily: "'Courier New', monospace", background: "transparent", minHeight: "100vh", color: "#e0d8c0" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;800&family=Space+Mono:wght@400;700&display=swap');
-        .tab-btn { transition: all 0.18s; }
-        .tab-btn:hover { transform: translateY(-2px); }
+
+        .tab-btn { transition: color 0.18s, border-color 0.18s; }
         .skill-card { transition: all 0.18s; }
         .skill-card:hover { transform: translateY(-3px); }
         .tool-chip { transition: all 0.15s; }
@@ -240,110 +1793,578 @@ export default function AITracker() {
         .act-btn:hover { transform: translateY(-1px); opacity: 0.9; }
         .checkin-btn { transition: all 0.2s; }
         .checkin-btn:not(:disabled):hover { transform: scale(1.03); box-shadow: 0 0 40px rgba(0,255,136,0.5) !important; }
+
         @keyframes slideIn { from { transform: translateX(120px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
-        input::placeholder { color: #475569; }
-        input:focus { outline: none; border-color: rgba(0,255,136,0.4) !important; }
+        @keyframes wfPulse { 0%,100%{opacity:1;box-shadow:0 0 16px rgba(201,168,76,0.4)} 50%{opacity:0.85;box-shadow:0 0 28px rgba(201,168,76,0.7)} }
+        @keyframes legendaryGlow { 0%,100%{box-shadow:0 0 28px rgba(255,183,0,0.55),0 0 60px rgba(255,140,0,0.20),inset 0 0 30px rgba(255,183,0,0.06)} 50%{box-shadow:0 0 48px rgba(255,183,0,0.80),0 0 90px rgba(255,140,0,0.35),inset 0 0 50px rgba(255,183,0,0.12)} }
+        @keyframes legendaryShimmer { 0%{background-position:200% center} 100%{background-position:-200% center} }
+        @keyframes legendaryBorder { 0%,100%{border-color:rgba(255,183,0,0.60)} 33%{border-color:rgba(255,220,80,0.90)} 66%{border-color:rgba(255,140,0,0.70)} }
+        @keyframes legendaryStar { 0%,100%{opacity:0;transform:scale(0)} 50%{opacity:1;transform:scale(1)} }
+        .legendary-card { animation: legendaryGlow 2.8s ease-in-out infinite, legendaryBorder 3.5s ease-in-out infinite !important; }
+        .legendary-title { background: linear-gradient(90deg,#ffb700,#ffe566,#ff8c00,#ffb700); background-size:300% auto; -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; animation: legendaryShimmer 3s linear infinite; }
+        .legendary-badge { background: linear-gradient(90deg,#7a4a00,#ffb700,#7a4a00) !important; background-size:200% auto !important; animation: legendaryShimmer 2s linear infinite !important; color:#000 !important; border:none !important; }
+
+        input::placeholder { color: #5a4a30; }
+        input:focus { outline: none; border-color: rgba(201,168,76,0.6) !important; box-shadow: 0 0 0 1px rgba(201,168,76,0.25) !important; }
+        select option { background: #0e0a04; color: #e0d8c0; }
+
+        /* Warframe panel chrome */
+        .wf-panel {
+          position: relative;
+          background: rgba(5,3,1,0.82);
+          border: 1px solid rgba(201,168,76,0.22);
+          border-top: 2px solid rgba(201,168,76,0.7);
+          border-radius: 4px;
+        }
+        .wf-panel::before, .wf-panel::after {
+          content: '';
+          position: absolute;
+          width: 10px; height: 10px;
+        }
+        .wf-panel::before {
+          bottom: -1px; right: -1px;
+          border-bottom: 2px solid rgba(201,168,76,0.4);
+          border-right: 2px solid rgba(201,168,76,0.4);
+        }
+        .wf-panel::after {
+          bottom: -1px; left: -1px;
+          border-bottom: 2px solid rgba(201,168,76,0.4);
+          border-left: 2px solid rgba(201,168,76,0.4);
+        }
+
+        /* Warframe mod card style */
+        .wf-card {
+          position: relative;
+          background: linear-gradient(160deg, rgba(12,9,3,0.95) 0%, rgba(8,6,2,0.92) 100%);
+          border: 1px solid rgba(201,168,76,0.25);
+          border-top: 2px solid rgba(201,168,76,0.6);
+          border-radius: 4px;
+          overflow: hidden;
+        }
+        .wf-card::before {
+          content: '';
+          position: absolute;
+          top: 0; left: 0; right: 0;
+          height: 40px;
+          background: linear-gradient(180deg, rgba(201,168,76,0.06) 0%, transparent 100%);
+          pointer-events: none;
+        }
+
+        /* Section title divider */
+        .wf-sec {
+          font-family: 'Exo 2',sans-serif;
+          font-size: 11px; font-weight: 700;
+          color: #c9a84c;
+          text-transform: uppercase; letter-spacing: 3px;
+          padding-bottom: 10px;
+          margin-bottom: 14px;
+          border-bottom: 1px solid rgba(201,168,76,0.25);
+        }
+
+        /* Warframe stat row */
+        .wf-stat-row {
+          display: flex; justify-content: space-between; align-items: center;
+          padding: 6px 0;
+          border-bottom: 1px solid rgba(201,168,76,0.08);
+          font-size: 13px;
+        }
+        .wf-stat-row:last-child { border-bottom: none; }
+        .wf-stat-label { color: #9a8a60; text-transform: uppercase; letter-spacing: 1px; font-size: 11px; }
+        .wf-stat-val { color: #e0d8c0; font-family: 'Exo 2',sans-serif; font-weight: 700; }
+
+        /* Floating +N animation */
+        @keyframes floatUp {
+          0%   { opacity:1; transform: translateY(0) scale(1.1); }
+          60%  { opacity:0.9; transform: translateY(-28px) scale(1.25); }
+          100% { opacity:0; transform: translateY(-54px) scale(0.9); }
+        }
+        .float-text {
+          position: absolute;
+          pointer-events: none;
+          font-family: 'Space Mono',monospace;
+          font-weight: 800;
+          font-size: 22px;
+          animation: floatUp 0.85s ease-out forwards;
+          z-index: 100;
+          text-shadow: 0 0 12px currentColor;
+          white-space: nowrap;
+          left: 50%; transform: translateX(-50%);
+          bottom: 48px;
+        }
+
+        /* Big + button Cookie-Clicker style */
+        .act-plus {
+          border: none;
+          cursor: pointer;
+          font-weight: 900;
+          font-size: 28px;
+          line-height: 1;
+          transition: transform 0.08s, box-shadow 0.08s;
+          user-select: none;
+        }
+        .act-plus:active { transform: scale(0.93) translateY(2px) !important; }
+
+        /* Achievement toast (bottom-right) */
+        @keyframes achIn  { from { opacity:0; transform: translateX(120px); } to { opacity:1; transform: translateX(0); } }
+        @keyframes achOut { from { opacity:1; transform: translateX(0);      } to { opacity:0; transform: translateX(80px); } }
+        .ach-toast        { animation: achIn 0.35s cubic-bezier(.22,.68,0,1.2) forwards; }
+        .ach-toast.dying  { animation: achOut 0.4s ease-in forwards; }
       `}</style>
 
-      <div style={{ position: "fixed", inset: 0, zIndex: 0, backgroundImage: "linear-gradient(rgba(0,255,136,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,136,0.025) 1px,transparent 1px)", backgroundSize: "44px 44px", pointerEvents: "none" }} />
+      <FloatingBg />
 
       {notification && (
-        <div key={notification.id} style={{ position: "fixed", top: 16, right: 16, zIndex: 9999, background: notification.type === "achievement" ? "linear-gradient(135deg,#f59e0b,#d97706)" : "linear-gradient(135deg,#00ff88,#00bb66)", color: "#000", padding: "11px 20px", borderRadius: 12, fontWeight: 700, fontSize: 13, boxShadow: `0 0 28px ${notification.type === "achievement" ? "rgba(245,158,11,0.6)" : "rgba(0,255,136,0.5)"}`, animation: "slideIn 0.3s ease", fontFamily: "'Space Mono',monospace" }}>{notification.msg}</div>
+        <div key={notification.id} style={{ position: "fixed", top: 16, right: 16, zIndex: 9999, background: "linear-gradient(135deg,rgba(40,28,4,0.98),rgba(18,12,2,0.98))", color: "#c9a84c", padding: "12px 22px", borderRadius: 3, fontWeight: 700, fontSize: 12, border: "1px solid rgba(201,168,76,0.55)", borderTop: "2px solid #c9a84c", boxShadow: "0 0 30px rgba(201,168,76,0.30), 0 6px 24px rgba(0,0,0,0.7)", animation: "slideIn 0.3s ease", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 2 }}>{notification.msg}</div>
       )}
 
-      <div style={{ position: "relative", zIndex: 1, maxWidth: 920, margin: "0 auto", padding: "20px 14px" }}>
-
-        {/* Header */}
-        <div style={{ marginBottom: 22, paddingBottom: 20, borderBottom: "1px solid rgba(0,255,136,0.15)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-            <div style={{ width: 60, height: 60, borderRadius: "50%", flexShrink: 0, background: "linear-gradient(135deg,#00ff88,#00aa55)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, fontWeight: 800, color: "#000", boxShadow: "0 0 22px rgba(0,255,136,0.45)", fontFamily: "'Exo 2',sans-serif" }}>В</div>
-            <div style={{ flex: 1, minWidth: 180 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                <span style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 20, fontWeight: 800, color: "#fff" }}>Вова</span>
-                <span style={{ background: "rgba(0,255,136,0.12)", border: "1px solid #00ff88", color: "#00ff88", padding: "2px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700 }}>LVL {totalLevel}</span>
-                <span style={{ fontSize: 11, color: "#64748b" }}>{totalXP} XP</span>
-                {streak > 0 && (
-                  <span style={{ background: "rgba(245,158,11,0.12)", border: "1px solid #f59e0b", color: "#f59e0b", padding: "2px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700 }}>🔥 {streak} дн.</span>
-                )}
-              </div>
-              <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ flex: 1, height: 7, background: "rgba(255,255,255,0.08)", borderRadius: 4, overflow: "hidden" }}>
-                  <div style={{ width: `${Math.min(100, xpProgress)}%`, height: "100%", background: "linear-gradient(90deg,#00ff88,#00cc6a)", borderRadius: 4, transition: "width 0.6s ease" }} />
-                </div>
-                <span style={{ fontSize: 10, color: "#00ff88", whiteSpace: "nowrap" }}>→ LVL {totalLevel + 1}</span>
+      {/* Achievement toasts — bottom-right, Cookie Clicker style */}
+      <div style={{ position: "fixed", bottom: 20, right: 20, zIndex: 9998, display: "flex", flexDirection: "column-reverse", gap: 10, pointerEvents: "none" }}>
+        {achieveToasts.map(t => {
+          const tierColor = { common: "#9a8a60", uncommon: "#00cc66", rare: "#3b8ff5", epic: "#a855f7", legendary: "#f59e0b", prime: "#ff6b35" }[t.tier] ?? "#c9a84c";
+          return (
+            <div key={t.id} className={`ach-toast${t.dying ? " dying" : ""}`} style={{ width: 270, background: "linear-gradient(135deg,rgba(10,6,2,0.97),rgba(18,12,4,0.97))", border: `1px solid ${tierColor}55`, borderLeft: `3px solid ${tierColor}`, borderRadius: 4, padding: "12px 14px", boxShadow: `0 4px 24px rgba(0,0,0,0.8), 0 0 20px ${tierColor}22`, display: "flex", gap: 12, alignItems: "center" }}>
+              <span style={{ fontSize: 28, lineHeight: 1, filter: "drop-shadow(0 0 6px currentColor)" }}>{t.icon}</span>
+              <div>
+                <div style={{ fontSize: 9, fontWeight: 700, color: tierColor, fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 2, marginBottom: 2 }}>Досягнення розблоковано</div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: "#e0d8c0", fontFamily: "'Exo 2',sans-serif", letterSpacing: 0.5 }}>{t.name}</div>
+                <div style={{ fontSize: 10, color: "#6a5f40", fontFamily: "'Space Mono',monospace", marginTop: 2 }}>{t.desc}</div>
               </div>
             </div>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          );
+        })}
+      </div>
+
+      <div style={{ position: "relative", zIndex: 1, maxWidth: "min(1300px, 91vw)", margin: "0 auto", padding: "20px 14px" }}>
+
+        {/* Header */}
+        {(() => {
+          const lg = getLeague(totalLevel);
+          const lc = lg.color;
+          const lglow = lg.glow;
+          const lbg = lg.bg.replace("135deg", "90deg");
+          return (
+        <div style={{ marginBottom: 24, paddingBottom: 20, borderBottom: `1px solid ${lc}44` }}>
+
+          {/* Top row: avatar + name + stats */}
+          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>
+            <div style={{ position: "relative", flexShrink: 0 }}>
+              <div style={{ width: 58, height: 58, borderRadius: 4, background: "linear-gradient(145deg,#1a1210,#2a1e14)", border: `2px solid ${lc}`, boxShadow: `0 0 22px ${lglow}, inset 0 0 16px ${lc}14`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 800, color: lc, fontFamily: "'Exo 2',sans-serif", letterSpacing: -1 }}>Vi</div>
+              <div style={{ position: "absolute", bottom: -8, right: -10 }}><LeagueBadge level={totalLevel} size={30} /></div>
+            </div>
+            <div style={{ flex: 1, minWidth: 160 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <span style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 22, fontWeight: 800, color: "#e0d8c0", letterSpacing: 3, textTransform: "uppercase" }}>ViFrim</span>
+                <span style={{ background: `${lc}1a`, border: `1px solid ${lc}99`, color: lc, padding: "3px 10px", borderRadius: 3, fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>{lg.name} ліга</span>
+              </div>
+              <div style={{ fontSize: 11, color: `${lc}80`, marginTop: 4, textTransform: "uppercase", letterSpacing: 3 }}>AI Progress Tracker</div>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "stretch" }}>
               {[
-                { label: "Дохід", val: `$${income.toFixed(0)}`, color: "#f59e0b" },
-                { label: "Проекти", val: projects.length, color: "#6366f1" },
-                { label: "Інструменти", val: `${totalTools}/${TOTAL_TOOLS}`, color: "#00ff88" },
-                { label: "Сесій/міс", val: `${monthSessions}/${sessions.monthlyTarget}`, color: "#f43f5e" },
+                { label: "Дохід", val: `$${totalIncome.toFixed(0)}`, color: lc },
+                { label: "Проекти", val: projects.filter(p => (p.status ?? "done") === "done").length, color: lc },
+                { label: "Клієнти", val: (skillTasksData["monetize_clients"]?.count ?? 0), color: "#fbbf24" },
+                { label: "Досягнення", val: `${unlockedAchievements.length}/${ACHIEVEMENTS.length}`, color: "#00ff88" },
+                { label: "Сесій/міс", val: `${monthSessions}/${daysInCurrentMonth}`, color: lc },
               ].map(s => (
-                <div key={s.label} style={{ textAlign: "center", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 12, padding: "8px 13px" }}>
-                  <div style={{ fontSize: 17, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif" }}>{s.val}</div>
-                  <div style={{ fontSize: 9, color: "#475569", textTransform: "uppercase", letterSpacing: 1 }}>{s.label}</div>
+                <div key={s.label} style={{ textAlign: "center", padding: "10px 14px", minWidth: 84, background: "rgba(8,5,2,0.55)", border: `1px solid ${lc}28`, borderTop: `2px solid ${lc}60`, borderRadius: 4, boxShadow: `0 0 12px ${lglow}` }}>
+                  <div style={{ fontSize: 11, color: `${lc}88`, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>{s.label}</div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif" }}>{s.val}</div>
                 </div>
               ))}
+              {/* Streak badge — tier color matches streak achievements */}
+              {(() => {
+                const STREAK_TIERS = [
+                  { min: 365, tier: "legendary" },
+                  { min: 180, tier: "prime" },
+                  { min: 90,  tier: "rare" },
+                  { min: 30,  tier: "epic" },
+                  { min: 7,   tier: "uncommon" },
+                  { min: 3,   tier: "common" },
+                ];
+                const match = STREAK_TIERS.find(t => totalActiveDays >= t.min);
+                const sc = match ? TIERS[match.tier].color : "#6a5f40";
+                const sglow = match ? TIERS[match.tier].glow : "rgba(106,95,64,0.35)";
+                return (
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "10px 14px", minWidth: 84, background: `${sc}12`, border: `1px solid ${sc}40`, borderTop: `2px solid ${sc}80`, borderRadius: 4, boxShadow: `0 0 12px ${sglow}` }}>
+                    <div style={{ fontSize: 11, color: `${sc}aa`, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>🔥 Стрік</div>
+                    <div style={{ fontSize: 24, fontWeight: 800, color: sc, fontFamily: "'Exo 2',sans-serif" }}>{streak} <span style={{ fontSize: 13 }}>дн.</span></div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+
+          {/* XP Bar */}
+          <div style={{ padding: "12px 16px", background: "rgba(8,5,2,0.55)", border: `1px solid ${lc}28`, borderTop: `2px solid ${lc}60`, borderRadius: 4, boxShadow: `0 0 12px ${lglow}` }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ background: lbg, color: "#000", padding: "3px 12px", borderRadius: 3, fontSize: 12, fontWeight: 800, fontFamily: "'Exo 2',sans-serif", letterSpacing: 2, textTransform: "uppercase" }}>RANK {totalLevel}</span>
+                <span style={{ fontSize: 12, color: lc, fontFamily: "'Space Mono',monospace", fontWeight: 700 }}>{totalXP.toLocaleString()} XP</span>
+                {todayXpTotal > 0 && (
+                  <span style={{ background: "rgba(0,255,136,0.14)", border: "1px solid rgba(0,255,136,0.45)", color: "#00ff88", fontSize: 11, fontWeight: 800, fontFamily: "'Space Mono',monospace", padding: "2px 9px", borderRadius: 12, letterSpacing: 0.3, whiteSpace: "nowrap" }}>+{todayXpTotal} XP сьогодні</span>
+                )}
+              </div>
+              <div style={{ fontSize: 11, color: `${lc}99`, fontFamily: "'Space Mono',monospace" }}>
+                {totalLevel >= 100
+                  ? <span style={{ color: "#00ff88", fontWeight: 700 }}>+{(totalXP - nextLevelXP).toLocaleString()} XP</span>
+                  : <>ще <span style={{ color: lc, fontWeight: 700 }}>{(nextLevelXP - totalXP).toLocaleString()}</span> XP</>
+                }
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 12, color: `${lc}80`, fontFamily: "'Space Mono',monospace" }}>{nextLevelXP.toLocaleString()} XP</span>
+                <span style={{ background: `${lc}18`, border: `1px solid ${lc}80`, color: lc, padding: "3px 12px", borderRadius: 3, fontSize: 12, fontWeight: 800, fontFamily: "'Exo 2',sans-serif", letterSpacing: 2, textTransform: "uppercase" }}>RANK {totalLevel + 1}</span>
+              </div>
+            </div>
+            <div style={{ position: "relative", height: 12, background: "rgba(20,14,4,0.80)", borderRadius: 2, overflow: "hidden", border: `1px solid ${lc}30` }}>
+              <div style={{ width: `${Math.min(100, xpProgress)}%`, height: "100%", background: lbg, borderRadius: 2, transition: "width 0.7s ease", boxShadow: `0 0 10px ${lglow}, inset 0 1px 0 rgba(255,255,255,0.15)`, position: "relative" }}>
+                <div style={{ position: "absolute", top: 1, left: 0, right: 0, height: 2, background: "rgba(255,255,255,0.2)", borderRadius: 2 }} />
+              </div>
+              {[10,20,30,40,50,60,70,80,90].map(p => (
+                <div key={p} style={{ position: "absolute", top: 0, left: `${p}%`, width: 1, height: "100%", background: "rgba(0,0,0,0.50)", pointerEvents: "none" }} />
+              ))}
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 7, flexWrap: "wrap", gap: 6 }}>
+              <div style={{ fontSize: 11, color: `${lc}88`, fontFamily: "'Space Mono',monospace" }}>{Math.round(xpProgress)}% до рівня {totalLevel + 1}</div>
+              {(() => {
+                const cur = getLeague(totalLevel);
+                const nextLg = LEAGUES[LEAGUES.indexOf(cur) + 1];
+                if (!nextLg) return <span style={{ fontSize: 11, color: lc, fontFamily: "'Exo 2',sans-serif", fontWeight: 800, letterSpacing: 1, textTransform: "uppercase" }}>★ {cur.name} ліга — МАКС</span>;
+                const levelsLeft = nextLg.minLevel - totalLevel;
+                return (
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 11, color: cur.color, fontFamily: "'Exo 2',sans-serif", fontWeight: 700, textTransform: "uppercase" }}>{cur.name}</span>
+                    <span style={{ fontSize: 11, color: "#5a4a30" }}>→</span>
+                    <span style={{ fontSize: 11, color: nextLg.color, fontFamily: "'Exo 2',sans-serif", fontWeight: 700, textTransform: "uppercase" }}>{nextLg.name}</span>
+                    <span style={{ fontSize: 11, color: `${lc}88`, fontFamily: "'Space Mono',monospace" }}>ще {levelsLeft} рів.</span>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>
+          );
+        })()}
 
-        {/* Tabs */}
-        <div style={{ display: "flex", gap: 7, marginBottom: 22, flexWrap: "wrap" }}>
+        {/* Tabs — Warframe underline style (on its own panel) */}
+        <div style={{ display: "flex", gap: 0, marginBottom: 24, flexWrap: "wrap", flexShrink: 0, background: "linear-gradient(180deg, rgba(10,12,22,0.82), rgba(6,8,16,0.86))", border: "1px solid rgba(201,168,76,0.20)", borderBottom: "2px solid rgba(201,168,76,0.30)", borderRadius: 8, padding: "3px 8px", backdropFilter: "blur(7px)", WebkitBackdropFilter: "blur(7px)" }}>
           {tabs.map(t => (
-            <button key={t.id} className="tab-btn" onClick={() => setActiveTab(t.id)} style={{ padding: "8px 15px", borderRadius: 10, fontSize: 12, cursor: "pointer", background: activeTab === t.id ? "#00ff88" : "rgba(255,255,255,0.04)", color: activeTab === t.id ? "#000" : "#94a3b8", border: activeTab === t.id ? "none" : "1px solid rgba(255,255,255,0.09)", fontWeight: activeTab === t.id ? 700 : 400, fontFamily: "'Space Mono',monospace" }}>{t.label}</button>
+            <button key={t.id} className="tab-btn" onClick={() => setActiveTab(t.id)} style={{ padding: "11px 13px", borderRadius: 0, fontSize: 12, cursor: "pointer", background: "transparent", color: activeTab === t.id ? "#d4b040" : "#6a5f40", border: "none", borderBottom: activeTab === t.id ? "2px solid #d4b040" : "2px solid transparent", marginBottom: -4, fontWeight: activeTab === t.id ? 800 : 600, fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: "1.5px", whiteSpace: "nowrap", outline: "none" }}>{t.label}</button>
           ))}
         </div>
 
         {/* Dashboard */}
         {activeTab === "dashboard" && (
-          <div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(170px,1fr))", gap: 13, marginBottom: 20 }}>
-              {SKILLS.slice(0, 6).map(sk => {
-                const unlocked = skillData[sk.id].unlockedTools;
-                return (
-                  <div key={sk.id} onClick={() => { setSelectedSkill(sk); setActiveTab("skills"); }} className="skill-card" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${unlocked.length > 0 ? sk.color + "33" : "rgba(255,255,255,0.07)"}`, borderRadius: 14, padding: 14, cursor: "pointer" }}>
-                    <div style={{ fontSize: 22, marginBottom: 6 }}>{sk.emoji}</div>
-                    <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 5 }}>{sk.name}</div>
-                    <div style={{ fontSize: 10, color: sk.color, marginBottom: 6 }}>{unlocked.length}/{sk.tools.length} інстр.</div>
-                    <div style={{ height: 4, background: "rgba(255,255,255,0.08)", borderRadius: 2 }}>
-                      <div style={{ width: `${(unlocked.length / sk.tools.length) * 100}%`, height: "100%", background: sk.color, borderRadius: 2, transition: "width 0.5s" }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-            {/* Quick session check-in on dashboard */}
-            <div style={{ background: doneToday ? "rgba(0,255,136,0.05)" : "rgba(244,63,94,0.05)", border: `1px solid ${doneToday ? "rgba(0,255,136,0.2)" : "rgba(244,63,94,0.2)"}`, borderRadius: 14, padding: 16, marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            {/* Session check-in */}
+            <div style={{ background: doneToday ? "rgba(201,168,76,0.06)" : "rgba(244,63,94,0.05)", border: `1px solid ${doneToday ? "rgba(201,168,76,0.30)" : "rgba(244,63,94,0.2)"}`, borderTop: doneToday ? "2px solid rgba(201,168,76,0.6)" : "2px solid rgba(244,63,94,0.5)", borderRadius: 4, padding: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: doneToday ? "#00ff88" : "#f43f5e", fontFamily: "'Exo 2',sans-serif" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: doneToday ? "#c9a84c" : "#f43f5e", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>
                   {doneToday ? "✓ AI-сесія сьогодні виконана" : "⚡ Чи працював сьогодні з AI?"}
                 </div>
-                <div style={{ fontSize: 11, color: "#475569", marginTop: 3 }}>
-                  Стрік: {streak} дн. · {monthSessions}/{sessions.monthlyTarget} цього місяця · всього {sessions.dates.length} сесій
+                <div style={{ fontSize: 11, color: "#9a8a60", marginTop: 3 }}>
+                  Стрік: {streak} дн. · {monthSessions}/{daysInCurrentMonth} цього місяця
                 </div>
               </div>
               {!doneToday && (
-                <button className="checkin-btn" onClick={logSession} style={{ background: "linear-gradient(135deg,#00ff88,#00cc6a)", color: "#000", border: "none", padding: "10px 20px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'Space Mono',monospace", boxShadow: "0 0 20px rgba(0,255,136,0.3)", whiteSpace: "nowrap" }}>+ Так (+50 XP)</button>
+                <button className="checkin-btn" onClick={logSession} style={{ background: "linear-gradient(135deg,#00ff88,#00cc6a)", color: "#000", border: "none", padding: "10px 20px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'Space Mono',monospace", boxShadow: "0 0 20px rgba(0,255,136,0.3)", whiteSpace: "nowrap" }}>+ Так (+5 XP)</button>
               )}
             </div>
 
-            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 18 }}>
-              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 14 }}>🎯 Швидкі дії</div>
+            {/* Two-column: Focus block + Activity */}
+            <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
+              {/* LEFT: Focus block */}
+              <div style={{ flex: "0 0 calc(50% - 8px)", minWidth: 260 }}>
+                {(() => {
+                  const FILTERS = [
+                    { id: "pinned", label: "📌 Закріплені" },
+                    { id: "week",   label: "📅 Тиждень" },
+                    { id: "month",  label: "📅 Місяць" },
+                  ];
+                  // What to show per filter
+                  const focusLongGoals = focusFilter === "pinned"
+                    ? longGoals.filter(g => !g.done && g.pinned)
+                    : focusFilter === "week"
+                      ? longGoals.filter(g => !g.done && g.period === "week_cur")
+                      : longGoals.filter(g => !g.done && g.period === "month_cur");
+                  const focusPlanItems = focusFilter === "pinned"
+                    ? plan.filter(p => !p.done && p.pinned)
+                    : focusFilter === "week"
+                      ? plan.filter(p => !p.done && (p.urgency === "now" || p.urgency === "soon")).slice(0, 5)
+                      : plan.filter(p => !p.done).slice(0, 5);
+                  const focusTasks = focusFilter === "pinned"
+                    ? goals.filter(g => !g.done && g.pinned)
+                    : focusFilter === "week"
+                      ? goals.filter(g => !g.done && (g.priority === "urgent" || g.priority === "important")).slice(0, 5)
+                      : goals.filter(g => !g.done && g.priority === "urgent").slice(0, 5);
+                  const isEmpty = !focusLongGoals.length && !focusPlanItems.length && !focusTasks.length;
+                  const completeTask = (id) => setGoals(prev => prev.map(x => {
+                    if (x.id !== id) return x;
+                    if (!x.done && !x.xpAwarded) { gainXP(x.xp ?? 100, "(задачу виконано)", "goal"); return { ...x, done: true, xpAwarded: true, completedAt: new Date().toISOString() }; }
+                    return { ...x, done: !x.done };
+                  }));
+                  return (
+                    <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18, display: "flex", flexDirection: "column", gap: 14 }}>
+                      {/* Header + filter */}
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+                        <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2 }}>🎯 Фокус</div>
+                        <div style={{ display: "flex", gap: 4 }}>
+                          {FILTERS.map(f => (
+                            <button key={f.id} onClick={() => setFocusFilter(f.id)}
+                              style={{ background: focusFilter === f.id ? "rgba(201,168,76,0.15)" : "rgba(8,5,2,0.5)", border: `1px solid ${focusFilter === f.id ? "rgba(201,168,76,0.5)" : "rgba(201,168,76,0.15)"}`, borderRadius: 3, padding: "3px 8px", color: focusFilter === f.id ? "#c9a84c" : "#6a5f40", fontSize: 10, cursor: "pointer", fontFamily: "'Exo 2',sans-serif", fontWeight: 600, whiteSpace: "nowrap" }}>
+                              {f.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {isEmpty && (
+                        <div style={{ textAlign: "center", padding: "12px 0", fontSize: 12, color: "#5a5040" }}>
+                          {focusFilter === "pinned"
+                            ? <>Натисни 📌 на цілі, план або задачу, щоб вони з'явились тут<br/><span onClick={() => { setActiveTab("goalsplan"); }} style={{ color: "#c9a84c", cursor: "pointer", marginTop: 6, display: "inline-block" }}>Відкрити Цілі & план →</span></>
+                            : "Нічого на цей період"}
+                        </div>
+                      )}
+
+                      {/* Long-term goals */}
+                      {focusLongGoals.length > 0 && (
+                        <div>
+                          <div style={{ fontSize: 10, color: "#06b6d4", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 7 }}>🎯 Цілі</div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                            {focusLongGoals.map(g => {
+                              const pMeta = (() => { const p = GOAL_PERIODS?.find?.(x => x.id === g.period); return p ?? { color: "#06b6d4", label: g.period }; })();
+                              return (
+                                <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(6,182,212,0.07)", border: "1px solid rgba(6,182,212,0.22)", borderRadius: 4, padding: "8px 11px" }}>
+                                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#06b6d4", flexShrink: 0 }} />
+                                  <span style={{ flex: 1, fontSize: 12, color: "#cbd5e1", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.text}</span>
+                                  <button onClick={() => setLongGoals(prev => prev.map(x => x.id === g.id ? { ...x, pinned: !x.pinned } : x))}
+                                    title="Закріплено на головній"
+                                    style={{ background: "none", border: "none", color: g.pinned ? "#c9a84c" : "#4a4030", cursor: "pointer", fontSize: 13, padding: "0 2px", flexShrink: 0 }}>📌</button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Plan items */}
+                      {focusPlanItems.length > 0 && (
+                        <div>
+                          <div style={{ fontSize: 10, color: "#a855f7", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 7 }}>📋 План дій</div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                            {focusPlanItems.map(item => {
+                              const pt = PLAN_TYPES.find(t => t.id === (item.type ?? "other")) ?? PLAN_TYPES[PLAN_TYPES.length - 1];
+                              return (
+                                <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 8, background: pt.bg, border: `1px solid ${pt.color}22`, borderRadius: 4, padding: "8px 11px" }}>
+                                  <button onClick={() => setPlan(prev => prev.map(x => {
+                                    if (x.id !== item.id) return x;
+                                    if (!x.done && !x.xpAwarded) { gainXP(x.xp ?? 75, "(план дій)", "plan"); return { ...x, done: true, xpAwarded: true }; }
+                                    return { ...x, done: !x.done };
+                                  }))}
+                                    style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${pt.color}`, background: "transparent", cursor: "pointer", flexShrink: 0, fontSize: 9, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }} />
+                                  <span style={{ flex: 1, fontSize: 12, color: "#cbd5e1", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.text}</span>
+                                  <span style={{ fontSize: 9, color: pt.color, background: pt.bg, border: `1px solid ${pt.color}33`, padding: "2px 6px", borderRadius: 3, flexShrink: 0 }}>{pt.label}</span>
+                                  <button onClick={() => setPlan(prev => prev.map(x => x.id === item.id ? { ...x, pinned: !x.pinned } : x))}
+                                    title="Закріплено на головній"
+                                    style={{ background: "none", border: "none", color: item.pinned ? "#c9a84c" : "#4a4030", cursor: "pointer", fontSize: 13, padding: "0 2px", flexShrink: 0 }}>📌</button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Tasks */}
+                      {focusTasks.length > 0 && (
+                        <div>
+                          <div style={{ fontSize: 10, color: "#00ff88", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 7 }}>✅ Задачі</div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                            {focusTasks.map(g => {
+                              const pr = TASK_PRIORITIES.find(p => p.id === g.priority) ?? TASK_PRIORITIES[2];
+                              return (
+                                <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, background: pr.bg, border: `1px solid ${pr.border}`, borderRadius: 4, padding: "7px 10px" }}>
+                                  <button onClick={() => completeTask(g.id)}
+                                    style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${pr.color}66`, background: "transparent", cursor: "pointer", flexShrink: 0 }} />
+                                  <span style={{ flex: 1, fontSize: 12, color: "#e0d8c0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.text}</span>
+                                  <span style={{ fontSize: 9, color: pr.color, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, flexShrink: 0 }}>{pr.label}</span>
+                                  <button onClick={() => setGoals(prev => prev.map(x => x.id === g.id ? { ...x, pinned: !x.pinned } : x))}
+                                    title="Закріплено на головній"
+                                    style={{ background: "none", border: "none", color: g.pinned ? "#c9a84c" : "#4a4030", cursor: "pointer", fontSize: 13, padding: "0 2px", flexShrink: 0 }}>📌</button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <button onClick={() => { setActiveTab("goalsplan"); setGoalsSubTab("tasks"); }} style={{ marginTop: 8, background: "none", border: "none", color: "#6a5f40", fontSize: 11, cursor: "pointer", fontFamily: "'Space Mono',monospace", padding: 0 }}>
+                            Всі задачі ({goals.filter(g => !g.done).length}) →
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* RIGHT: Activity */}
+              <div style={{ flex: 1, minWidth: 300 }}>
+                {(() => {
+                  const ACTIVITY_TRACKERS = ACTIVITY_DEFS;
+                  const todayRows = ACTIVITY_TRACKERS
+                    .map(tr => ({ tr, n: todayActivity[tr.key] ?? 0 }))
+                    .filter(r => r.n > 0);
+                  const todayTotalXP = todayRows.reduce((s, r) => s + r.n * r.tr.xp, 0);
+                  return (
+                    <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18 }}>
+                      <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 14 }}>⚡ Активність</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+                        {ACTIVITY_TRACKERS.map(tr => {
+                          const count = tr.kind === "learn"
+                            ? (learnTime[tr.key] ?? 0)
+                            : (skillTasksData[tr.key]?.count ?? 0);
+                          const packVal = packInputs[tr.key] ?? "";
+                          const packN = parseInt(packVal) || 0;
+                          const todayCount = todayActivity[tr.key] ?? 0;
+                          const doInc = (delta) => {
+                            if (tr.kind === "learn") addLearnTime(tr.key, delta);
+                            else {
+                              const sep = tr.key.indexOf("_");
+                              addProgressiveCount(tr.key.slice(0, sep), tr.key.slice(sep + 1), delta);
+                            }
+                            addFloat(tr.key, delta > 0 ? `+${delta}` : `${delta}`, delta > 0 ? tr.color : "#f43f5e");
+                          };
+                          const cardFloats = floats.filter(f => f.key === tr.key);
+                          const xpLabel = tr.note ? `${tr.note} · +${tr.xp} XP` : `+${tr.xp} XP/шт`;
+                          return (
+                            <div key={tr.key} style={{ position: "relative", background: `${tr.color}0d`, border: `1px solid ${tr.color}35`, borderRadius: 8, padding: "12px 10px 10px", display: "flex", flexDirection: "column", gap: 8, overflow: "visible" }}>
+                              {cardFloats.map(f => (
+                                <span key={f.id} className="float-text" style={{ color: f.color }}>{f.text}</span>
+                              ))}
+
+                              {/* Header: emoji · name · xp rate | total count */}
+                              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                <span style={{ fontSize: 15, lineHeight: 1, flexShrink: 0 }}>{tr.emoji}</span>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontSize: 11, fontWeight: 800, color: "#c8b89a", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 0.8, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tr.label}</div>
+                                  <div style={{ fontSize: 9, color: "#4a4030", fontFamily: "'Space Mono',monospace", lineHeight: 1.3 }}>{xpLabel}</div>
+                                </div>
+                                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                                  <div style={{ fontSize: 20, fontWeight: 900, color: tr.color, fontFamily: "'Space Mono',monospace", textShadow: `0 0 8px ${tr.color}55`, lineHeight: 1 }}>{count}</div>
+                                  {todayCount > 0 && (
+                                    <div style={{ fontSize: 9, color: `${tr.color}88`, fontFamily: "'Space Mono',monospace", marginTop: 1 }}>+{todayCount}</div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Big + button — now shows emoji + label + hint */}
+                              <button
+                                className="act-plus"
+                                onClick={() => doInc(1)}
+                                style={{
+                                  width: "100%", padding: "12px 8px",
+                                  borderRadius: 6,
+                                  background: `linear-gradient(180deg, ${tr.color}3a 0%, ${tr.color}1a 60%, ${tr.color}28 100%)`,
+                                  border: `2px solid ${tr.color}77`,
+                                  color: tr.color,
+                                  boxShadow: `0 4px 0 ${tr.color}33, 0 0 14px ${tr.color}22, inset 0 1px 0 ${tr.color}44`,
+                                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4,
+                                }}
+                              >
+                                <span style={{ fontSize: 22, lineHeight: 1 }}>{tr.emoji}</span>
+                                <span style={{ fontSize: 11, fontWeight: 800, fontFamily: "'Exo 2',sans-serif", letterSpacing: 1, textTransform: "uppercase" }}>{tr.label}</span>
+                                <span style={{ fontSize: 10, opacity: 0.6, fontFamily: "'Space Mono',monospace" }}>+ {tr.note ?? "1 шт"}</span>
+                              </button>
+
+                              {/* − / N / +N row */}
+                              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                                <button
+                                  onClick={() => { const n = packN > 0 ? packN : 1; doInc(-n); if (packN > 0) setPackInputs(prev => ({ ...prev, [tr.key]: "" })); }}
+                                  style={{ padding: "4px 8px", borderRadius: 4, fontSize: 13, fontWeight: 700, cursor: "pointer", background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.25)", color: "#c04050", lineHeight: 1, letterSpacing: 1, whiteSpace: "nowrap" }}>
+                                  {packN > 0 ? `−${packN}` : "−"}
+                                </button>
+                                <input
+                                  type="number"
+                                  placeholder="N"
+                                  value={packVal}
+                                  onChange={e => setPackInputs(prev => ({ ...prev, [tr.key]: e.target.value }))}
+                                  onKeyDown={e => {
+                                    if (e.key === "Enter" && packN !== 0) {
+                                      doInc(packN);
+                                      setPackInputs(prev => ({ ...prev, [tr.key]: "" }));
+                                    }
+                                  }}
+                                  style={{ width: 38, background: "rgba(0,0,0,0.45)", border: `1px solid ${tr.color}28`, color: "#b0a080", padding: "4px 4px", borderRadius: 4, fontFamily: "'Space Mono',monospace", fontSize: 11, textAlign: "center" }}
+                                />
+                                <button
+                                  onClick={() => { if (packN > 0) { doInc(packN); setPackInputs(prev => ({ ...prev, [tr.key]: "" })); } }}
+                                  style={{ flex: 1, padding: "4px 0", borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: "pointer", background: `${tr.color}14`, border: `1px solid ${tr.color}33`, color: `${tr.color}bb`, fontFamily: "'Space Mono',monospace" }}
+                                >+N</button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Розбивка XP за сьогодні */}
+                      <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px dashed rgba(201,168,76,0.20)" }}>
+                        {todayRows.length === 0 ? (
+                          <div style={{ fontSize: 11, color: "#5a5040", fontFamily: "'Space Mono',monospace", textAlign: "center" }}>
+                            Сьогодні активності ще не додано
+                          </div>
+                        ) : (
+                          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "6px 14px" }}>
+                            <span style={{ fontSize: 10, fontWeight: 700, color: "#9a8a60", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1.5 }}>XP за сьогодні:</span>
+                            {todayRows.map(({ tr, n }) => (
+                              <span key={tr.key} style={{ fontSize: 11, color: "#b0a080", fontFamily: "'Space Mono',monospace" }}>
+                                <span style={{ marginRight: 3 }}>{tr.emoji}</span>
+                                {n} × {tr.xp} = <b style={{ color: tr.color }}>{n * tr.xp}</b>
+                              </span>
+                            ))}
+                            <span style={{ marginLeft: "auto", fontSize: 13, fontWeight: 800, color: "#00ff88", fontFamily: "'Space Mono',monospace", textShadow: "0 0 10px rgba(0,255,136,0.4)" }}>
+                              = +{todayTotalXP} XP
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Skills grid */}
+            <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18 }}>
+              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 14 }}>🧠 Навички</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))", gap: 10 }}>
+                {SKILLS.map(sk => {
+                  const unlocked = skillData[sk.id].unlockedTools;
+                  return (
+                    <div key={sk.id} onClick={() => { setSelectedSkill(sk); setActiveTab("tools"); }} className="skill-card" style={{ background: "rgba(3,2,0,0.6)", border: `1px solid ${unlocked.length > 0 ? sk.color + "33" : "rgba(201,168,76,0.10)"}`, borderRadius: 4, padding: 12, cursor: "pointer" }}>
+                      <div style={{ fontSize: 18, marginBottom: 5 }}>{sk.emoji}</div>
+                      <div style={{ fontSize: 11, color: "#9a8a60", marginBottom: 4, fontFamily: "'Exo 2',sans-serif", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.8 }}>{sk.name}</div>
+                      <div style={{ fontSize: 12, color: sk.color, marginBottom: 5, fontWeight: 700, fontFamily: "'Exo 2',sans-serif" }}>{unlocked.length}/{sk.tools.length}</div>
+                      <div style={{ height: 3, background: "rgba(201,168,76,0.18)", borderRadius: 2 }}>
+                        <div style={{ width: `${(unlocked.length / sk.tools.length) * 100}%`, height: "100%", background: sk.color, borderRadius: 2, transition: "width 0.5s" }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Quick actions */}
+            <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18 }}>
+              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 14 }}>⚡ Швидкі дії</div>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 {[
-                  { label: "+ Вивчити інструмент", color: "#00ff88", rgb: "0,255,136", tab: "skills" },
-                  { label: "+ Записати дохід", color: "#f59e0b", rgb: "245,158,11", tab: "income" },
+                  { label: "+ Вивчити інструмент", color: "#00ff88", rgb: "0,255,136", tab: "tools" },
+                  { label: "+ Записати дохід", color: "#f59e0b", rgb: "245,158,11", tab: "finances" },
                   { label: "+ Новий проект", color: "#6366f1", rgb: "99,102,241", tab: "projects" },
+                  { label: "+ Нова задача", color: "#f43f5e", rgb: "244,63,94", tab: "goals" },
                 ].map(btn => (
-                  <button key={btn.tab} className="act-btn" onClick={() => setActiveTab(btn.tab)} style={{ background: `rgba(${btn.rgb},0.1)`, border: `1px solid ${btn.color}`, color: btn.color, padding: "10px 16px", borderRadius: 10, cursor: "pointer", fontSize: 12, fontFamily: "'Space Mono',monospace", fontWeight: 700 }}>{btn.label}</button>
+                  <button key={btn.tab} className="act-btn" onClick={() => setActiveTab(btn.tab)} style={{ background: `rgba(${btn.rgb},0.1)`, border: `1px solid ${btn.color}`, color: btn.color, padding: "10px 16px", borderRadius: 4, cursor: "pointer", fontSize: 12, fontFamily: "'Space Mono',monospace", fontWeight: 700 }}>{btn.label}</button>
                 ))}
               </div>
-              <div style={{ marginTop: 16, padding: "12px 14px", background: "rgba(0,255,136,0.05)", border: "1px solid rgba(0,255,136,0.15)", borderRadius: 10 }}>
-                <span style={{ fontSize: 12, color: "#64748b" }}>🏅 Розблоковано досягнень: </span>
+              <div style={{ marginTop: 14, padding: "10px 14px", background: "rgba(0,255,136,0.05)", border: "1px solid rgba(0,255,136,0.15)", borderRadius: 4, display: "flex", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 12, color: "#8a7850" }}>🏅 Досягнення</span>
                 <span style={{ fontSize: 13, color: "#00ff88", fontWeight: 700 }}>{unlockedAchievements.length} / {ACHIEVEMENTS.length}</span>
               </div>
             </div>
@@ -355,20 +2376,20 @@ export default function AITracker() {
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
             {/* Big check-in button */}
-            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 24, textAlign: "center" }}>
-              <div style={{ fontSize: 13, color: "#64748b", marginBottom: 6, fontFamily: "'Space Mono',monospace" }}>
+            <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 24, textAlign: "center" }}>
+              <div style={{ fontSize: 13, color: "#8a7850", marginBottom: 6, fontFamily: "'Space Mono',monospace" }}>
                 {new Date().toLocaleDateString("uk-UA", { weekday: "long", day: "numeric", month: "long" })}
               </div>
               {doneToday ? (
                 <div>
                   <div style={{ fontSize: 48, marginBottom: 10 }}>✅</div>
                   <div style={{ fontSize: 18, fontWeight: 800, color: "#00ff88", fontFamily: "'Exo 2',sans-serif" }}>Сесія виконана!</div>
-                  <div style={{ fontSize: 12, color: "#475569", marginTop: 6 }}>Повернись завтра для нового +50 XP</div>
+                  <div style={{ fontSize: 12, color: "#9a8a60", marginTop: 6 }}>Повернись завтра для нового +5 XP</div>
                 </div>
               ) : (
                 <div>
                   <div style={{ fontSize: 18, fontWeight: 800, color: "#fff", fontFamily: "'Exo 2',sans-serif", marginBottom: 16 }}>Ти сьогодні працював з AI?</div>
-                  <button className="checkin-btn" onClick={logSession} style={{ background: "linear-gradient(135deg,#00ff88,#00cc6a)", color: "#000", border: "none", padding: "16px 40px", borderRadius: 14, fontWeight: 800, cursor: "pointer", fontSize: 16, fontFamily: "'Exo 2',sans-serif", boxShadow: "0 0 30px rgba(0,255,136,0.4)", letterSpacing: 0.5 }}>⚡ Так, працював! (+50 XP)</button>
+                  <button className="checkin-btn" onClick={logSession} style={{ background: "linear-gradient(135deg,#00ff88,#00cc6a)", color: "#000", border: "none", padding: "16px 40px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 16, fontFamily: "'Exo 2',sans-serif", boxShadow: "0 0 30px rgba(0,255,136,0.4)", letterSpacing: 0.5 }}>⚡ Так, працював! (+5 XP)</button>
                 </div>
               )}
             </div>
@@ -377,50 +2398,37 @@ export default function AITracker() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))", gap: 12 }}>
               {[
                 { label: "Стрік", val: `${streak} дн.`, icon: "🔥", color: "#f59e0b", sub: streak >= 7 ? "Топ!" : "Тримай!" },
-                { label: "Цього місяця", val: `${monthSessions}/${sessions.monthlyTarget}`, icon: "📅", color: "#00ff88", sub: `${Math.round(monthSessions / sessions.monthlyTarget * 100)}%` },
-                { label: "Всього сесій", val: sessions.dates.length, icon: "⚡", color: "#6366f1", sub: `+50 XP кожна` },
-                { label: "Найдовший стрік", val: `${Math.max(streak, 0)} дн.`, icon: "🏅", color: "#ec4899", sub: "личний рекорд" },
+                { label: "Цього місяця", val: `${monthSessions}/${daysInCurrentMonth}`, icon: "📅", color: "#00ff88", sub: `${daysPassedThisMonth} дн. пройшло` },
+                { label: "Активних днів", val: totalActiveDays, icon: "📆", color: "#6366f1", sub: `з ${daysSinceStart} дн.` },
+                { label: "Найдовший стрік", val: `${longestStreak} дн.`, icon: "🏅", color: "#ec4899", sub: "особистий рекорд" },
               ].map(s => (
-                <div key={s.label} style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${s.color}22`, borderRadius: 14, padding: "14px 16px", textAlign: "center" }}>
+                <div key={s.label} style={{ background: "rgba(5,3,1,0.76)", border: `1px solid ${s.color}22`, borderRadius: 4, padding: "14px 16px", textAlign: "center" }}>
                   <div style={{ fontSize: 22, marginBottom: 6 }}>{s.icon}</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif" }}>{s.val}</div>
-                  <div style={{ fontSize: 10, color: "#475569", marginTop: 3, textTransform: "uppercase", letterSpacing: 1 }}>{s.label}</div>
-                  <div style={{ fontSize: 10, color: s.color, marginTop: 2 }}>{s.sub}</div>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif" }}>{s.val}</div>
+                  <div style={{ fontSize: 12, color: "#9a8a60", marginTop: 3, textTransform: "uppercase", letterSpacing: 1 }}>{s.label}</div>
+                  <div style={{ fontSize: 12, color: s.color, marginTop: 2 }}>{s.sub}</div>
                 </div>
               ))}
             </div>
 
             {/* Monthly progress bar */}
-            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 18 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
-                <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 14, fontWeight: 700, color: "#fff" }}>
-                  📅 Ціль місяця
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 11, color: "#64748b" }}>Ціль:</span>
-                  <input
-                    type="number"
-                    min="1"
-                    max="31"
-                    value={sessions.monthlyTarget}
-                    onChange={e => updateMonthlyTarget(e.target.value)}
-                    style={{ width: 56, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "4px 8px", color: "#00ff88", fontSize: 13, fontFamily: "'Space Mono',monospace", textAlign: "center" }}
-                  />
-                  <span style={{ fontSize: 11, color: "#64748b" }}>сесій</span>
-                </div>
+            <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 14, fontWeight: 700, color: "#fff" }}>📅 Ціль місяця</div>
+                <div style={{ fontSize: 12, color: "#6a5f40" }}>ціль: <span style={{ color: "#c9a84c", fontWeight: 700 }}>{daysInCurrentMonth} сесій</span></div>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 8 }}>
-                <span style={{ color: "#94a3b8" }}>{monthSessions} виконано</span>
-                <span style={{ color: "#00ff88", fontWeight: 700 }}>{Math.min(100, Math.round(monthSessions / sessions.monthlyTarget * 100))}%</span>
+                <span style={{ color: "#6a5f40" }}>{monthSessions} виконано</span>
+                <span style={{ color: "#00ff88", fontWeight: 700 }}>{Math.min(100, Math.round(monthSessions / daysInCurrentMonth * 100))}%</span>
               </div>
-              <div style={{ height: 10, background: "rgba(255,255,255,0.07)", borderRadius: 5, overflow: "hidden" }}>
-                <div style={{ width: `${Math.min(100, (monthSessions / sessions.monthlyTarget) * 100)}%`, height: "100%", background: monthSessions >= sessions.monthlyTarget ? "#00ff88" : "linear-gradient(90deg,#f43f5e,#f59e0b)", borderRadius: 5, transition: "width 0.5s" }} />
+              <div style={{ height: 10, background: "rgba(201,168,76,0.12)", borderRadius: 5, overflow: "hidden" }}>
+                <div style={{ width: `${Math.min(100, (monthSessions / daysInCurrentMonth) * 100)}%`, height: "100%", background: monthSessions >= daysInCurrentMonth ? "#c9a84c" : "linear-gradient(90deg,#f43f5e,#f59e0b)", borderRadius: 5, transition: "width 0.5s" }} />
               </div>
             </div>
 
             {/* Heatmap */}
-            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 18 }}>
-              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 14 }}>🗓 Активність (останні 56 днів)</div>
+            <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18 }}>
+              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 14 }}>🗓 Активність (останні 56 днів)</div>
               <div style={{ display: "flex", gap: 4, flexWrap: "nowrap", overflowX: "auto", paddingBottom: 4 }}>
                 {heatmapWeeks.map((week, wi) => (
                   <div key={wi} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -428,41 +2436,41 @@ export default function AITracker() {
                       const done = sessionSet.has(day);
                       const isToday = day === todayStr();
                       return (
-                        <div key={day} title={day} style={{ width: 14, height: 14, borderRadius: 3, background: done ? "#00ff88" : "rgba(255,255,255,0.06)", border: isToday ? "1px solid #00ff88" : "none", transition: "background 0.2s" }} />
+                        <div key={day} title={day} style={{ width: 14, height: 14, borderRadius: 3, background: done ? "#c9a84c" : "rgba(201,168,76,0.10)", border: isToday ? "1px solid #c9a84c" : "none", transition: "background 0.2s" }} />
                       );
                     })}
                   </div>
                 ))}
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 10 }}>
-                <div style={{ width: 12, height: 12, borderRadius: 2, background: "rgba(255,255,255,0.06)" }} />
-                <span style={{ fontSize: 10, color: "#475569" }}>Пропущено</span>
-                <div style={{ width: 12, height: 12, borderRadius: 2, background: "#00ff88" }} />
-                <span style={{ fontSize: 10, color: "#475569" }}>Є сесія</span>
+                <div style={{ width: 12, height: 12, borderRadius: 2, background: "rgba(201,168,76,0.10)" }} />
+                <span style={{ fontSize: 12, color: "#9a8a60" }}>Пропущено</span>
+                <div style={{ width: 12, height: 12, borderRadius: 2, background: "#c9a84c" }} />
+                <span style={{ fontSize: 12, color: "#9a8a60" }}>Є сесія</span>
               </div>
             </div>
           </div>
         )}
 
         {/* Skills */}
-        {activeTab === "skills" && (
+        {activeTab === "tools" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {SKILLS.map(sk => {
               const unlocked = skillData[sk.id].unlockedTools;
               const isOpen = selectedSkill?.id === sk.id;
               return (
-                <div key={sk.id} className="skill-card" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${isOpen ? sk.color : unlocked.length > 0 ? sk.color + "33" : "rgba(255,255,255,0.08)"}`, borderRadius: 14, overflow: "hidden" }}>
+                <div key={sk.id} className="skill-card wf-card" style={{ border: `1px solid ${isOpen ? sk.color + "80" : unlocked.length > 0 ? sk.color + "44" : "rgba(201,168,76,0.18)"}`, borderTop: `2px solid ${isOpen ? sk.color : unlocked.length > 0 ? sk.color + "88" : "rgba(201,168,76,0.35)"}`, overflow: "hidden" }}>
                   <div onClick={() => setSelectedSkill(isOpen ? null : sk)} style={{ padding: "14px 16px", cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}>
                     <span style={{ fontSize: 20 }}>{sk.emoji}</span>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{sk.name}</div>
-                      <div style={{ fontSize: 10, color: sk.color, marginTop: 2 }}>{unlocked.length}/{sk.tools.length} вивчено · +100 XP за інструмент</div>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: "#e0d8c0", textTransform: "uppercase", letterSpacing: 2, fontFamily: "'Exo 2',sans-serif" }}>{sk.name}</div>
+                      <div style={{ fontSize: 13, color: sk.color, marginTop: 4, letterSpacing: 1, fontWeight: 600 }}>{unlocked.length}/{sk.tools.length} · +100 XP за інструмент</div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ width: 80, height: 5, background: "rgba(255,255,255,0.08)", borderRadius: 3 }}>
+                      <div style={{ width: 80, height: 5, background: "rgba(201,168,76,0.18)", borderRadius: 3 }}>
                         <div style={{ width: `${(unlocked.length / sk.tools.length) * 100}%`, height: "100%", background: sk.color, borderRadius: 3 }} />
                       </div>
-                      <span style={{ color: "#475569", fontSize: 14 }}>{isOpen ? "▲" : "▼"}</span>
+                      <span style={{ color: "#9a8a60", fontSize: 14 }}>{isOpen ? "▲" : "▼"}</span>
                     </div>
                   </div>
                   {isOpen && (
@@ -470,7 +2478,7 @@ export default function AITracker() {
                       {sk.tools.map(tool => {
                         const done = unlocked.includes(tool);
                         return (
-                          <button key={tool} className="tool-chip" disabled={done} onClick={() => learnTool(sk.id, tool)} style={{ padding: "6px 13px", borderRadius: 8, fontSize: 11, cursor: done ? "default" : "pointer", background: done ? `${sk.color}20` : "rgba(255,255,255,0.04)", border: `1px solid ${done ? sk.color : "rgba(255,255,255,0.1)"}`, color: done ? sk.color : "#94a3b8", fontFamily: "'Space Mono',monospace", textDecoration: done ? "line-through" : "none" }}>
+                          <button key={tool} className="tool-chip" onClick={() => done ? setToolRevokeConfirm({ skillId: sk.id, tool }) : learnTool(sk.id, tool)} style={{ padding: "7px 14px", borderRadius: 3, fontSize: 13, cursor: "pointer", background: done ? `${sk.color}20` : "rgba(6,4,1,0.72)", border: `1px solid ${done ? sk.color : "rgba(201,168,76,0.25)"}`, color: done ? sk.color : "#6a5f40", fontFamily: "'Space Mono',monospace", textDecoration: done ? "line-through" : "none" }}>
                             {done ? "✓ " : ""}{tool}
                           </button>
                         );
@@ -483,58 +2491,1592 @@ export default function AITracker() {
           </div>
         )}
 
-        {/* Achievements */}
-        {activeTab === "achievements" && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))", gap: 13 }}>
-            {ACHIEVEMENTS.map(a => {
-              const done = unlockedAchievements.includes(a.id);
+        {/* Revoke tool confirmation modal */}
+        {toolRevokeConfirm && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.80)", zIndex: 9995, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+            <div className="wf-panel" style={{ maxWidth: 360, width: "100%", padding: 24 }}>
+              <div style={{ fontSize: 22, marginBottom: 12, textAlign: "center" }}>🔧</div>
+              <div className="wf-sec" style={{ textAlign: "center", marginBottom: 8 }}>Зняти інструмент?</div>
+              <div style={{ fontSize: 14, color: "#e0d8c0", textAlign: "center", marginBottom: 6, fontFamily: "'Space Mono',monospace", fontWeight: 700 }}>{toolRevokeConfirm.tool}</div>
+              <div style={{ fontSize: 12, color: "#f43f5e", textAlign: "center", marginBottom: 20, fontFamily: "'Space Mono',monospace" }}>−100 XP</div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => {
+                  setSkillData(prev => {
+                    const updated = { ...prev, [toolRevokeConfirm.skillId]: { unlockedTools: prev[toolRevokeConfirm.skillId].unlockedTools.filter(t => t !== toolRevokeConfirm.tool) } };
+                    return updated;
+                  });
+                  loseXP(100, "skill", "↩ інструмент");
+                  setToolRevokeConfirm(null);
+                }} style={{ flex: 1, background: "rgba(244,63,94,0.15)", border: "1px solid rgba(244,63,94,0.5)", color: "#f43f5e", padding: "10px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 13 }}>Так, зняти</button>
+                <button onClick={() => setToolRevokeConfirm(null)} style={{ flex: 1, background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.3)", color: "#c9a84c", padding: "10px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>Залишити</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Revoke achievement confirmation modal */}
+        {revokeConfirm && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.80)", zIndex: 9995, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+            <div className="wf-panel" style={{ maxWidth: 380, width: "100%", padding: 24 }}>
+              <div style={{ fontSize: 22, marginBottom: 12, textAlign: "center" }}>🔓</div>
+              <div className="wf-sec" style={{ textAlign: "center", marginBottom: 8 }}>Скасувати досягнення?</div>
+              <div style={{ fontSize: 13, color: "#e0d8c0", textAlign: "center", marginBottom: 6, fontFamily: "'Exo 2',sans-serif", fontWeight: 700 }}>«{revokeConfirm.name}»</div>
+              <div style={{ fontSize: 12, color: "#f43f5e", textAlign: "center", marginBottom: 20, fontFamily: "'Space Mono',monospace" }}>−{revokeConfirm.xp} XP</div>
+              <div style={{ fontSize: 11, color: "#6a5a40", textAlign: "center", marginBottom: 20 }}>Досягнення буде знято, XP відніметься. Його можна отримати знову, якщо умова буде виконана повторно.</div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => {
+                  setUnlockedAchievements(prev => prev.filter(id => id !== revokeConfirm.id));
+                  loseXP(revokeConfirm.xp, "achievement", "↩ досягнення");
+                  setRevokeConfirm(null);
+                }} style={{ flex: 1, background: "rgba(244,63,94,0.15)", border: "1px solid rgba(244,63,94,0.5)", color: "#f43f5e", padding: "10px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 13 }}>Так, скасувати</button>
+                <button onClick={() => setRevokeConfirm(null)} style={{ flex: 1, background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.3)", color: "#c9a84c", padding: "10px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>Залишити</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Skills Tasks */}
+        {activeTab === "skillstasks" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {SKILL_TASKS.map(cat => {
+              const isOpen = selectedSkillTask === cat.id;
+              const hasContent = cat.progressive.length > 0 || cat.oneTime.length > 0;
+              const totalTasks = cat.oneTime.length + cat.progressive.reduce((s, t) => s + t.milestones.length, 0);
+              const doneTasks = cat.oneTime.filter(t => skillTasksData[`${cat.id}_${t.id}`] === true).length
+                + cat.progressive.reduce((s, t) => s + t.milestones.filter((_, i) => (skillTasksData[`${cat.id}_${t.id}`]?.claimed ?? []).includes(i)).length, 0);
               return (
-                <div key={a.id} style={{ background: done ? "rgba(245,158,11,0.07)" : "rgba(255,255,255,0.03)", border: `1px solid ${done ? "#f59e0b44" : "rgba(255,255,255,0.07)"}`, borderRadius: 14, padding: 16, opacity: done ? 1 : 0.55, filter: done ? "none" : "grayscale(0.6)" }}>
-                  <div style={{ fontSize: 30, marginBottom: 8 }}>{a.icon}</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: done ? "#f59e0b" : "#fff", marginBottom: 4, fontFamily: "'Exo 2',sans-serif" }}>{a.name}</div>
-                  <div style={{ fontSize: 11, color: "#64748b", marginBottom: 8 }}>{a.desc}</div>
-                  <div style={{ fontSize: 11, color: "#00ff88" }}>+{a.xp} XP {done ? "✓" : ""}</div>
+                <div key={cat.id} className="skill-card wf-card" style={{ border: `1px solid ${isOpen ? cat.color + "80" : doneTasks > 0 ? cat.color + "44" : "rgba(201,168,76,0.18)"}`, borderTop: `2px solid ${isOpen ? cat.color : doneTasks > 0 ? cat.color + "88" : "rgba(201,168,76,0.35)"}`, overflow: "hidden", opacity: hasContent ? 1 : 0.45 }}>
+                  <div onClick={() => hasContent && setSelectedSkillTask(isOpen ? null : cat.id)} style={{ padding: "14px 16px", cursor: hasContent ? "pointer" : "default", display: "flex", alignItems: "center", gap: 12 }}>
+                    <span style={{ fontSize: 20 }}>{cat.emoji}</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: "#e0d8c0", textTransform: "uppercase", letterSpacing: 2, fontFamily: "'Exo 2',sans-serif" }}>{cat.name}</div>
+                      <div style={{ fontSize: 13, color: hasContent ? cat.color : "#6a5f40", marginTop: 4, letterSpacing: 1, fontWeight: 600 }}>
+                        {hasContent ? `${doneTasks}/${totalTasks} завдань виконано` : "Скоро буде додано"}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      {hasContent && totalTasks > 0 && (
+                        <div style={{ width: 80, height: 5, background: "rgba(201,168,76,0.18)", borderRadius: 3 }}>
+                          <div style={{ width: `${(doneTasks / totalTasks) * 100}%`, height: "100%", background: cat.color, borderRadius: 3 }} />
+                        </div>
+                      )}
+                      {hasContent && <span style={{ color: "#9a8a60", fontSize: 14 }}>{isOpen ? "▲" : "▼"}</span>}
+                    </div>
+                  </div>
+                  {isOpen && (
+                    <div style={{ padding: "0 16px 20px", display: "flex", flexDirection: "column", gap: 20 }}>
+                      {cat.progressive.length > 0 && (
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 800, color: "#9a8a60", letterSpacing: 2, textTransform: "uppercase", fontFamily: "'Exo 2',sans-serif", marginBottom: 12 }}>Прогресивні</div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                            {cat.progressive.map(task => {
+                              const key = `${cat.id}_${task.id}`;
+                              const taskState = skillTasksData[key] || { count: 0, claimed: [] };
+                              const inputKey = `${cat.id}_${task.id}`;
+                              const inputVal = skillTaskInputs[inputKey] ?? "";
+                              const handleAdd = (sign) => {
+                                const n = parseInt(inputVal) || 1;
+                                addProgressiveCount(cat.id, task.id, sign * n);
+                                setSkillTaskInputs(prev => ({ ...prev, [inputKey]: "" }));
+                              };
+                              return (
+                                <div key={task.id} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                  <div style={{ fontSize: 13, color: "#c8b89a", fontFamily: "'Space Mono',monospace" }}>{task.label}</div>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                    <button onClick={() => addProgressiveCount(cat.id, task.id, 1)} style={{ padding: "4px 12px", borderRadius: 4, fontSize: 16, fontWeight: 800, cursor: "pointer", background: `${cat.color}18`, border: `1px solid ${cat.color}66`, color: cat.color, lineHeight: 1 }}>+</button>
+                                    <button onClick={() => addProgressiveCount(cat.id, task.id, -1)} style={{ padding: "4px 12px", borderRadius: 4, fontSize: 16, fontWeight: 800, cursor: "pointer", background: "rgba(244,63,94,0.12)", border: "1px solid rgba(244,63,94,0.4)", color: "#f43f5e", lineHeight: 1 }}>−</button>
+                                    <input
+                                      type="number"
+                                      placeholder="N"
+                                      value={inputVal}
+                                      onChange={e => setSkillTaskInputs(prev => ({ ...prev, [inputKey]: e.target.value }))}
+                                      onKeyDown={e => e.key === "Enter" && handleAdd(1)}
+                                      style={{ width: 52, background: "rgba(0,0,0,0.4)", border: `1px solid ${cat.color}33`, color: "#c8b89a", padding: "4px 6px", borderRadius: 4, fontFamily: "'Space Mono',monospace", fontSize: 12, textAlign: "center" }}
+                                    />
+                                    <button onClick={() => handleAdd(1)} style={{ padding: "4px 10px", borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: "pointer", background: `${cat.color}18`, border: `1px solid ${cat.color}44`, color: `${cat.color}cc` }}>+N</button>
+                                    <button onClick={() => handleAdd(-1)} style={{ padding: "4px 10px", borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: "pointer", background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.3)", color: "#f43f5e" }}>−N</button>
+                                    <span style={{ fontSize: 12, color: cat.color, fontFamily: "'Space Mono',monospace", fontWeight: 700, marginLeft: 2 }}>Всього: {taskState.count}</span>
+                                  </div>
+                                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                    {task.milestones.map((m, idx) => {
+                                      const claimed = taskState.claimed.includes(idx);
+                                      const reached = taskState.count >= m.count;
+                                      const canClaim = reached && !claimed;
+                                      return (
+                                        <button key={idx} onClick={() => claimed ? revokeProgressiveMilestone(cat.id, task.id, idx, m.xp) : canClaim ? claimProgressiveMilestone(cat.id, task.id, idx, m.xp) : null} style={{ padding: "4px 10px", borderRadius: 3, fontSize: 11, fontWeight: 700, fontFamily: "'Space Mono',monospace", cursor: claimed || canClaim ? "pointer" : "default", background: claimed ? `${cat.color}22` : canClaim ? `${cat.color}18` : "rgba(0,0,0,0.3)", border: `1px solid ${claimed ? cat.color : canClaim ? cat.color + "88" : "rgba(201,168,76,0.2)"}`, color: claimed ? cat.color : canClaim ? cat.color + "cc" : "#6a5f40", textDecoration: claimed ? "line-through" : "none", opacity: claimed ? 0.7 : 1 }}>
+                                          {claimed ? "✓ " : canClaim ? "▶ " : ""}×{m.count}<span style={{ color: "rgba(201,168,76,0.35)", margin: "0 4px" }}>/</span><span style={{ color: claimed ? cat.color + "99" : canClaim ? "#00ff88" : "#6a5f40" }}>+{m.xp} XP</span>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                  {cat.id === "code" && task.id === "lines_written" && (
+                                    <div style={{ marginTop: 6, border: "1px solid rgba(99,102,241,0.3)", borderRadius: 6, background: "rgba(99,102,241,0.05)", overflow: "hidden" }}>
+                                      <div onClick={() => setGhPanelOpen(v => !v)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", cursor: "pointer" }}>
+                                        <span style={{ fontSize: 14 }}>🔄</span>
+                                        <span style={{ flex: 1, fontSize: 12, fontWeight: 700, color: "#8b8fef", fontFamily: "'Exo 2',sans-serif", letterSpacing: 0.5 }}>Синхронізувати з GitHub</span>
+                                        {githubSync.lastSync && (
+                                          <span style={{ fontSize: 10, color: "#5a5f8a", fontFamily: "'Space Mono',monospace" }}>
+                                            {githubSync.totalLines.toLocaleString()} рядків · {new Date(githubSync.lastSync).toLocaleDateString("uk-UA")}
+                                          </span>
+                                        )}
+                                        <span style={{ color: "#6366f1", fontSize: 12 }}>{ghPanelOpen ? "▲" : "▼"}</span>
+                                      </div>
+                                      {ghPanelOpen && (
+                                        <div style={{ padding: "0 12px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+                                          <div style={{ fontSize: 10, color: "#6a6a8a", lineHeight: 1.5, fontFamily: "'Space Mono',monospace" }}>
+                                            Рахує фактичну кількість рядків у файлах усіх твоїх репозиторіїв (так само, як показує GitHub). Без токена видно лише публічні репо та діє ліміт ~60 запитів/год — для приватних репо й зняття ліміту додай Personal Access Token.
+                                          </div>
+                                          <input
+                                            value={githubSync.user}
+                                            onChange={e => setGithubSync(p => ({ ...p, user: e.target.value }))}
+                                            placeholder="GitHub username (напр. v1frim)"
+                                            style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(99,102,241,0.3)", color: "#c8c8f0", padding: "7px 10px", borderRadius: 4, fontSize: 12, fontFamily: "'Space Mono',monospace" }}
+                                          />
+                                          <input
+                                            type="password"
+                                            value={githubSync.token}
+                                            onChange={e => setGithubSync(p => ({ ...p, token: e.target.value }))}
+                                            placeholder="Personal Access Token (необов'язково)"
+                                            style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(99,102,241,0.3)", color: "#c8c8f0", padding: "7px 10px", borderRadius: 4, fontSize: 12, fontFamily: "'Space Mono',monospace" }}
+                                          />
+                                          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                                            <button onClick={syncGithubLines} disabled={ghSyncing}
+                                              style={{ padding: "7px 16px", borderRadius: 4, fontSize: 12, fontWeight: 700, cursor: ghSyncing ? "default" : "pointer", background: ghSyncing ? "rgba(99,102,241,0.2)" : "#6366f1", border: "none", color: "#fff", opacity: ghSyncing ? 0.6 : 1 }}>
+                                              {ghSyncing ? "Синхронізую…" : "Синхронізувати"}
+                                            </button>
+                                            {ghSyncMsg && <span style={{ fontSize: 11, color: ghSyncMsg.startsWith("⚠") ? "#f43f5e" : ghSyncMsg.startsWith("✓") ? "#00ff88" : "#8b8fef", fontFamily: "'Space Mono',monospace" }}>{ghSyncMsg}</span>}
+                                          </div>
+                                          {githubSync.repos?.length > 0 && (
+                                            <div style={{ marginTop: 2, display: "flex", flexDirection: "column", gap: 3, maxHeight: 160, overflowY: "auto" }}>
+                                              {githubSync.repos.map(r => (
+                                                <div key={r.name} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontFamily: "'Space Mono',monospace", color: "#9a9ac0", padding: "3px 8px", background: "rgba(0,0,0,0.25)", borderRadius: 3 }}>
+                                                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</span>
+                                                  <span style={{ color: "#8b8fef", fontWeight: 700, flexShrink: 0, marginLeft: 8 }}>{r.lines.toLocaleString()}</span>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                      {cat.oneTime.length > 0 && (
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 800, color: "#9a8a60", letterSpacing: 2, textTransform: "uppercase", fontFamily: "'Exo 2',sans-serif", marginBottom: 12 }}>Разові</div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            {cat.oneTime.map(task => {
+                              const key = `${cat.id}_${task.id}`;
+                              const done = skillTasksData[key] === true;
+                              return (
+                                <div key={task.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                  <button onClick={() => done ? revokeOneTimeTask(cat.id, task.id, task.xp) : claimOneTimeTask(cat.id, task.id, task.xp)} style={{ flexShrink: 0, width: 22, height: 22, borderRadius: 4, border: `1px solid ${done ? cat.color : "rgba(201,168,76,0.3)"}`, background: done ? `${cat.color}22` : "transparent", color: done ? cat.color : "#6a5f40", cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                    {done ? "✓" : ""}
+                                  </button>
+                                  <span style={{ flex: 1, fontSize: 13, color: done ? "#9a8a60" : "#c8b89a", fontFamily: "'Space Mono',monospace", textDecoration: done ? "line-through" : "none" }}>{task.label}</span>
+                                  <span style={{ fontSize: 11, fontWeight: 700, color: done ? "#6a5f40" : "#00ff88", fontFamily: "'Space Mono',monospace", whiteSpace: "nowrap" }}>+{task.xp} XP</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
         )}
 
-        {/* Income */}
-        {activeTab === "income" && (
-          <div>
-            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 22, marginBottom: 16 }}>
-              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 14, color: "#64748b", marginBottom: 6 }}>Загальний дохід з AI</div>
-              <div style={{ fontSize: 44, fontWeight: 800, color: "#f59e0b", fontFamily: "'Exo 2',sans-serif", marginBottom: 18 }}>${income.toFixed(2)}</div>
-              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        {/* Achievements */}
+        {activeTab === "achievements" && (() => {
+          const lt = learnTime;
+          const learnHours = ((lt.education ?? 0) + (lt.business ?? 0)) * 0.5;
+          const codeLines = skillTasksData["code_lines_written"]?.count ?? 0;
+          const achArgs = [totalTools, totalIncome, projects.length, skillData, streak, sessions.dates.length, learnHours, codeLines];
+          return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 26 }}>
+            {ACH_GROUPS.map(g => {
+              const items = ACHIEVEMENTS.filter(a => a.group === g.id);
+              if (!items.length) return null;
+              const doneCount = items.filter(a => unlockedAchievements.includes(a.id)).length;
+              return (
+                <div key={g.id}>
+                  <div className="wf-sec" style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                    <span>{g.label}</span>
+                    <span style={{ color: doneCount === items.length ? "#c9a84c" : "#9a8a60", fontFamily: "'Space Mono',monospace", letterSpacing: 1 }}>{doneCount}/{items.length}</span>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 13 }}>
+                    {items.map(a => {
+                      const done = unlockedAchievements.includes(a.id);
+                      const tier = TIERS[a.tier];
+                      const isLeg = a.tier === "legendary" && done;
+                      return (
+                        <div key={a.id} className={isLeg ? "legendary-card" : done ? "wf-card" : ""}
+                          style={{ position: "relative", overflow: "hidden",
+                            background: isLeg
+                              ? "linear-gradient(160deg,rgba(80,40,0,0.55),rgba(8,5,0,0.96),rgba(60,30,0,0.40))"
+                              : done ? `linear-gradient(160deg, ${tier.color}30, rgba(10,7,2,0.92))` : "rgba(14,10,4,0.88)",
+                            border: `1px solid ${done ? tier.color + "70" : "rgba(201,168,76,0.22)"}`,
+                            borderTop: `2px solid ${done ? tier.color : "rgba(201,168,76,0.30)"}`,
+                            borderRadius: 4, padding: 16,
+                            boxShadow: !isLeg && done ? `0 0 24px ${tier.glow}, inset 0 0 40px ${tier.color}08` : "none" }}>
+                          {isLeg && (
+                            <>
+                              {[0,1,2,3].map(i => (
+                                <div key={i} style={{ position:"absolute", width:3, height:3, borderRadius:"50%", background:"#ffb700",
+                                  top: i<2 ? 6 : "auto", bottom: i>=2 ? 6 : "auto",
+                                  left: i===0||i===2 ? 8 : "auto", right: i===1||i===3 ? 8 : "auto",
+                                  animation:`legendaryStar ${1.8+i*0.4}s ease-in-out ${i*0.5}s infinite`,
+                                  boxShadow:"0 0 6px #ffb700" }} />
+                              ))}
+                              <div style={{ position:"absolute", inset:0, background:"linear-gradient(105deg,transparent 40%,rgba(255,220,100,0.07) 50%,transparent 60%)", backgroundSize:"200% 100%", animation:"legendaryShimmer 2.5s linear infinite", pointerEvents:"none" }} />
+                            </>
+                          )}
+                          {done && (
+                            <button onClick={() => setRevokeConfirm({ id: a.id, name: a.name, xp: a.xp })} title="Скасувати досягнення" style={{ position: "absolute", top: 8, right: 8, background: "rgba(244,63,94,0.0)", border: "none", color: "rgba(244,63,94,0.25)", cursor: "pointer", fontSize: 15, lineHeight: 1, padding: "2px 4px", borderRadius: 3, transition: "all 0.15s", zIndex: 2 }} onMouseEnter={e => { e.currentTarget.style.background="rgba(244,63,94,0.15)"; e.currentTarget.style.color="#f43f5e"; }} onMouseLeave={e => { e.currentTarget.style.background="rgba(244,63,94,0)"; e.currentTarget.style.color="rgba(244,63,94,0.25)"; }}>🔓</button>
+                          )}
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                            <div style={{ fontSize: done ? (isLeg ? 40 : 36) : 28, filter: done ? `drop-shadow(0 0 ${isLeg ? 14 : 8}px ${tier.color}bb)` : "grayscale(1) brightness(0.45)", transition: "font-size 0.2s" }}>{a.icon}</div>
+                            <span className={isLeg ? "legendary-badge" : ""} style={{ fontSize: 9, fontWeight: 800, color: done ? tier.color : "#6a5a38", border: `1px solid ${done ? tier.color + "66" : "rgba(201,168,76,0.22)"}`, borderRadius: 2, padding: "2px 7px", textTransform: "uppercase", letterSpacing: 1.5, fontFamily: "'Exo 2',sans-serif", whiteSpace: "nowrap" }}>{tier.label}</span>
+                          </div>
+                          <div className={isLeg ? "legendary-title" : ""} style={{ fontSize: 14, fontWeight: 800, color: isLeg ? undefined : done ? tier.color : "#9a8a60", marginBottom: 6, fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>{a.name}</div>
+                          <div style={{ fontSize: 12, color: done ? "#b0a080" : "#7a6a48", marginBottom: 10, lineHeight: 1.5 }}>{a.desc}</div>
+                          <div style={{ fontSize: 12, color: done ? tier.color : "#6a5a38", fontFamily: "'Space Mono',monospace", letterSpacing: 1 }}>+{a.xp} XP {done ? "✓" : "🔒"}</div>
+                          {done && achievementDates[a.id] && (
+                            <div style={{ fontSize: 10, color: "#5a4a30", fontFamily: "'Space Mono',monospace", marginTop: 5 }}>
+                              📅 {achievementDates[a.id]}
+                            </div>
+                          )}
+                          {!done && a.progress && (() => {
+                            const { cur, max } = a.progress(...achArgs);
+                            const pct = Math.min(1, cur / max);
+                            const pctLabel = pct >= 0.01 ? `${Math.floor(pct * 100)}%` : "0%";
+                            return (
+                              <div style={{ marginTop: 10 }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, fontSize: 10, fontFamily: "'Space Mono',monospace" }}>
+                                  <span style={{ color: "#6a5a38" }}>{cur > 0 ? (Number.isInteger(cur) ? cur : cur.toFixed(1)) : 0} / {max}</span>
+                                  <span style={{ color: pct > 0.5 ? tier.color : "#6a5a38", fontWeight: 700 }}>{pctLabel}</span>
+                                </div>
+                                <div style={{ height: 4, background: "rgba(201,168,76,0.12)", borderRadius: 2, overflow: "hidden" }}>
+                                  <div style={{ height: "100%", width: `${pct * 100}%`, background: pct >= 1 ? tier.color : `linear-gradient(90deg, ${tier.color}88, ${tier.color})`, borderRadius: 2, transition: "width 0.4s" }} />
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          );
+        })()}
+
+        {/* Combined Goals & Plan tab */}
+        {activeTab === "goalsplan" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {/* Sub-tab navigation */}
+            <div style={{ display: "flex", gap: 4, borderBottom: "1px solid rgba(201,168,76,0.15)", paddingBottom: 12 }}>
+              {[
+                { id: "tasks",   label: "✅ Задачі" },
+                { id: "goals",   label: "🎯 Цілі" },
+                { id: "plan",    label: "📋 План дій" },
+              ].map(st => (
+                <button key={st.id} onClick={() => setGoalsSubTab(st.id)}
+                  style={{ background: goalsSubTab === st.id ? "rgba(201,168,76,0.12)" : "rgba(8,5,2,0.4)", border: `1px solid ${goalsSubTab === st.id ? "rgba(201,168,76,0.5)" : "rgba(201,168,76,0.15)"}`, borderRadius: 4, padding: "7px 16px", color: goalsSubTab === st.id ? "#c9a84c" : "#6a5f40", fontSize: 12, cursor: "pointer", fontFamily: "'Exo 2',sans-serif", fontWeight: goalsSubTab === st.id ? 700 : 400 }}>
+                  {st.label}
+                </button>
+              ))}
+            </div>
+
+        {/* Задачі */}
+        {goalsSubTab === "tasks" && true && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+            {/* Add task */}
+            <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 16 }}>
+              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 12 }}>+ Нова задача</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <input
-                  value={incomeInput}
-                  onChange={e => setIncomeInput(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && addIncome()}
-                  placeholder="Сума в $..."
-                  type="number"
-                  min="0"
-                  style={{ width: 150, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "9px 14px", color: "#fff", fontSize: 15, fontFamily: "'Space Mono',monospace" }}
+                  value={goalInput}
+                  onChange={e => setGoalInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === "Enter" && goalInput.trim()) {
+                      setGoals(prev => [...prev, { id: `g${Date.now()}`, text: goalInput.trim(), priority: goalPriority, xp: goalXP, done: false, createdAt: new Date().toISOString() }]);
+                      setGoalInput("");
+                    }
+                  }}
+                  placeholder="Опиши задачу..."
+                  style={{ flex: 1, minWidth: 180, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "9px 14px", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace" }}
                 />
-                <button className="act-btn" onClick={addIncome} style={{ background: "#f59e0b", color: "#000", border: "none", padding: "9px 18px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>+ Записати</button>
+                <select
+                  value={goalPriority}
+                  onChange={e => setGoalPriority(e.target.value)}
+                  style={{ background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "9px 12px", color: "#c0b090", fontSize: 12, cursor: "pointer" }}
+                >
+                  {TASK_PRIORITIES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                </select>
+                <div style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "0 10px" }}>
+                  <span style={{ fontSize: 11, color: "#6a5f40" }}>XP</span>
+                  <input type="number" min="0" max="9999" value={goalXP} onChange={e => setGoalXP(Math.max(0, parseInt(e.target.value) || 0))}
+                    style={{ width: 52, background: "transparent", border: "none", color: "#00ff88", fontSize: 13, fontFamily: "'Space Mono',monospace", textAlign: "center", padding: "9px 0" }} />
+                </div>
+                <button className="act-btn" onClick={() => {
+                  if (!goalInput.trim()) return;
+                  setGoals(prev => [...prev, { id: `g${Date.now()}`, text: goalInput.trim(), priority: goalPriority, xp: goalXP, done: false, createdAt: new Date().toISOString() }]);
+                  setGoalInput("");
+                }} style={{ background: "#00ff88", color: "#000", border: "none", padding: "9px 16px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 12 }}>Додати</button>
               </div>
-              <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+            </div>
+
+            {/* Tasks by priority */}
+            {TASK_PRIORITIES.map(pr => {
+              const prTasks = goals.filter(g => !g.done && (g.priority ?? "normal") === pr.id);
+              if (!prTasks.length) return null;
+              return (
+                <div key={pr.id} style={{ background: "rgba(5,3,1,0.76)", border: `1px solid ${pr.border}`, borderLeft: `3px solid ${pr.color}`, borderRadius: 4, padding: 16 }}>
+                  <div style={{ fontSize: 12, color: pr.color, fontWeight: 800, marginBottom: 10, textTransform: "uppercase", letterSpacing: 1.5 }}>{pr.label}</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {prTasks.map(g => (
+                      <div key={g.id}
+                        draggable={true}
+                        onDragStart={() => { dragRef.current = { id: g.id, list: "goals" }; }}
+                        onDragOver={e => e.preventDefault()}
+                        onDrop={() => {
+                          if (dragRef.current?.list !== "goals") return;
+                          const fromId = dragRef.current.id;
+                          setGoals(prev => {
+                            const arr = [...prev];
+                            const fi = arr.findIndex(x => x.id === fromId);
+                            const ti = arr.findIndex(x => x.id === g.id);
+                            if (fi < 0 || ti < 0 || fi === ti) return prev;
+                            const [item] = arr.splice(fi, 1);
+                            arr.splice(ti, 0, item);
+                            return arr;
+                          });
+                        }}
+                        style={{ display: "flex", alignItems: "center", gap: 10, background: pr.bg, borderRadius: 4, padding: "10px 12px", cursor: "default" }}>
+                        <span style={{ color: "#3a3020", cursor: "grab", fontSize: 14, userSelect: "none", marginRight: 4 }}>⋮⋮</span>
+                        <button onClick={() => setGoals(prev => prev.map(x => {
+                          if (x.id !== g.id) return x;
+                          if (!x.done) {
+                            if (!x.xpAwarded) { gainXP(g.xp ?? 100, "(задачу виконано)", "goal"); return { ...x, done: true, xpAwarded: true, completedAt: new Date().toISOString() }; }
+                            return { ...x, done: true, completedAt: new Date().toISOString() };
+                          }
+                          if (x.xpAwarded) loseXP(x.xp ?? 100, "goal", "↩ задачу скасовано");
+                          return { ...x, done: false, xpAwarded: false, completedAt: null };
+                        }))} style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${pr.color}66`, background: "transparent", cursor: "pointer", flexShrink: 0, fontSize: 10, color: pr.color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }} />
+                        {goalEditId === g.id ? (
+                          (() => {
+                            const saveGoal = () => { setGoals(prev => prev.map(x => x.id === g.id ? { ...x, text: goalEditText.trim() || x.text, xp: goalEditXP } : x)); setGoalEditId(null); };
+                            return (
+                          <div style={{ flex: 1, display: "flex", gap: 6 }}
+                            onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) saveGoal(); }}>
+                            <input
+                              autoFocus
+                              value={goalEditText}
+                              onChange={e => setGoalEditText(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === "Enter") saveGoal();
+                                if (e.key === "Escape") setGoalEditId(null);
+                              }}
+                              style={{ flex: 1, background: "rgba(8,5,2,0.9)", border: `1px solid ${pr.color}66`, borderRadius: 3, padding: "4px 10px", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace" }}
+                            />
+                            <div style={{ display: "flex", alignItems: "center", gap: 3, background: "rgba(8,5,2,0.9)", border: `1px solid ${pr.color}44`, borderRadius: 3, padding: "0 8px" }}>
+                              <span style={{ fontSize: 10, color: "#6a5f40" }}>XP</span>
+                              <input type="number" min="0" max="9999" value={goalEditXP}
+                                onChange={e => setGoalEditXP(Math.max(0, parseInt(e.target.value) || 0))}
+                                onKeyDown={e => { if (e.key === "Enter") saveGoal(); if (e.key === "Escape") setGoalEditId(null); }}
+                                style={{ width: 44, background: "transparent", border: "none", color: "#00ff88", fontSize: 12, fontFamily: "'Space Mono',monospace", textAlign: "center", padding: "4px 0" }} />
+                            </div>
+                          </div>
+                            );
+                          })()
+                        ) : (
+                          <span style={{ flex: 1, color: "#e0d8c0", fontSize: 13, fontWeight: pr.fontWeight }}>{g.text}</span>
+                        )}
+                        {goalEditId !== g.id && (
+                          <span style={{ fontSize: 11, color: "#00ff88", background: "rgba(0,255,136,0.08)", border: "1px solid rgba(0,255,136,0.2)", padding: "2px 7px", borderRadius: 3, whiteSpace: "nowrap", flexShrink: 0 }}>+{g.xp ?? 100} XP</span>
+                        )}
+                        {/* Priority change */}
+                        <select
+                          value={g.priority ?? "normal"}
+                          onChange={e => setGoals(prev => prev.map(x => x.id === g.id ? { ...x, priority: e.target.value } : x))}
+                          style={{ background: "rgba(8,5,2,0.68)", border: `1px solid ${pr.color}44`, borderRadius: 3, padding: "3px 6px", color: pr.color, fontSize: 10, cursor: "pointer", maxWidth: 90 }}
+                        >
+                          {TASK_PRIORITIES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                        </select>
+                        <button onClick={() => { setGoalEditId(g.id); setGoalEditText(g.text); setGoalEditXP(g.xp ?? 100); }}
+                          style={{ background: "none", border: "none", color: "#6a5f40", cursor: "pointer", fontSize: 13, padding: "0 3px" }} title="Редагувати">✎</button>
+                        <button onClick={() => setGoals(prev => prev.map(x => x.id === g.id ? { ...x, pinned: !x.pinned } : x))}
+                          title={g.pinned ? "Прибрати з Головної" : "Закріпити на Головній"}
+                          style={{ background: "none", border: "none", color: g.pinned ? "#c9a84c" : "#4a4030", cursor: "pointer", fontSize: 13, padding: "0 3px" }}>📌</button>
+                        <button onClick={() => setGoals(prev => prev.filter(x => x.id !== g.id))}
+                          style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 16, padding: "0 3px" }}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Done tasks */}
+            {renderDoneSection(goals.filter(g => g.done), {
+              sectionKey: "tasks",
+              open: tasksDoneOpen, setOpen: setTasksDoneOpen,
+              onUndo: (g) => setGoals(prev => prev.map(x => {
+                if (x.id !== g.id) return x;
+                if (x.xpAwarded) loseXP(x.xp ?? 100, "goal", "↩ задачу скасовано");
+                return { ...x, done: false, xpAwarded: false, completedAt: null };
+              })),
+              onDelete: (g) => setGoals(prev => prev.filter(x => x.id !== g.id)),
+              labelFn: g => g.text,
+              xpFn: g => g.xp ?? 100,
+            })}
+
+            {goals.length === 0 && (
+              <div style={{ textAlign: "center", padding: 32, color: "#6a5f40", fontSize: 13 }}>Ще немає задач. Додай першу!</div>
+            )}
+          </div>
+        )}
+
+        {/* Цілі sub-tab */}
+        {goalsSubTab === "goals" && true && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+            {/* Add goal */}
+            <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 16 }}>
+              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 12 }}>+ Нова ціль</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <input
+                  value={longGoalInput}
+                  onChange={e => setLongGoalInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === "Enter" && longGoalInput.trim()) {
+                      setLongGoals(prev => [...prev, { id: `lg${Date.now()}`, text: longGoalInput.trim(), period: longGoalPeriod, customXP: longGoalXP, done: false, createdAt: new Date().toISOString() }]);
+                      setLongGoalInput("");
+                    }
+                  }}
+                  placeholder="Опиши ціль..."
+                  style={{ flex: 1, minWidth: 200, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "9px 14px", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace" }}
+                />
+                <select
+                  value={longGoalPeriod}
+                  onChange={e => setLongGoalPeriod(e.target.value)}
+                  style={{ background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "9px 12px", color: "#c0b090", fontSize: 12, cursor: "pointer" }}
+                >
+                  {GOAL_PERIODS.map(p => <option key={p.id} value={p.id}>{p.icon} {p.label}</option>)}
+                </select>
+                <div style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "0 10px" }}>
+                  <span style={{ fontSize: 11, color: "#6a5f40" }}>XP</span>
+                  <input type="number" min="0" max="99999" value={longGoalXP} onChange={e => setLongGoalXP(Math.max(0, parseInt(e.target.value) || 0))}
+                    style={{ width: 60, background: "transparent", border: "none", color: "#00ff88", fontSize: 13, fontFamily: "'Space Mono',monospace", textAlign: "center", padding: "9px 0" }} />
+                </div>
+                <button className="act-btn" onClick={() => {
+                  if (!longGoalInput.trim()) return;
+                  setLongGoals(prev => [...prev, { id: `lg${Date.now()}`, text: longGoalInput.trim(), period: longGoalPeriod, customXP: longGoalXP, done: false, createdAt: new Date().toISOString() }]);
+                  setLongGoalInput("");
+                }} style={{ background: "#00ff88", color: "#000", border: "none", padding: "9px 16px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 12 }}>Додати</button>
+              </div>
+            </div>
+
+            {/* Goals by period */}
+            {GOAL_PERIODS.map(per => {
+              const perGoals = longGoals.filter(g => !g.done && g.period === per.id);
+              if (!perGoals.length) return null;
+              return (
+                <div key={per.id} style={{ background: "rgba(5,3,1,0.76)", border: `1px solid ${per.color}33`, borderLeft: `3px solid ${per.color}`, borderRadius: 4, padding: 16 }}>
+                  <div style={{ fontSize: 12, color: per.color, fontWeight: 800, marginBottom: 10, textTransform: "uppercase", letterSpacing: 1.5 }}>{per.icon} {per.label}</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {perGoals.map(g => (
+                      <div key={g.id}
+                        draggable={true}
+                        onDragStart={() => { dragRef.current = { id: g.id, list: "longgoals" }; }}
+                        onDragOver={e => e.preventDefault()}
+                        onDrop={() => {
+                          if (dragRef.current?.list !== "longgoals") return;
+                          const fromId = dragRef.current.id;
+                          setLongGoals(prev => {
+                            const arr = [...prev];
+                            const fi = arr.findIndex(x => x.id === fromId);
+                            const ti = arr.findIndex(x => x.id === g.id);
+                            if (fi < 0 || ti < 0 || fi === ti) return prev;
+                            const [item] = arr.splice(fi, 1);
+                            arr.splice(ti, 0, item);
+                            return arr;
+                          });
+                        }}
+                        style={{ display: "flex", alignItems: "center", gap: 10, background: `${per.color}08`, borderRadius: 4, padding: "10px 12px", cursor: "default" }}>
+                        <span style={{ color: "#3a3020", cursor: "grab", fontSize: 14, userSelect: "none", marginRight: 4 }}>⋮⋮</span>
+                        <button onClick={() => setLongGoals(prev => prev.map(x => {
+                          if (x.id !== g.id) return x;
+                          if (!x.done) {
+                            if (!x.xpAwarded) { gainXP(x.customXP ?? 200, "(ціль досягнута)", "goal"); return { ...x, done: true, xpAwarded: true, completedAt: new Date().toISOString() }; }
+                            return { ...x, done: true, completedAt: new Date().toISOString() };
+                          }
+                          if (x.xpAwarded) loseXP(x.customXP ?? 200, "goal", "↩ ціль скасовано");
+                          return { ...x, done: false, xpAwarded: false, completedAt: null };
+                        }))} style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${per.color}66`, background: "transparent", cursor: "pointer", flexShrink: 0, fontSize: 10, color: per.color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }} />
+                        {longGoalEditId === g.id ? (
+                          (() => {
+                            const saveLong = () => { setLongGoals(prev => prev.map(x => x.id === g.id ? { ...x, text: longGoalEditText.trim() || x.text, customXP: longGoalEditXP } : x)); setLongGoalEditId(null); };
+                            return (
+                          <div style={{ flex: 1, display: "flex", gap: 6 }}
+                            onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) saveLong(); }}>
+                            <input
+                              autoFocus
+                              value={longGoalEditText}
+                              onChange={e => setLongGoalEditText(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === "Enter") saveLong();
+                                if (e.key === "Escape") setLongGoalEditId(null);
+                              }}
+                              style={{ flex: 1, background: "rgba(8,5,2,0.9)", border: `1px solid ${per.color}66`, borderRadius: 3, padding: "4px 10px", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace" }}
+                            />
+                            <div style={{ display: "flex", alignItems: "center", gap: 3, background: "rgba(8,5,2,0.9)", border: `1px solid ${per.color}44`, borderRadius: 3, padding: "0 8px" }}>
+                              <span style={{ fontSize: 10, color: "#6a5f40" }}>XP</span>
+                              <input type="number" min="0" max="99999" value={longGoalEditXP}
+                                onChange={e => setLongGoalEditXP(Math.max(0, parseInt(e.target.value) || 0))}
+                                onKeyDown={e => { if (e.key === "Enter") saveLong(); if (e.key === "Escape") setLongGoalEditId(null); }}
+                                style={{ width: 52, background: "transparent", border: "none", color: "#00ff88", fontSize: 12, fontFamily: "'Space Mono',monospace", textAlign: "center", padding: "4px 0" }} />
+                            </div>
+                          </div>
+                            );
+                          })()
+                        ) : (
+                          <span style={{ flex: 1, color: "#e0d8c0", fontSize: 13, fontWeight: 600 }}>{g.text}</span>
+                        )}
+                        {longGoalEditId !== g.id && (
+                          <span style={{ fontSize: 11, color: per.color, background: `${per.color}14`, border: `1px solid ${per.color}33`, padding: "2px 7px", borderRadius: 3, whiteSpace: "nowrap", flexShrink: 0 }}>+{g.customXP ?? 200} XP</span>
+                        )}
+                        <select
+                          value={g.period}
+                          onChange={e => setLongGoals(prev => prev.map(x => x.id === g.id ? { ...x, period: e.target.value } : x))}
+                          style={{ background: "rgba(8,5,2,0.68)", border: `1px solid ${per.color}44`, borderRadius: 3, padding: "3px 6px", color: per.color, fontSize: 10, cursor: "pointer", maxWidth: 110 }}
+                        >
+                          {GOAL_PERIODS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                        </select>
+                        <button onClick={() => { setLongGoalEditId(g.id); setLongGoalEditText(g.text); setLongGoalEditXP(g.customXP ?? 200); }}
+                          style={{ background: "none", border: "none", color: "#6a5f40", cursor: "pointer", fontSize: 13, padding: "0 3px" }} title="Редагувати">✎</button>
+                        <button onClick={() => setLongGoals(prev => prev.map(x => x.id === g.id ? { ...x, pinned: !x.pinned } : x))}
+                          title={g.pinned ? "Прибрати з Головної" : "Закріпити на Головній"}
+                          style={{ background: "none", border: "none", color: g.pinned ? "#c9a84c" : "#4a4030", cursor: "pointer", fontSize: 13, padding: "0 3px" }}>📌</button>
+                        <button onClick={() => setLongGoals(prev => prev.filter(x => x.id !== g.id))}
+                          style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 16, padding: "0 3px" }}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Done goals */}
+            {renderDoneSection(longGoals.filter(g => g.done), {
+              sectionKey: "goals",
+              open: goalsDoneOpen, setOpen: setGoalsDoneOpen,
+              onUndo: (g) => setLongGoals(prev => prev.map(x => {
+                if (x.id !== g.id) return x;
+                if (x.xpAwarded) loseXP(x.customXP ?? 200, "goal", "↩ ціль скасовано");
+                return { ...x, done: false, xpAwarded: false, completedAt: null };
+              })),
+              onDelete: (g) => setLongGoals(prev => prev.filter(x => x.id !== g.id)),
+              labelFn: g => g.text,
+              xpFn: g => g.customXP ?? 200,
+            })}
+
+            {longGoals.length === 0 && (
+              <div style={{ textAlign: "center", padding: 32, color: "#6a5f40", fontSize: 13 }}>Ще немає цілей. Додай першу!</div>
+            )}
+          </div>
+        )}
+
+        {/* План дій sub-tab */}
+        {goalsSubTab === "plan" && true && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {/* Add task */}
+            <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 16 }}>
+              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 12 }}>+ Нова задача</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <input
+                  value={planInput}
+                  onChange={e => setPlanInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === "Enter" && planInput.trim()) {
+                      setPlan(prev => [...prev, { id: `p${Date.now()}`, text: planInput.trim(), type: planType, urgency: planUrgency, xp: planXP, done: false }]);
+                      setPlanInput("");
+                    }
+                  }}
+                  placeholder="Задача або стратегія..."
+                  style={{ flex: 1, minWidth: 180, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "9px 14px", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace" }}
+                />
+                <select
+                  value={planType}
+                  onChange={e => setPlanType(e.target.value)}
+                  style={{ background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "9px 12px", color: "#6a5f40", fontSize: 12, cursor: "pointer" }}
+                >
+                  {PLAN_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                </select>
+                <select
+                  value={planUrgency}
+                  onChange={e => setPlanUrgency(e.target.value)}
+                  style={{ background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "9px 12px", color: "#6a5f40", fontSize: 12, cursor: "pointer" }}
+                >
+                  {PLAN_URGENCIES.map(u => <option key={u.id} value={u.id}>{u.label}</option>)}
+                </select>
+                <div style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "0 10px" }}>
+                  <span style={{ fontSize: 11, color: "#6a5f40" }}>XP</span>
+                  <input type="number" min="0" max="9999" value={planXP}
+                    onChange={e => setPlanXP(Math.max(0, parseInt(e.target.value) || 0))}
+                    style={{ width: 48, background: "transparent", border: "none", color: "#6366f1", fontSize: 13, fontFamily: "'Space Mono',monospace", textAlign: "center", padding: "9px 0" }} />
+                </div>
+                <button className="act-btn" onClick={() => {
+                  if (!planInput.trim()) return;
+                  setPlan(prev => [...prev, { id: `p${Date.now()}`, text: planInput.trim(), type: planType, urgency: planUrgency, xp: planXP, done: false }]);
+                  setPlanInput("");
+                }} style={{ background: "#6366f1", color: "#fff", border: "none", padding: "9px 16px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 12 }}>Додати</button>
+              </div>
+            </div>
+
+            {/* Type groups */}
+            {PLAN_TYPES.map(pt => {
+              const urgencyOrder = Object.fromEntries(PLAN_URGENCIES.map(u => [u.id, u.order]));
+              const items = plan
+                .filter(p => (p.type ?? "other") === pt.id && !p.done)
+                .sort((a, b) => (urgencyOrder[a.urgency ?? "later"] ?? 2) - (urgencyOrder[b.urgency ?? "later"] ?? 2));
+              if (!items.length) return null;
+              return (
+                <div key={pt.id}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                    <span style={{ background: pt.bg, border: `1px solid ${pt.color}44`, color: pt.color, padding: "3px 12px", borderRadius: 3, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>{pt.label}</span>
+                    <span style={{ fontSize: 11, color: "#5a4a30" }}>{items.length} активних</span>
+                  </div>
+                  <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.12)", borderRadius: 4, padding: 12, display: "flex", flexDirection: "column", gap: 7 }}>
+                    {items.map(item => (
+                      <div key={item.id}
+                        draggable={true}
+                        onDragStart={() => { dragRef.current = { id: item.id, list: "plan" }; }}
+                        onDragOver={e => e.preventDefault()}
+                        onDrop={() => {
+                          if (dragRef.current?.list !== "plan") return;
+                          const fromId = dragRef.current.id;
+                          setPlan(prev => {
+                            const arr = [...prev];
+                            const fi = arr.findIndex(x => x.id === fromId);
+                            const ti = arr.findIndex(x => x.id === item.id);
+                            if (fi < 0 || ti < 0 || fi === ti) return prev;
+                            const [itm] = arr.splice(fi, 1);
+                            arr.splice(ti, 0, itm);
+                            return arr;
+                          });
+                        }}
+                        style={{ display: "flex", alignItems: "center", gap: 10, background: item.done ? "rgba(5,3,1,0.80)" : pt.bg, border: `1px solid ${item.done ? "rgba(8,5,2,0.68)" : pt.color + "22"}`, borderLeft: item.done ? undefined : `3px solid ${pt.color}88`, borderRadius: 4, padding: "11px 14px", cursor: "default" }}>
+                        <span style={{ color: "#3a3020", cursor: "grab", fontSize: 14, userSelect: "none", marginRight: 4 }}>⋮⋮</span>
+                        <button onClick={() => setPlan(prev => prev.map(x => {
+                          if (x.id !== item.id) return x;
+                          if (!x.done) {
+                            if (!x.xpAwarded) { gainXP(x.xp ?? 75, "(план дій)", "plan"); return { ...x, done: true, xpAwarded: true, completedAt: new Date().toISOString() }; }
+                            return { ...x, done: true, completedAt: new Date().toISOString() };
+                          }
+                          if (x.xpAwarded) loseXP(x.xp ?? 75, "plan", "↩ план скасовано");
+                          return { ...x, done: false, xpAwarded: false, completedAt: null };
+                        }))}
+                          style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${item.done ? "#9a8a60" : pt.color}`, background: item.done ? "#9a8a60" : "transparent", cursor: "pointer", flexShrink: 0, fontSize: 12, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
+                          {item.done ? "✓" : ""}
+                        </button>
+                        {planEditId === item.id ? (
+                          (() => {
+                            const savePlan = () => {
+                              const t = planEditText.trim();
+                              setPlan(prev => prev.map(x => x.id === item.id ? { ...x, text: t || x.text, xp: planEditXP } : x));
+                              setPlanEditId(null);
+                            };
+                            return (
+                          <div style={{ flex: 1, display: "flex", gap: 6 }}
+                            onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) savePlan(); }}>
+                            <input
+                              value={planEditText}
+                              autoFocus
+                              onChange={e => setPlanEditText(e.target.value)}
+                              onKeyDown={e => { if (e.key === "Enter") savePlan(); if (e.key === "Escape") setPlanEditId(null); }}
+                              style={{ flex: 1, background: "rgba(8,5,2,0.85)", border: `1px solid ${pt.color}66`, borderRadius: 4, padding: "5px 9px", color: "#fff", fontSize: 12, fontFamily: "'Space Mono',monospace" }}
+                            />
+                            <div style={{ display: "flex", alignItems: "center", gap: 3, background: "rgba(8,5,2,0.9)", border: `1px solid ${pt.color}44`, borderRadius: 3, padding: "0 8px" }}>
+                              <span style={{ fontSize: 10, color: "#6a5f40" }}>XP</span>
+                              <input type="number" min="0" max="9999" value={planEditXP}
+                                onChange={e => setPlanEditXP(Math.max(0, parseInt(e.target.value) || 0))}
+                                onKeyDown={e => { if (e.key === "Enter") savePlan(); if (e.key === "Escape") setPlanEditId(null); }}
+                                style={{ width: 44, background: "transparent", border: "none", color: pt.color, fontSize: 12, fontFamily: "'Space Mono',monospace", textAlign: "center", padding: "4px 0" }} />
+                            </div>
+                          </div>
+                            );
+                          })()
+                        ) : (
+                          <span
+                            onDoubleClick={() => { if (!item.done) { setPlanEditId(item.id); setPlanEditText(item.text); setPlanEditXP(item.xp ?? 75); } }}
+                            style={{ flex: 1, color: item.done ? "#5a4a30" : "#cbd5e1", fontSize: 12, textDecoration: item.done ? "line-through" : "none" }}
+                          >{item.text}</span>
+                        )}
+                        {!item.done && !item.xpAwarded && planEditId !== item.id && (
+                          <span style={{ fontSize: 12, color: pt.color, background: pt.bg, border: `1px solid ${pt.color}33`, padding: "2px 7px", borderRadius: 3, whiteSpace: "nowrap" }}>+{item.xp ?? 75} XP</span>
+                        )}
+                        {!item.done && planEditId !== item.id && (
+                          <>
+                            <button onClick={() => { setPlanEditId(item.id); setPlanEditText(item.text); setPlanEditXP(item.xp ?? 75); }}
+                              style={{ background: "none", border: "none", color: "#6a5f40", cursor: "pointer", fontSize: 13, padding: "0 4px" }} title="Редагувати">✎</button>
+                            <select
+                              value={item.type ?? "other"}
+                              onChange={e => setPlan(prev => prev.map(x => x.id === item.id ? { ...x, type: e.target.value } : x))}
+                              style={{ background: "rgba(0,0,0,0.3)", border: "none", borderRadius: 4, padding: "2px 6px", color: pt.color, fontSize: 11, cursor: "pointer" }}
+                            >
+                              {PLAN_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                            </select>
+                            <select
+                              value={item.urgency ?? "later"}
+                              onChange={e => setPlan(prev => prev.map(x => x.id === item.id ? { ...x, urgency: e.target.value } : x))}
+                              style={{ background: "rgba(0,0,0,0.3)", border: "none", borderRadius: 4, padding: "2px 6px", color: "#9a8a60", fontSize: 11, cursor: "pointer" }}
+                            >
+                              {PLAN_URGENCIES.map(u => <option key={u.id} value={u.id}>{u.label}</option>)}
+                            </select>
+                          </>
+                        )}
+                        {planEditId !== item.id && !item.done && (
+                          <button onClick={() => setPlan(prev => prev.map(x => x.id === item.id ? { ...x, pinned: !x.pinned } : x))}
+                            title={item.pinned ? "Прибрати з Головної" : "Закріпити на Головній"}
+                            style={{ background: "none", border: "none", color: item.pinned ? "#c9a84c" : "#4a4030", cursor: "pointer", fontSize: 13, padding: "0 3px" }}>📌</button>
+                        )}
+                        {planEditId !== item.id && (
+                          <button onClick={() => setPlan(prev => prev.filter(x => x.id !== item.id))}
+                            style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 16, padding: "0 4px" }}>×</button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Done plan items */}
+            {renderDoneSection(plan.filter(p => p.done), {
+              sectionKey: "plan",
+              open: planDoneOpen, setOpen: setPlanDoneOpen,
+              onUndo: (item) => setPlan(prev => prev.map(x => {
+                if (x.id !== item.id) return x;
+                if (x.xpAwarded) loseXP(x.xp ?? 75, "plan", "↩ план скасовано");
+                return { ...x, done: false, xpAwarded: false, completedAt: null };
+              })),
+              onDelete: (item) => setPlan(prev => prev.filter(x => x.id !== item.id)),
+              labelFn: item => {
+                const pt = PLAN_TYPES.find(t => t.id === (item.type ?? "other"));
+                return `${pt ? pt.label + ": " : ""}${item.text}`;
+              },
+              xpFn: item => item.xp ?? 75,
+            })}
+          </div>
+        )}
+
+          </div>
+        )}
+
+        {/* Finances */}
+        {activeTab === "finances" && (() => {
+          const net = totalIncome - totalExpenses;
+          const months = getLastMonths(4);
+          const MONTH_NAMES = ["Січ","Лют","Бер","Кві","Тра","Чер","Лип","Сер","Вер","Жов","Лис","Гру"];
+
+          const rateColor = !uahRateUpdatedAt ? "#f43f5e"
+            : (Date.now() - new Date(uahRateUpdatedAt)) < 86400000 ? "#10b981"
+            : (Date.now() - new Date(uahRateUpdatedAt)) < 259200000 ? "#f59e0b" : "#f43f5e";
+          const rateLabel = rateFetching ? "⏳ оновлення..."
+            : !uahRateUpdatedAt ? "🔴 ще не отримано"
+            : (() => {
+                const mins = Math.round((Date.now() - new Date(uahRateUpdatedAt)) / 60000);
+                if (mins < 2) return "🟢 щойно";
+                if (mins < 60) return `🟢 ${mins} хв. тому`;
+                const hrs = Math.round(mins / 60);
+                if (hrs < 24) return `🟢 ${hrs} год. тому`;
+                const days = Math.round(hrs / 24);
+                return `${days > 3 ? "🔴" : "🟡"} ${days} дн. тому`;
+              })();
+
+          const inpStyle = { background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "8px 12px", color: "#e0d8c0", fontSize: 13, fontFamily: "'Space Mono',monospace" };
+          const selStyle = { ...inpStyle, cursor: "pointer", color: "#9a8a60" };
+
+          const thStyle = (color) => ({ textAlign: "right", color: color ?? "#9a8a60", padding: "6px 8px", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, fontSize: 10 });
+
+          // SVG monthly chart for analytics
+          const chartYear = analyticsYear;
+          const chartMonths = Array.from({ length: 12 }, (_, i) => `${chartYear}-${String(i+1).padStart(2,"0")}`);
+          const chartInc = chartMonths.map(m => incomeEntries.filter(e => e.date.startsWith(m)).reduce((s, e) => s + toUSD(e.amount, e.currency), 0));
+          const chartExp = chartMonths.map(m => expenseEntries.filter(e => e.date.startsWith(m)).reduce((s, e) => s + toUSD(e.amount, e.currency), 0));
+          const chartNet = chartMonths.map((_, i) => chartInc[i] - chartExp[i]);
+          const W = 580, H = 130, PL = 46, PR = 8, PT = 10, PB = 22;
+          const cW = W - PL - PR, cH = H - PT - PB;
+          const px = (i) => PL + (i / 11) * cW;
+          const minNet = Math.min(...chartNet, 0);
+          const maxNet = Math.max(...chartNet, 0);
+          const netRange = Math.max(maxNet - minNet, 1);
+          const pyNet = (v) => PT + cH - ((v - minNet) / netRange) * cH;
+          const zeroY = pyNet(0);
+          const netLinePath = chartNet.map((v, i) => `${i === 0 ? "M" : "L"}${px(i).toFixed(1)},${pyNet(v).toFixed(1)}`).join(" ");
+          const netAreaPath = `${netLinePath} L${px(11).toFixed(1)},${zeroY.toFixed(1)} L${PL},${zeroY.toFixed(1)} Z`;
+
+          const yearInc = chartInc.reduce((s, v) => s + v, 0);
+          const yearExp = chartExp.reduce((s, v) => s + v, 0);
+          const yearNet = yearInc - yearExp;
+
+          return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+
+            {/* Subscription monthly prompt modal */}
+            {subPrompt && (
+              <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 9990, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+                <div className="wf-panel" style={{ maxWidth: 460, width: "100%", padding: 24 }}>
+                  <div className="wf-sec" style={{ marginBottom: 16 }}>
+                    📅 Щомісячні витрати — {monthLabel(new Date().toISOString().slice(0,7))} {new Date().getFullYear()}
+                  </div>
+                  <div style={{ fontSize: 12, color: "#9a8a60", marginBottom: 14 }}>Додати ці підписки за поточний місяць?</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+                    {subPrompt.items.map((item, idx) => {
+                      const amtUSD = item.currency === "UAH" ? item.amount / uahRate : item.amount;
+                      return (
+                        <label key={item.id} style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(8,5,2,0.6)", border: `1px solid ${item.checked ? "rgba(201,168,76,0.35)" : "rgba(201,168,76,0.12)"}`, borderRadius: 4, padding: "10px 14px", cursor: "pointer" }}>
+                          <input type="checkbox" checked={item.checked} onChange={e => setSubPrompt(p => ({ ...p, items: p.items.map((x,i) => i===idx ? {...x, checked: e.target.checked} : x) }))} style={{ accentColor: "#c9a84c", width: 16, height: 16 }} />
+                          <span style={{ flex: 1, color: "#e0d8c0", fontFamily: "'Exo 2',sans-serif", fontWeight: 600 }}>{item.name}</span>
+                          <span style={{ color: "#f43f5e", fontFamily: "'Space Mono',monospace", fontSize: 13, fontWeight: 700 }}>
+                            {item.currency === "UAH" ? `${item.amount} грн` : `$${item.amount}`}
+                            {item.currency === "UAH" && <span style={{ color: "#5a4a30", fontSize: 10, marginLeft: 4 }}>(${amtUSD.toFixed(2)})</span>}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <button onClick={() => {
+                      const currentYM = new Date().toISOString().slice(0, 7);
+                      const today = new Date().toISOString().slice(0, 10);
+                      const checkedIds = new Set(subPrompt.items.filter(s => s.checked).map(s => s.id));
+                      subPrompt.items.filter(s => s.checked).forEach(s => {
+                        const entry = { id: `exp_${Date.now()}_${s.id}`, catId: s.catId, amount: s.amount, currency: s.currency, date: today, note: s.name, recurring: true, subId: s.id };
+                        setExpenseEntries(prev => [...prev, entry]);
+                      });
+                      setSubscriptions(prev => prev.map(s =>
+                        subPrompt.items.some(x => x.id === s.id) ? { ...s, lastBilledYM: currentYM } : s
+                      ));
+                      setSubPrompt(null);
+                    }} style={{ flex: 1, background: "#c9a84c", color: "#000", border: "none", padding: "10px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 13, fontFamily: "'Exo 2',sans-serif" }}>✓ Додати вибрані</button>
+                    <button onClick={() => {
+                      const currentYM = new Date().toISOString().slice(0, 7);
+                      setSubscriptions(prev => prev.map(s =>
+                        subPrompt.items.some(x => x.id === s.id) ? { ...s, lastBilledYM: currentYM } : s
+                      ));
+                      setSubPrompt(null);
+                    }} style={{ background: "none", border: "1px solid rgba(201,168,76,0.3)", color: "#9a8a60", padding: "10px 16px", borderRadius: 4, cursor: "pointer", fontSize: 12 }}>Пропустити</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Undo toast */}
+            {pendingDelete && (
+              <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", zIndex: 9998, background: "linear-gradient(135deg,rgba(30,20,4,0.98),rgba(14,10,2,0.98))", border: "1px solid rgba(201,168,76,0.5)", borderTop: "2px solid #c9a84c", borderRadius: 4, padding: "12px 20px", display: "flex", alignItems: "center", gap: 14, boxShadow: "0 8px 32px rgba(0,0,0,0.7)", fontFamily: "'Exo 2',sans-serif" }}>
+                <span style={{ fontSize: 12, color: "#e0d8c0" }}>{pendingDelete.refund ? "📤 Повернення скасовано" : "🗑 Запис видалено"}</span>
+                <button onClick={undoDelete} style={{ background: "#c9a84c", border: "none", color: "#000", padding: "6px 14px", borderRadius: 3, fontWeight: 800, cursor: "pointer", fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>↩ Скасувати</button>
+              </div>
+            )}
+
+            {/* Rate bar */}
+            <div className="wf-panel" style={{ padding: "10px 16px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 11, color: "#9a8a60", textTransform: "uppercase", letterSpacing: 1 }}>Курс USD/UAH:</span>
+              <span style={{ fontSize: 16, fontWeight: 800, color: "#c9a84c", fontFamily: "'Exo 2',sans-serif" }}>1$ = {uahRate} грн</span>
+              <span style={{ fontSize: 11, color: rateColor }}>{rateLabel}</span>
+              <button onClick={fetchRate} disabled={rateFetching} className="act-btn" style={{ background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.4)", color: "#c9a84c", padding: "5px 12px", borderRadius: 3, fontSize: 11, fontWeight: 700, cursor: "pointer", marginLeft: "auto", fontFamily: "'Exo 2',sans-serif", letterSpacing: 1 }}>
+                🔄 Оновити
+              </button>
+            </div>
+
+            {/* 3-col summary */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
+              {[
+                { label: "Дохід (всього)", val: `$${totalIncome.toFixed(2)}`, color: "#10b981", icon: "📈" },
+                { label: "Витрати (всього)", val: `$${totalExpenses.toFixed(2)}`, color: "#f43f5e", icon: "📉" },
+                { label: "Баланс", val: `${net >= 0 ? "+" : ""}$${net.toFixed(2)}`, color: net >= 0 ? "#00ff88" : "#f43f5e", icon: net >= 0 ? "💚" : "🔴" },
+              ].map(s => (
+                <div key={s.label} className="wf-panel" style={{ padding: "16px 14px", textAlign: "center" }}>
+                  <div style={{ fontSize: 22, marginBottom: 4 }}>{s.icon}</div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif" }}>{s.val}</div>
+                  <div style={{ fontSize: 10, color: "#9a8a60", marginTop: 4, textTransform: "uppercase", letterSpacing: 2 }}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* ── Transaction journal ── */}
+            {(() => {
+              const now2 = new Date();
+              const todayStr2 = now2.toISOString().slice(0, 10);
+              const yesterday2 = (() => { const d = new Date(now2); d.setDate(d.getDate() - 1); return d.toISOString().slice(0, 10); })();
+              const currentYM2 = now2.toISOString().slice(0, 7);
+              const todayDay2 = now2.getDate();
+              const daysInMonth2 = new Date(now2.getFullYear(), now2.getMonth() + 1, 0).getDate();
+
+              const txDateLabel = (ds) => {
+                if (ds === todayStr2) return "Сьогодні";
+                if (ds === yesterday2) return "Вчора";
+                const d = new Date(ds + "T00:00:00");
+                const sameYear = d.getFullYear() === now2.getFullYear();
+                const opts = sameYear ? { day: "numeric", month: "long" } : { day: "numeric", month: "long", year: "numeric" };
+                // прибираємо хвостове «р.» від toLocaleDateString
+                return d.toLocaleDateString("uk-UA", opts).replace(/\s*р\.?$/i, "");
+              };
+
+              // sort by date desc, then by numeric timestamp embedded in id
+              const getTxTime = (id) => { const m = id.match(/\d{10,}/); return m ? parseInt(m[0]) : 0; };
+              const allTx = [
+                ...incomeEntries.map(e => ({ ...e, txType: "income" })),
+                ...expenseEntries.map(e => ({ ...e, txType: "expense" })),
+              ].sort((a, b) => b.date.localeCompare(a.date) || getTxTime(b.id) - getTxTime(a.id));
+
+              const dateGroups = [];
+              allTx.forEach(tx => {
+                const last = dateGroups[dateGroups.length - 1];
+                if (last && last.date === tx.date) last.items.push(tx);
+                else dateGroups.push({ date: tx.date, items: [tx] });
+              });
+
+              const upcoming = subscriptions
+                .filter(s => {
+                  if (s.active === false) return false;
+                  const effDay = Math.min(s.billingDay ?? 1, daysInMonth2);
+                  return effDay >= todayDay2 && s.lastBilledYM !== currentYM2;
+                })
+                .sort((a, b) => (a.billingDay ?? 1) - (b.billingDay ?? 1));
+
+              const upcomingLabel = (sub) => {
+                const day = Math.min(sub.billingDay ?? 1, daysInMonth2);
+                if (day === todayDay2) return "Сьогодні";
+                if (day === todayDay2 + 1) return "Завтра";
+                const d = new Date(now2.getFullYear(), now2.getMonth(), day);
+                return d.toLocaleDateString("uk-UA", { day: "numeric", month: "long" });
+              };
+
+              const rowStyle = { display: "flex", alignItems: "center", gap: 14, padding: "13px 0", borderBottom: "1px solid rgba(201,168,76,0.08)" };
+              const iconBox = (icon, bg) => (
+                <div style={{ width: 44, height: 44, borderRadius: "50%", background: bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>{icon}</div>
+              );
+
+              return (
+                <div className="wf-panel" style={{ padding: 16, borderLeft: "3px solid #c9a84c", borderTop: "1px solid rgba(201,168,76,0.35)", background: "linear-gradient(rgba(201,168,76,0.05), rgba(201,168,76,0.05)), rgba(5,3,1,0.92)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "4px 8px", margin: "-4px -8px", marginBottom: journalOpen ? 10 : -4, borderRadius: 4, background: "rgba(201,168,76,0.08)", border: "1px solid rgba(201,168,76,0.30)", transition: "background 0.15s" }} onClick={() => setJournalOpen(v => !v)}>
+                    <span className="wf-sec" style={{ marginBottom: 0, paddingBottom: 0, border: "none", color: "#c9a84c" }}>📋 Журнал операцій</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "#e7d6a4", marginLeft: 6, background: "rgba(201,168,76,0.18)", border: "1px solid rgba(201,168,76,0.40)", padding: "2px 9px", borderRadius: 20, fontFamily: "'Space Mono',monospace" }}>{allTx.length} записів</span>
+                    <span style={{ marginLeft: "auto", color: "#c9a84c", fontSize: 16, fontWeight: 700, width: 24, textAlign: "center" }}>{journalOpen ? "▲" : "▼"}</span>
+                  </div>
+
+                  {journalOpen && (
+                    <div>
+                      {/* Upcoming payments */}
+                      {upcoming.length > 0 && (
+                        <div style={{ marginBottom: 10 }}>
+                          <div style={{ fontSize: 12, color: "#f59e0b", textTransform: "uppercase", letterSpacing: 2, marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                            ⏰ Майбутні платежі
+                            <span style={{ color: "#5a4a20", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>· {upcoming.length} цього місяця</span>
+                          </div>
+                          {upcoming.map(sub => {
+                            const cat = expenseCats.find(c => c.id === sub.catId);
+                            const amtUSD = sub.currency === "UAH" ? sub.amount / uahRate : sub.amount;
+                            return (
+                              <div key={sub.id} style={{ ...rowStyle, opacity: 0.85 }}>
+                                {iconBox(cat?.icon ?? "💸", "rgba(245,158,11,0.15)")}
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ color: "#e0d8c0", fontFamily: "'Exo 2',sans-serif", fontWeight: 700, fontSize: 15 }}>{sub.name}</div>
+                                  <div style={{ fontSize: 12, color: "#9a8a60", marginTop: 2 }}>
+                                    {cat?.name} · 🗓 {upcomingLabel(sub)}
+                                  </div>
+                                </div>
+                                <div style={{ textAlign: "right" }}>
+                                  <div style={{ color: "#f43f5e", fontFamily: "'Space Mono',monospace", fontWeight: 700, fontSize: 16 }}>
+                                    −{sub.currency === "UAH" ? `${sub.amount} грн` : `$${sub.amount}`}
+                                  </div>
+                                  {sub.currency === "UAH" && <div style={{ display: "inline-block", marginTop: 3, fontSize: 11, fontWeight: 700, color: "#d8c89a", background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.28)", borderRadius: 4, padding: "1px 6px", fontFamily: "'Space Mono',monospace" }}>≈ ${amtUSD.toFixed(2)}</div>}
+                                </div>
+                              </div>
+                            );
+                          })}
+                          <div style={{ height: 1, background: "rgba(201,168,76,0.18)", margin: "12px 0" }} />
+                        </div>
+                      )}
+
+                      {/* Date-grouped feed — scrollable, ~10 rows visible */}
+                      {dateGroups.length === 0 && (
+                        <div style={{ fontSize: 13, color: "#5a4a30", textAlign: "center", padding: "24px 0" }}>Ще немає записів</div>
+                      )}
+                      <div style={{ maxHeight: 580, overflowY: "auto", paddingRight: 4 }}>
+                        {dateGroups.map(group => {
+                          const isToday = group.date === todayStr2;
+                          return (
+                          <div key={group.date}>
+                            <div style={{ padding: "12px 0 7px", position: "sticky", top: 0, background: "rgba(8,5,2,0.96)", zIndex: 1, display: "flex", alignItems: "center", gap: 8 }}>
+                              <span style={{
+                                fontSize: 11.5, fontWeight: 700, fontFamily: "'Exo 2',sans-serif", letterSpacing: 0.6,
+                                color: isToday ? "#0a0a0a" : "#d8c89a",
+                                background: isToday ? "#c9a84c" : "rgba(201,168,76,0.14)",
+                                border: `1px solid ${isToday ? "#c9a84c" : "rgba(201,168,76,0.30)"}`,
+                                padding: "2px 10px", borderRadius: 20, whiteSpace: "nowrap",
+                              }}>{txDateLabel(group.date)}</span>
+                              <span style={{ flex: 1, height: 1, background: "linear-gradient(90deg, rgba(201,168,76,0.22), transparent)" }} />
+                              <span style={{ fontSize: 11, color: "#6a5a40", fontFamily: "'Space Mono',monospace", flexShrink: 0 }}>{group.items.length}</span>
+                            </div>
+                            {group.items.map(tx => {
+                              const catList = tx.txType === "income" ? incomeCats : expenseCats;
+                              const cat = catList.find(c => c.id === tx.catId);
+                              const isInc = tx.txType === "income";
+                              const amtUSD = toUSD(tx.amount, tx.currency);
+                              const bg = isInc ? "rgba(16,185,129,0.13)" : "rgba(244,63,94,0.11)";
+                              return (
+                                <div key={tx.id} style={rowStyle}>
+                                  {iconBox(cat?.icon ?? (isInc ? "📈" : "💸"), bg)}
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ color: "#e0d8c0", fontFamily: "'Exo 2',sans-serif", fontWeight: 700, fontSize: 15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                      {tx.note || cat?.name || (isInc ? "Дохід" : "Витрата")}
+                                    </div>
+                                    <div style={{ fontSize: 12, color: "#6a5a40", marginTop: 2 }}>
+                                      {cat?.name}{tx.recurring && <span style={{ color: "#f59e0b", marginLeft: 6 }}>🔄</span>}
+                                    </div>
+                                  </div>
+                                  <div style={{ textAlign: "right", flexShrink: 0 }}>
+                                    <div style={{ color: isInc ? "#10b981" : "#f43f5e", fontFamily: "'Space Mono',monospace", fontWeight: 700, fontSize: 16 }}>
+                                      {isInc ? "+" : "−"}{tx.currency === "UAH" ? `${tx.amount} грн` : `$${tx.amount}`}
+                                    </div>
+                                    {tx.currency === "UAH" && (
+                                      <div style={{ display: "inline-block", marginTop: 3, fontSize: 11, fontWeight: 700, color: "#d8c89a", background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.28)", borderRadius: 4, padding: "1px 6px", fontFamily: "'Space Mono',monospace" }}>≈ ${amtUSD.toFixed(2)}</div>
+                                    )}
+                                  </div>
+                                  <button onClick={() => isInc ? refundIncomeEntry(tx.id) : startDelete(tx.id, "expense")} style={{ background: "none", border: "none", color: "#5a3a30", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "4px 6px", flexShrink: 0, transition: "color 0.15s" }} onMouseEnter={e => e.target.style.color="#f43f5e"} onMouseLeave={e => e.target.style.color="#5a3a30"}>×</button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Income table */}
+            <div className="wf-panel" style={{ padding: 16, borderLeft: "3px solid #00ff88", borderTop: "1px solid rgba(0,255,136,0.25)", background: "linear-gradient(rgba(0,255,136,0.04), rgba(0,255,136,0.04)), rgba(5,3,1,0.92)" }}>
+              <span className="wf-sec" style={{ display: "block", marginBottom: 12, color: "#00ff88", borderBottomColor: "rgba(0,255,136,0.25)" }}>📈 Дохід</span>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'Space Mono',monospace" }}>
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid rgba(201,168,76,0.25)" }}>
+                      <th style={{ ...thStyle("#9a8a60"), textAlign: "left" }}>Категорія</th>
+                      {months.map(m => <th key={m} style={thStyle()}>{monthLabel(m)}</th>)}
+                      <th style={thStyle("#c9a84c")}>Весь час</th>
+                      <th style={{ width: 80 }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {incomeCats.map(cat => {
+                      const catEntries = incomeEntries.filter(e => e.catId === cat.id);
+                      const monthTotals = months.map(m => catEntries.filter(e => e.date.startsWith(m)).reduce((s, e) => s + toUSD(e.amount, e.currency), 0));
+                      const total = catEntries.reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
+                      const isExpanded = expandedCatRows[`inc_${cat.id}`];
+                      if (total === 0 && catEntries.length === 0) return null;
+                      return (
+                        <React.Fragment key={cat.id}>
+                          <tr style={{ borderBottom: "1px solid rgba(201,168,76,0.07)", cursor: "pointer" }} onClick={() => setExpandedCatRows(r => ({ ...r, [`inc_${cat.id}`]: !r[`inc_${cat.id}`] }))}>
+                            <td style={{ padding: "8px 8px", color: cat.color, fontWeight: 700 }}>{cat.icon} {cat.name} <span style={{ fontSize: 9, color: "#5a4a30" }}>{isExpanded ? "▲" : "▼"}</span></td>
+                            {monthTotals.map((v, i) => <td key={i} style={{ textAlign: "right", padding: "8px 8px", color: v > 0 ? "#e0d8c0" : "#3a3028" }}>{v > 0 ? `$${v.toFixed(0)}` : "—"}</td>)}
+                            <td style={{ textAlign: "right", padding: "8px 8px", color: "#10b981", fontWeight: 700 }}>${total.toFixed(0)}</td>
+                            <td style={{ textAlign: "right", padding: "4px" }}>
+                              <button onClick={e => { e.stopPropagation(); setIncomeCats(prev => prev.filter(c => c.id !== cat.id)); }} title="Видалити категорію" style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 11, padding: 2 }}>× кат.</button>
+                            </td>
+                          </tr>
+                          {isExpanded && catEntries.map(entry => (
+                            <tr key={entry.id} style={{ background: "rgba(16,185,129,0.04)", borderBottom: "1px solid rgba(16,185,129,0.06)" }}>
+                              <td style={{ padding: "6px 8px 6px 24px", color: "#9a8a60", fontSize: 11 }}>
+                                {entry.date} {entry.note && <span style={{ color: "#7a6a48" }}>— {entry.note}</span>}
+                              </td>
+                              <td colSpan={months.length} />
+                              <td style={{ textAlign: "right", padding: "6px 8px", color: "#10b981", fontSize: 11 }}>
+                                {entry.currency === "UAH" ? `${entry.amount} грн` : `$${entry.amount}`}
+                                {entry.currency === "UAH" && <span style={{ color: "#5a4a30", marginLeft: 4 }}>(${toUSD(entry.amount, entry.currency).toFixed(2)})</span>}
+                              </td>
+                              <td style={{ textAlign: "right", padding: "4px", whiteSpace: "nowrap" }}>
+                                <button onClick={() => refundIncomeEntry(entry.id)} title="Повернути кошти (знімає XP)" style={{ background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.3)", color: "#f43f5e", cursor: "pointer", fontSize: 10, padding: "3px 6px", borderRadius: 3, marginRight: 4 }}>📤 Повернути</button>
+                                <button onClick={() => startDelete(entry.id, "income")} title="Видалити запис (без впливу на XP)" style={{ background: "none", border: "1px solid rgba(201,168,76,0.2)", color: "#5a4a30", cursor: "pointer", fontSize: 10, padding: "3px 6px", borderRadius: 3 }}>🗑</button>
+                              </td>
+                            </tr>
+                          ))}
+                        </React.Fragment>
+                      );
+                    })}
+                    {incomeEntries.length === 0 && (
+                      <tr><td colSpan={months.length + 3} style={{ color: "#5a4a30", padding: "12px 8px", textAlign: "center", fontStyle: "italic" }}>Ще немає записів</td></tr>
+                    )}
+                    {totalIncome > 0 && (
+                      <tr style={{ borderTop: "2px solid rgba(16,185,129,0.55)", background: "rgba(16,185,129,0.10)" }}>
+                        <td style={{ padding: "10px 8px", color: "#10b981", fontWeight: 800, fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>Σ Всього</td>
+                        {months.map(m => { const v = incomeEntries.filter(e => e.date.startsWith(m)).reduce((s, e) => s + toUSD(e.amount, e.currency), 0); return <td key={m} style={{ textAlign: "right", padding: "10px 8px", color: v > 0 ? "#10b981" : "#3a3028", fontWeight: 700 }}>{v > 0 ? `$${v.toFixed(0)}` : "—"}</td>; })}
+                        <td style={{ textAlign: "right", padding: "10px 8px", color: "#10b981", fontWeight: 800, fontSize: 14 }}>${totalIncome.toFixed(0)}</td>
+                        <td></td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", paddingTop: 12, borderTop: "1px solid rgba(201,168,76,0.15)" }}>
+                <select value={incForm.catId} onChange={e => setIncForm(f => ({ ...f, catId: e.target.value }))} style={selStyle}>
+                  {incomeCats.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+                </select>
+                <input value={incForm.amount} onChange={e => setIncForm(f => ({ ...f, amount: e.target.value }))} onKeyDown={e => e.key === "Enter" && addIncomeEntry()} placeholder="Сума" type="number" min="0" style={{ ...inpStyle, width: 100 }} />
+                <button onClick={() => setIncForm(f => ({ ...f, currency: f.currency === "USD" ? "UAH" : "USD" }))} style={{ background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.35)", color: "#c9a84c", padding: "8px 12px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 12, minWidth: 52 }}>{incForm.currency}</button>
+                <input value={incForm.note} onChange={e => setIncForm(f => ({ ...f, note: e.target.value }))} placeholder="Нотатка..." style={{ ...inpStyle, flex: 1, minWidth: 80 }} />
+                <input type="date" value={incForm.date} onChange={e => setIncForm(f => ({ ...f, date: e.target.value }))} style={{ ...inpStyle, width: 130, colorScheme: "dark" }} />
+                <button onClick={addIncomeEntry} className="act-btn" style={{ background: "#10b981", color: "#000", border: "none", padding: "8px 16px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 12, whiteSpace: "nowrap" }}>+ Записати</button>
+                {addingCat !== "income" ? (
+                  <button onClick={() => setAddingCat("income")} style={{ background: "none", border: "1px dashed rgba(201,168,76,0.3)", color: "#9a8a60", padding: "8px 10px", borderRadius: 4, cursor: "pointer", fontSize: 11 }}>+ Категорія</button>
+                ) : (
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <input value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder="Назва..." style={{ ...inpStyle, width: 120 }} autoFocus />
+                    <button onClick={() => { if (!newCatName.trim()) return; setIncomeCats(prev => [...prev, { id: `ic_${Date.now()}`, name: newCatName.trim(), color: "#c9a84c", icon: "💰" }]); setNewCatName(""); setAddingCat(null); }} style={{ background: "#c9a84c", border: "none", color: "#000", padding: "8px 10px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 11 }}>✓</button>
+                    <button onClick={() => { setAddingCat(null); setNewCatName(""); }} style={{ background: "none", border: "none", color: "#9a8a60", cursor: "pointer", fontSize: 16 }}>×</button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Expense table */}
+            <div className="wf-panel" style={{ padding: 16, borderLeft: "3px solid #f43f5e", borderTop: "1px solid rgba(244,63,94,0.25)", background: "linear-gradient(rgba(244,63,94,0.04), rgba(244,63,94,0.04)), rgba(5,3,1,0.92)" }}>
+              <span className="wf-sec" style={{ display: "block", marginBottom: 12, color: "#f43f5e", borderBottomColor: "rgba(244,63,94,0.25)" }}>📉 Витрати</span>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'Space Mono',monospace" }}>
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid rgba(201,168,76,0.25)" }}>
+                      <th style={{ ...thStyle("#9a8a60"), textAlign: "left" }}>Категорія</th>
+                      {months.map(m => <th key={m} style={thStyle()}>{monthLabel(m)}</th>)}
+                      <th style={thStyle("#f43f5e")}>Весь час</th>
+                      <th style={{ width: 80 }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {expenseCats.map(cat => {
+                      const catEntries = expenseEntries.filter(e => e.catId === cat.id);
+                      const monthTotals = months.map(m => catEntries.filter(e => e.date.startsWith(m)).reduce((s, e) => s + toUSD(e.amount, e.currency), 0));
+                      const total = catEntries.reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
+                      const hasRecurring = catEntries.some(e => e.recurring);
+                      const isExpanded = expandedCatRows[`exp_${cat.id}`];
+                      if (total === 0 && catEntries.length === 0) return null;
+                      return (
+                        <React.Fragment key={cat.id}>
+                          <tr style={{ borderBottom: "1px solid rgba(201,168,76,0.07)", cursor: "pointer" }} onClick={() => setExpandedCatRows(r => ({ ...r, [`exp_${cat.id}`]: !r[`exp_${cat.id}`] }))}>
+                            <td style={{ padding: "8px 8px", color: cat.color, fontWeight: 700 }}>
+                              {cat.icon} {cat.name}
+                              {hasRecurring && <span style={{ marginLeft: 6, fontSize: 9, color: "#f59e0b", border: "1px solid #f59e0b44", borderRadius: 2, padding: "1px 4px" }}>🔄</span>}
+                              <span style={{ fontSize: 9, color: "#5a4a30", marginLeft: 4 }}>{isExpanded ? "▲" : "▼"}</span>
+                            </td>
+                            {monthTotals.map((v, i) => <td key={i} style={{ textAlign: "right", padding: "8px 8px", color: v > 0 ? "#f43f5e" : "#3a3028" }}>{v > 0 ? `$${v.toFixed(0)}` : "—"}</td>)}
+                            <td style={{ textAlign: "right", padding: "8px 8px", color: "#f43f5e", fontWeight: 700 }}>${total.toFixed(0)}</td>
+                            <td style={{ textAlign: "right", padding: "4px" }}>
+                              <button onClick={e => { e.stopPropagation(); setExpenseCats(prev => prev.filter(c => c.id !== cat.id)); }} title="Видалити категорію" style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 11, padding: 2 }}>× кат.</button>
+                            </td>
+                          </tr>
+                          {isExpanded && catEntries.map(entry => (
+                            <tr key={entry.id} style={{ background: "rgba(244,63,94,0.03)", borderBottom: "1px solid rgba(244,63,94,0.06)" }}>
+                              <td style={{ padding: "6px 8px 6px 24px", color: "#9a8a60", fontSize: 11 }}>
+                                {entry.date} {entry.recurring && <span style={{ color: "#f59e0b", marginRight: 4 }}>🔄</span>}{entry.note && <span style={{ color: "#7a6a48" }}>— {entry.note}</span>}
+                              </td>
+                              <td colSpan={months.length} />
+                              <td style={{ textAlign: "right", padding: "6px 8px", color: "#f43f5e", fontSize: 11 }}>
+                                {entry.currency === "UAH" ? `${entry.amount} грн` : `$${entry.amount}`}
+                                {entry.currency === "UAH" && <span style={{ color: "#5a4a30", marginLeft: 4 }}>(${toUSD(entry.amount, entry.currency).toFixed(2)})</span>}
+                              </td>
+                              <td style={{ textAlign: "right", padding: "4px" }}>
+                                <button onClick={() => startDelete(entry.id, "expense")} title="Видалити запис" style={{ background: "none", border: "1px solid rgba(201,168,76,0.2)", color: "#5a4a30", cursor: "pointer", fontSize: 10, padding: "3px 6px", borderRadius: 3 }}>🗑</button>
+                              </td>
+                            </tr>
+                          ))}
+                        </React.Fragment>
+                      );
+                    })}
+                    {expenseEntries.length === 0 && (
+                      <tr><td colSpan={months.length + 3} style={{ color: "#5a4a30", padding: "12px 8px", textAlign: "center", fontStyle: "italic" }}>Ще немає записів</td></tr>
+                    )}
+                    {totalExpenses > 0 && (
+                      <tr style={{ borderTop: "2px solid rgba(244,63,94,0.55)", background: "rgba(244,63,94,0.10)" }}>
+                        <td style={{ padding: "10px 8px", color: "#f43f5e", fontWeight: 800, fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>Σ Всього</td>
+                        {months.map(m => { const v = expenseEntries.filter(e => e.date.startsWith(m)).reduce((s, e) => s + toUSD(e.amount, e.currency), 0); return <td key={m} style={{ textAlign: "right", padding: "10px 8px", color: v > 0 ? "#f43f5e" : "#3a3028", fontWeight: 700 }}>{v > 0 ? `$${v.toFixed(0)}` : "—"}</td>; })}
+                        <td style={{ textAlign: "right", padding: "10px 8px", color: "#f43f5e", fontWeight: 800, fontSize: 14 }}>${totalExpenses.toFixed(0)}</td>
+                        <td></td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", paddingTop: 12, borderTop: "1px solid rgba(201,168,76,0.15)" }}>
+                <select value={expForm.catId} onChange={e => setExpForm(f => ({ ...f, catId: e.target.value }))} style={selStyle}>
+                  {expenseCats.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+                </select>
+                <input value={expForm.amount} onChange={e => setExpForm(f => ({ ...f, amount: e.target.value }))} onKeyDown={e => e.key === "Enter" && addExpenseEntry()} placeholder="Сума" type="number" min="0" style={{ ...inpStyle, width: 100 }} />
+                <button onClick={() => setExpForm(f => ({ ...f, currency: f.currency === "USD" ? "UAH" : "USD" }))} style={{ background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.35)", color: "#f43f5e", padding: "8px 12px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 12, minWidth: 52 }}>{expForm.currency}</button>
+                <input value={expForm.note} onChange={e => setExpForm(f => ({ ...f, note: e.target.value }))} placeholder="Нотатка..." style={{ ...inpStyle, flex: 1, minWidth: 80 }} />
+                <input type="date" value={expForm.date} onChange={e => setExpForm(f => ({ ...f, date: e.target.value }))} style={{ ...inpStyle, width: 130, colorScheme: "dark" }} />
+                <button onClick={addExpenseEntry} className="act-btn" style={{ background: "#f43f5e", color: "#fff", border: "none", padding: "8px 16px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 12, whiteSpace: "nowrap" }}>− Записати</button>
+                {addingCat !== "expense" ? (
+                  <button onClick={() => setAddingCat("expense")} style={{ background: "none", border: "1px dashed rgba(244,63,94,0.3)", color: "#9a8a60", padding: "8px 10px", borderRadius: 4, cursor: "pointer", fontSize: 11 }}>+ Категорія</button>
+                ) : (
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <input value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder="Назва..." style={{ ...inpStyle, width: 120 }} autoFocus />
+                    <button onClick={() => { if (!newCatName.trim()) return; setExpenseCats(prev => [...prev, { id: `ec_${Date.now()}`, name: newCatName.trim(), color: "#f43f5e", icon: "💸" }]); setNewCatName(""); setAddingCat(null); }} style={{ background: "#f43f5e", border: "none", color: "#fff", padding: "8px 10px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 11 }}>✓</button>
+                    <button onClick={() => { setAddingCat(null); setNewCatName(""); }} style={{ background: "none", border: "none", color: "#9a8a60", cursor: "pointer", fontSize: 16 }}>×</button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Subscriptions management */}
+            <div className="wf-panel" style={{ padding: 16, borderLeft: "3px solid #a855f7", borderTop: "1px solid rgba(168,85,247,0.25)", background: "linear-gradient(rgba(168,85,247,0.04), rgba(168,85,247,0.04)), rgba(5,3,1,0.92)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: subscriptions.length > 0 || showSubForm ? 14 : 0 }}>
+                <span className="wf-sec" style={{ marginBottom: 0, paddingBottom: 0, border: "none", color: "#a855f7" }}>📅 Підписки</span>
+                <span style={{ fontSize: 11, color: "#9a8a60", marginLeft: 4 }}>автоматично списуються щомісяця</span>
+                <button onClick={() => setShowSubForm(v => !v)} style={{ marginLeft: "auto", background: showSubForm ? "rgba(244,63,94,0.12)" : "rgba(201,168,76,0.12)", border: `1px solid ${showSubForm ? "rgba(244,63,94,0.4)" : "rgba(201,168,76,0.4)"}`, color: showSubForm ? "#f43f5e" : "#c9a84c", padding: "5px 12px", borderRadius: 4, cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
+                  {showSubForm ? "× Скасувати" : "+ Нова"}
+                </button>
+              </div>
+
+              {showSubForm && (
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 14, padding: "12px 14px", background: "rgba(8,5,2,0.5)", border: "1px solid rgba(201,168,76,0.2)", borderRadius: 4 }}>
+                  <select value={subForm.catId} onChange={e => {
+                    const cat = expenseCats.find(c => c.id === e.target.value);
+                    const prevCat = expenseCats.find(c => c.id === subForm.catId);
+                    const autoName = !subForm.name || subForm.name === prevCat?.name;
+                    setSubForm(f => ({ ...f, catId: e.target.value, name: autoName ? (cat?.name ?? f.name) : f.name }));
+                  }} style={selStyle}>
+                    {expenseCats.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+                  </select>
+                  <input
+                    value={subForm.name}
+                    onChange={e => setSubForm(f => ({ ...f, name: e.target.value }))}
+                    placeholder="Назва (якщо відрізняється від категорії)"
+                    style={{ ...inpStyle, flex: 1, minWidth: 120 }}
+                  />
+                  <input
+                    value={subForm.amount}
+                    onChange={e => setSubForm(f => ({ ...f, amount: e.target.value }))}
+                    placeholder="Сума"
+                    type="number"
+                    min="0"
+                    style={{ ...inpStyle, width: 80 }}
+                  />
+                  <button onClick={() => setSubForm(f => ({ ...f, currency: f.currency === "USD" ? "UAH" : "USD" }))} style={{ background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.35)", color: "#f43f5e", padding: "8px 12px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 12, minWidth: 52 }}>{subForm.currency}</button>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    <span style={{ fontSize: 11, color: "#9a8a60", whiteSpace: "nowrap" }}>з дати:</span>
+                    <input type="date" value={subForm.startDate} onChange={e => setSubForm(f => ({ ...f, startDate: e.target.value }))} style={{ ...inpStyle, width: 134, colorScheme: "dark" }} />
+                  </div>
+                  <button onClick={() => {
+                    if (!parseFloat(subForm.amount) || !subForm.startDate) return;
+                    const cat = expenseCats.find(c => c.id === subForm.catId);
+                    const name = subForm.name.trim() || cat?.name || "Підписка";
+                    const amt = parseFloat(subForm.amount);
+                    const start = new Date(subForm.startDate + "T00:00:00");
+                    const billingDay = start.getDate();
+                    const now = new Date();
+                    const newSubId = `sub_${Date.now()}`;
+                    // Generate all past billing dates from start to today
+                    const pastDates = [];
+                    let cur = new Date(start.getFullYear(), start.getMonth(), 1);
+                    while (cur <= now) {
+                      const daysInM = new Date(cur.getFullYear(), cur.getMonth() + 1, 0).getDate();
+                      const effDay = Math.min(billingDay, daysInM);
+                      const bd = new Date(cur.getFullYear(), cur.getMonth(), effDay);
+                      if (bd >= start && bd <= now) pastDates.push(`${bd.getFullYear()}-${String(bd.getMonth()+1).padStart(2,'0')}-${String(bd.getDate()).padStart(2,'0')}`);
+                      cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+                    }
+                    if (pastDates.length > 0) {
+                      setExpenseEntries(prev => [...prev, ...pastDates.map((date, idx) => ({
+                        id: `exp_${Date.now()}_sub${idx}`, catId: subForm.catId, amount: amt, currency: subForm.currency, date, note: name, recurring: true, subId: newSubId,
+                      }))]);
+                    }
+                    const lastBilledYM = pastDates.length > 0 ? pastDates[pastDates.length - 1].slice(0, 7) : null;
+                    setSubscriptions(prev => [...prev, { id: newSubId, name, catId: subForm.catId, amount: amt, currency: subForm.currency, billingDay, startDate: subForm.startDate, lastBilledYM, active: true }]);
+                    setSubForm({ name: "", catId: "exp_other", amount: "", currency: "USD", startDate: todayStr() });
+                    setShowSubForm(false);
+                  }} style={{ background: "#c9a84c", color: "#000", border: "none", padding: "8px 16px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 12, whiteSpace: "nowrap" }}>✓ Додати</button>
+                </div>
+              )}
+
+              {subscriptions.length === 0 ? (
+                <div style={{ fontSize: 12, color: "#5a4a30", textAlign: "center", padding: "14px 0" }}>Немає активних підписок</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {[...subscriptions].sort((a, b) => (b.startDate ?? "").localeCompare(a.startDate ?? "")).slice(0, showAllSubs ? undefined : 7).map(sub => {
+                    const amtUSD = sub.currency === "UAH" ? sub.amount / uahRate : sub.amount;
+                    const isActive = sub.active !== false;
+                    const cat = expenseCats.find(c => c.id === sub.catId);
+                    const lastEntry = [...expenseEntries]
+                      .filter(e => e.subId === sub.id || (e.recurring && e.note === sub.name))
+                      .sort((a, b) => b.date.localeCompare(a.date))[0];
+                    const lastDate = lastEntry
+                      ? new Date(lastEntry.date).toLocaleDateString("uk-UA", { day: "numeric", month: "short" })
+                      : null;
+                    return (
+                      <div key={sub.id} style={{ display: "flex", alignItems: "center", gap: 10, background: isActive ? "rgba(8,5,2,0.55)" : "rgba(20,15,5,0.4)", border: `1px solid ${isActive ? "rgba(201,168,76,0.22)" : "rgba(201,168,76,0.08)"}`, borderRadius: 4, padding: "9px 12px", opacity: isActive ? 1 : 0.55 }}>
+                        {cat && <span style={{ fontSize: 14 }}>{cat.icon}</span>}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ color: isActive ? "#e0d8c0" : "#9a8a60", fontFamily: "'Exo 2',sans-serif", fontWeight: 600, fontSize: 13 }}>{sub.name}</div>
+                          <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 2 }}>
+                            {cat && <span style={{ fontSize: 10, color: "#5a4a30" }}>{cat.name}</span>}
+                            <span style={{ fontSize: 10, color: "#6a5840", fontFamily: "'Space Mono',monospace" }}>
+                              🗓 {sub.startDate
+                                ? `з ${new Date(sub.startDate + "T00:00:00").toLocaleDateString("uk-UA", { day: "numeric", month: "short", year: "numeric" })}`
+                                : `${sub.billingDay ?? 1}-го числа`}
+                            </span>
+                            {lastDate ? (
+                              <span style={{ fontSize: 10, color: "#5a5030", fontFamily: "'Space Mono',monospace" }}>· списано {lastDate}</span>
+                            ) : (
+                              <span style={{ fontSize: 10, color: "#4a3a25", fontFamily: "'Space Mono',monospace" }}>· ще не списувалось</span>
+                            )}
+                          </div>
+                        </div>
+                        <span style={{ color: "#f43f5e", fontFamily: "'Space Mono',monospace", fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>
+                          {sub.currency === "UAH" ? `${sub.amount} грн` : `$${sub.amount}`}
+                          {sub.currency === "UAH" && <span style={{ color: "#5a4a30", fontSize: 10, marginLeft: 4 }}>(~${amtUSD.toFixed(1)})</span>}
+                        </span>
+                        <span style={{ fontSize: 10, color: isActive ? "#10b981" : "#f59e0b", background: isActive ? "rgba(16,185,129,0.12)" : "rgba(245,158,11,0.12)", border: `1px solid ${isActive ? "rgba(16,185,129,0.3)" : "rgba(245,158,11,0.3)"}`, borderRadius: 10, padding: "2px 8px", fontFamily: "'Space Mono',monospace", whiteSpace: "nowrap" }}>
+                          {isActive ? "🟢 активна" : "⏸ пауза"}
+                        </span>
+                        <button onClick={() => setSubscriptions(prev => prev.map(s => s.id === sub.id ? { ...s, active: !isActive } : s))} style={{ background: isActive ? "rgba(245,158,11,0.1)" : "rgba(16,185,129,0.1)", border: `1px solid ${isActive ? "rgba(245,158,11,0.35)" : "rgba(16,185,129,0.35)"}`, color: isActive ? "#f59e0b" : "#10b981", padding: "5px 10px", borderRadius: 3, cursor: "pointer", fontSize: 11, fontWeight: 700 }}>
+                          {isActive ? "⏸" : "▶"}
+                        </button>
+                        <button onClick={() => setSubscriptions(prev => prev.filter(s => s.id !== sub.id))} style={{ background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.25)", color: "#f43f5e", padding: "5px 8px", borderRadius: 3, cursor: "pointer", fontSize: 13, lineHeight: 1 }}>×</button>
+                      </div>
+                    );
+                  })}
+                  {subscriptions.length > 7 && (
+                    <button onClick={() => setShowAllSubs(v => !v)} style={{ background: "none", border: "1px solid rgba(201,168,76,0.2)", color: "#9a8a60", padding: "6px", borderRadius: 3, cursor: "pointer", fontSize: 11, fontFamily: "'Space Mono',monospace", letterSpacing: 0.5 }}>
+                      {showAllSubs ? "▲ Сховати" : `▼ Ще ${subscriptions.length - 7} підписок`}
+                    </button>
+                  )}
+                  <div style={{ fontSize: 11, color: "#5a4a60", textAlign: "right", paddingTop: 4, fontFamily: "'Space Mono',monospace" }}>
+                    Щомісяця: <span style={{ color: "#f43f5e", fontWeight: 700 }}>${subscriptions.filter(s => s.active !== false).reduce((sum, s) => sum + (s.currency === "UAH" ? s.amount / uahRate : s.amount), 0).toFixed(2)}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Annual analytics + chart */}
+            <div className="wf-panel" style={{ padding: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+                <span className="wf-sec" style={{ marginBottom: 0, paddingBottom: 0, border: "none" }}>📊 Аналітика</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
+                  <button onClick={() => setAnalyticsYear(y => y - 1)} style={{ background: "none", border: "1px solid rgba(201,168,76,0.3)", color: "#9a8a60", padding: "4px 10px", borderRadius: 3, cursor: "pointer", fontSize: 12 }}>‹</button>
+                  <span style={{ color: "#c9a84c", fontWeight: 800, fontFamily: "'Exo 2',sans-serif", minWidth: 44, textAlign: "center" }}>{chartYear}</span>
+                  <button onClick={() => setAnalyticsYear(y => y + 1)} style={{ background: "none", border: "1px solid rgba(201,168,76,0.3)", color: "#9a8a60", padding: "4px 10px", borderRadius: 3, cursor: "pointer", fontSize: 12 }}>›</button>
+                </div>
+              </div>
+
+              {/* Year totals row */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 16 }}>
+                {[
+                  { label: `Дохід ${chartYear}`, val: `$${yearInc.toFixed(0)}`, color: "#10b981" },
+                  { label: `Витрати ${chartYear}`, val: `$${yearExp.toFixed(0)}`, color: "#f43f5e" },
+                  { label: "Різниця", val: `${yearNet >= 0 ? "+" : ""}$${yearNet.toFixed(0)}`, color: yearNet >= 0 ? "#00ff88" : "#f43f5e" },
+                ].map(s => (
+                  <div key={s.label} style={{ background: "rgba(8,5,2,0.65)", border: `1px solid ${s.color}30`, borderLeft: `3px solid ${s.color}90`, borderRadius: 4, padding: "12px 14px", textAlign: "center", boxShadow: `0 0 18px ${s.color}0a, inset 0 0 30px rgba(0,0,0,0.3)` }}>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif", textShadow: `0 0 14px ${s.color}55`, letterSpacing: "-0.5px" }}>{s.val}</div>
+                    <div style={{ fontSize: 9, color: "#6a5a40", marginTop: 4, textTransform: "uppercase", letterSpacing: 1.5 }}>{s.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* SVG line chart */}
+              <div style={{ background: "rgba(5,3,1,0.5)", borderRadius: 4, padding: "8px 4px 4px", border: "1px solid rgba(201,168,76,0.12)", position: "relative" }}>
+                <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: "block" }}
+                  onMouseLeave={() => setChartTooltip(null)}>
+                  <defs>
+                    <clipPath id="posClip"><rect x={PL} y={PT} width={cW} height={Math.max(0, zeroY - PT)} /></clipPath>
+                    <clipPath id="negClip"><rect x={PL} y={zeroY} width={cW} height={Math.max(0, PT + cH - zeroY)} /></clipPath>
+                  </defs>
+                  {/* Grid lines */}
+                  {[0.25,0.5,0.75,1].map(p => (
+                    <line key={p} x1={PL} y1={PT + cH*(1-p)} x2={W-PR} y2={PT + cH*(1-p)} stroke="rgba(201,168,76,0.07)" strokeWidth="1" />
+                  ))}
+                  {/* Zero line */}
+                  <line x1={PL} y1={zeroY} x2={W-PR} y2={zeroY} stroke="rgba(201,168,76,0.35)" strokeWidth="1" strokeDasharray="4,3" />
+                  {/* Area fills */}
+                  <path d={netAreaPath} fill="rgba(16,185,129,0.22)" clipPath="url(#posClip)" />
+                  <path d={netAreaPath} fill="rgba(244,63,94,0.22)" clipPath="url(#negClip)" />
+                  {/* Net line */}
+                  <path d={netLinePath} fill="none" stroke="#c9a84c" strokeWidth="2" strokeLinejoin="round" />
+                  {/* Hovered column highlight */}
+                  {chartTooltip !== null && (() => {
+                    const colW2 = cW / 11;
+                    return <rect x={Math.max(PL, px(chartTooltip) - colW2/2)} y={PT} width={colW2} height={cH} fill="rgba(201,168,76,0.07)" rx={2} />;
+                  })()}
+                  {/* Dots */}
+                  {chartNet.map((v, i) => (v !== 0 &&
+                    <circle key={i} cx={px(i)} cy={pyNet(v)} r={chartTooltip === i ? 4.5 : 3}
+                      fill={v >= 0 ? "#10b981" : "#f43f5e"}
+                      stroke={chartTooltip === i ? (v >= 0 ? "#10b981" : "#f43f5e") : "none"}
+                      strokeWidth="2" strokeOpacity="0.4" />
+                  ))}
+                  {/* Invisible hover column areas (on top of dots) */}
+                  {chartNet.map((v, i) => {
+                    const colW2 = cW / 11;
+                    return (
+                      <rect key={`h${i}`} x={Math.max(PL, px(i) - colW2/2)} y={PT} width={colW2} height={cH}
+                        fill="transparent" style={{ cursor: "crosshair" }}
+                        onMouseEnter={() => setChartTooltip(i)} />
+                    );
+                  })}
+                  {/* Month labels */}
+                  {MONTH_NAMES.map((name, i) => (
+                    <text key={i} x={px(i)} y={H-5} textAnchor="middle"
+                      fill={chartTooltip === i ? "rgba(201,168,76,0.95)" : "rgba(154,138,96,0.6)"}
+                      fontSize="9" fontFamily="monospace" fontWeight={chartTooltip === i ? "700" : "400"}>{name}</text>
+                  ))}
+                  {/* Y-axis main labels: max, 0, min */}
+                  {[
+                    ...(maxNet > 0.5 ? [[maxNet, PT, "#10b981"]] : []),
+                    [0, zeroY, "#c9a84c"],
+                    ...(minNet < -0.5 ? [[minNet, PT+cH, "#f43f5e"]] : [])
+                  ].map(([val, yPos, col]) => (
+                    <g key={`lbl${val}`}>
+                      <rect x={1} y={yPos-7} width={PL-5} height={13} rx={2} fill="rgba(6,4,1,0.8)" />
+                      <text x={PL-5} y={yPos+4} textAnchor="end" fill={col} fontSize="9" fontFamily="monospace" fontWeight="700">
+                        {val > 0 ? `+$${Math.round(val)}` : val < 0 ? `-$${Math.round(Math.abs(val))}` : "$0"}
+                      </text>
+                    </g>
+                  ))}
+                  {/* 50% midpoint labels */}
+                  {[
+                    ...(maxNet > 25 ? [[maxNet/2, pyNet(maxNet/2), "#10b981"]] : []),
+                    ...(minNet < -25 ? [[minNet/2, pyNet(minNet/2), "#f43f5e"]] : [])
+                  ].map(([val, yPos, col]) => (
+                    <g key={`mid${val}`}>
+                      <rect x={1} y={yPos-5} width={PL-5} height={10} rx={2} fill="rgba(6,4,1,0.65)" />
+                      <text x={PL-5} y={yPos+3.5} textAnchor="end" fill={col} fillOpacity="0.55" fontSize="7.5" fontFamily="monospace">
+                        {val > 0 ? `+$${Math.round(val)}` : `-$${Math.round(Math.abs(val))}`}
+                      </text>
+                    </g>
+                  ))}
+                </svg>
+
+                {/* HTML tooltip overlay */}
+                {chartTooltip !== null && (() => {
+                  const i = chartTooltip;
+                  const inc = chartInc[i];
+                  const exp = chartExp[i];
+                  const net = chartNet[i];
+                  const leftPct = px(i) / W * 100;
+                  const flipLeft = i >= 9;
+                  const fmtAmt = (v) => `$${Math.round(Math.abs(v))}`;
+                  return (
+                    <div style={{
+                      position: "absolute", top: 6,
+                      left: `${leftPct}%`,
+                      transform: flipLeft ? "translateX(-108%)" : "translateX(6%)",
+                      background: "linear-gradient(160deg,rgba(16,11,4,0.98),rgba(8,5,2,0.98))",
+                      border: "1px solid rgba(201,168,76,0.4)",
+                      borderTop: "2px solid rgba(201,168,76,0.65)",
+                      borderRadius: 5,
+                      padding: "8px 12px",
+                      minWidth: 138,
+                      boxShadow: "0 6px 24px rgba(0,0,0,0.75), 0 0 16px rgba(201,168,76,0.06)",
+                      pointerEvents: "none",
+                      zIndex: 10,
+                      fontFamily: "'Space Mono',monospace",
+                    }}>
+                      <div style={{ fontSize: 10, color: "#c9a84c", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 7, fontFamily: "'Exo 2',sans-serif", borderBottom: "1px solid rgba(201,168,76,0.2)", paddingBottom: 5 }}>
+                        {MONTH_NAMES[i]} {chartYear}
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                          <span style={{ fontSize: 9, color: "#4a7a5a", letterSpacing: 0.5 }}>📈 дохід</span>
+                          <span style={{ fontSize: 11, color: "#10b981", fontWeight: 700 }}>{fmtAmt(inc)}</span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                          <span style={{ fontSize: 9, color: "#7a3a4a", letterSpacing: 0.5 }}>📉 витрати</span>
+                          <span style={{ fontSize: 11, color: "#f43f5e", fontWeight: 700 }}>{fmtAmt(exp)}</span>
+                        </div>
+                        <div style={{ borderTop: "1px solid rgba(201,168,76,0.18)", marginTop: 2, paddingTop: 4, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                          <span style={{ fontSize: 9, color: "#8a7a50" }}>різниця</span>
+                          <span style={{ fontSize: 12, color: net >= 0 ? "#00ff88" : "#f43f5e", fontWeight: 800, textShadow: `0 0 8px ${net >= 0 ? "#00ff88" : "#f43f5e"}60` }}>
+                            {net >= 0 ? "+" : "-"}{fmtAmt(net)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <div style={{ display: "flex", gap: 16, justifyContent: "center", paddingTop: 6, paddingBottom: 4 }}>
+                  <span style={{ fontSize: 10, color: "#10b981", fontFamily: "'Space Mono',monospace" }}>■ профіцит</span>
+                  <span style={{ fontSize: 10, color: "#f43f5e", fontFamily: "'Space Mono',monospace" }}>■ дефіцит</span>
+                  <span style={{ fontSize: 10, color: "#c9a84c", fontFamily: "'Space Mono',monospace" }}>— дохід − витрати</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Milestone bars */}
+            <div className="wf-panel" style={{ padding: 16 }}>
+              <div className="wf-sec">🏁 Дохідні цілі</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {[
                   { label: "До $100", max: 100, color: "#10b981" },
                   { label: "До $1,000", max: 1000, color: "#6366f1" },
                   { label: "До $10,000", max: 10000, color: "#f43f5e" },
                   { label: "До $100,000", max: 100000, color: "#f59e0b" },
                 ].map(g => (
-                  <div key={g.label} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 10, padding: "12px 14px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 6 }}>
-                      <span style={{ color: "#fff" }}>{g.label}</span>
-                      <span style={{ color: g.color }}>{Math.min(100, (income / g.max) * 100).toFixed(1)}%</span>
+                  <div key={g.label}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 5 }}>
+                      <span style={{ color: "#e0d8c0" }}>{g.label}</span>
+                      <span style={{ color: g.color, fontFamily: "'Space Mono',monospace" }}>${totalIncome.toFixed(0)} · {Math.min(100, (totalIncome / g.max) * 100).toFixed(1)}%</span>
                     </div>
-                    <div style={{ height: 6, background: "rgba(255,255,255,0.07)", borderRadius: 3 }}>
-                      <div style={{ width: `${Math.min(100, (income / g.max) * 100)}%`, height: "100%", background: g.color, borderRadius: 3, transition: "width 0.5s" }} />
+                    <div style={{ height: 6, background: "rgba(201,168,76,0.12)", borderRadius: 3 }}>
+                      <div style={{ width: `${Math.min(100, (totalIncome / g.max) * 100)}%`, height: "100%", background: g.color, borderRadius: 3, transition: "width 0.5s" }} />
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+
+          </div>
+          );
+        })()}
+
+        {/* Project delete confirmation modal */}
+        {projectDeleteConfirm !== null && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.80)", zIndex: 9995, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+            <div className="wf-panel" style={{ maxWidth: 380, width: "100%", padding: 24 }}>
+              <div style={{ fontSize: 22, marginBottom: 12, textAlign: "center" }}>🗑</div>
+              <div className="wf-sec" style={{ textAlign: "center", marginBottom: 8 }}>Видалити проект?</div>
+              <div style={{ fontSize: 13, color: "#e0d8c0", textAlign: "center", marginBottom: 6, fontFamily: "'Exo 2',sans-serif", fontWeight: 700 }}>«{projects[projectDeleteConfirm]?.name}»</div>
+              {(() => {
+                const dp = projects[projectDeleteConfirm];
+                const totalDeduct = (dp?.creationXP ?? 200) + (dp?.completionXPPaid ? (dp?.completionXP ?? 0) : 0);
+                return <div style={{ fontSize: 12, color: "#f43f5e", textAlign: "center", marginBottom: 20, fontFamily: "'Space Mono',monospace" }}>−{totalDeduct} XP</div>;
+              })()}
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => {
+                  const dp = projects[projectDeleteConfirm];
+                  const totalDeduct = (dp?.creationXP ?? 200) + (dp?.completionXPPaid ? (dp?.completionXP ?? 0) : 0);
+                  setProjects(prev => prev.filter((_, idx) => idx !== projectDeleteConfirm));
+                  loseXP(totalDeduct, "project", "↩ проект видалено");
+                  setProjectDeleteConfirm(null);
+                }} style={{ flex: 1, background: "rgba(244,63,94,0.15)", border: "1px solid rgba(244,63,94,0.5)", color: "#f43f5e", padding: "10px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 13 }}>Так, видалити</button>
+                <button onClick={() => setProjectDeleteConfirm(null)} style={{ flex: 1, background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.3)", color: "#c9a84c", padding: "10px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>Скасувати</button>
               </div>
             </div>
           </div>
@@ -549,22 +4091,720 @@ export default function AITracker() {
                 onChange={e => setProjectInput(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && addProject()}
                 placeholder="Назва проекту..."
-                style={{ flex: 1, minWidth: 200, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 14px", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace" }}
+                style={{ flex: 1, minWidth: 200, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "10px 14px", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace" }}
               />
-              <button className="act-btn" onClick={addProject} style={{ background: "#6366f1", color: "#fff", border: "none", padding: "10px 18px", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>+ Додати (+200 XP)</button>
+              <select value={projectCategory} onChange={e => setProjectCategory(e.target.value)}
+                style={{ background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "10px 12px", color: "#c9a84c", fontSize: 12, cursor: "pointer" }}>
+                {PROJECT_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
+              </select>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: "6px 12px" }}>
+                <span style={{ fontSize: 11, color: "#6a5a40", whiteSpace: "nowrap" }}>XP за виконання:</span>
+                <input
+                  type="number" min="0" max="99999"
+                  value={projectCompletionXP}
+                  onChange={e => setProjectCompletionXP(Math.max(0, parseInt(e.target.value) || 0))}
+                  style={{ width: 90, background: "none", border: "none", color: "#c9a84c", fontSize: 13, fontFamily: "'Space Mono',monospace", fontWeight: 700, outline: "none", textAlign: "center", MozAppearance: "textfield", appearance: "textfield" }}
+                />
+              </div>
+              <button className="act-btn" onClick={addProject} style={{ background: "#6366f1", color: "#fff", border: "none", padding: "10px 18px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 13, whiteSpace: "nowrap" }}>+ Додати</button>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {projects.map((p, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, background: "rgba(99,102,241,0.07)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 12, padding: "13px 16px" }}>
-                  <span style={{ fontSize: 20 }}>🚀</span>
-                  <span style={{ flex: 1, color: "#fff", fontSize: 13 }}>{p.name}</span>
-                  <span style={{ color: "#475569", fontSize: 11 }}>{p.date}</span>
+            {/* Active projects grouped by category */}
+            {(() => {
+              const activeProjects = projects.filter(p => (p.status ?? "done") !== "done");
+              const doneProjects = projects.filter(p => (p.status ?? "done") === "done");
+              const projectCard = (p) => {
+                const realIdx = projects.indexOf(p);
+                const status = p.status ?? "done";
+                const cxp = p.completionXP ?? 0;
+                const isDone = status === "done";
+                const changeStatus = (next) => {
+                  setProjects(prev => prev.map((x, idx) => {
+                    if (idx !== realIdx) return x;
+                    const paid = x.completionXPPaid ?? false;
+                    const xcxp = x.completionXP ?? 0;
+                    if (next === "done" && !paid && xcxp > 0) {
+                      gainXP(xcxp, `🚀 ${x.name}`, "project");
+                      return { ...x, status: next, completionXPPaid: true, completedAt: new Date().toISOString() };
+                    }
+                    if (next !== "done" && paid && xcxp > 0) {
+                      loseXP(xcxp, "project", "↩ проект не завершено");
+                      return { ...x, status: next, completionXPPaid: false, completedAt: null };
+                    }
+                    return { ...x, status: next, completedAt: next === "done" ? (x.completedAt ?? new Date().toISOString()) : null };
+                  }));
+                };
+                const cat = PROJECT_CATEGORIES.find(c => c.id === (p.category ?? "other")) ?? PROJECT_CATEGORIES[PROJECT_CATEGORIES.length - 1];
+                const stCfg = PROJECT_STATUSES.find(s => s.id === status) ?? PROJECT_STATUSES[0];
+                const doneDate = p.completedAt ? new Date(p.completedAt).toLocaleDateString("uk-UA", { day: "numeric", month: "short", year: "numeric" }) : p.date;
+                return (
+                  <div key={realIdx} style={{ display: "flex", alignItems: "center", gap: 12, background: "rgba(5,3,1,0.76)", border: `1px solid rgba(201,168,76,0.15)`, borderLeft: `3px solid ${cat.color}`, borderRadius: 4, padding: "12px 16px", opacity: isDone ? 0.62 : 1 }}>
+                    <span style={{ fontSize: 18 }}>{cat.icon}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ color: isDone ? "#6a7060" : "#e0d8c0", fontSize: 13, fontFamily: "'Exo 2',sans-serif", fontWeight: 600, textDecoration: isDone ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+                      {cxp > 0 && (
+                        <div style={{ fontSize: 11, color: isDone ? "#3a5030" : "#5a4a20", fontFamily: "'Space Mono',monospace", marginTop: 2 }}>{isDone ? `✓ +${cxp} XP отримано` : `🔒 +${cxp} XP при завершенні`}</div>
+                      )}
+                    </div>
+                    <span style={{ color: "#6a5a40", fontSize: 11, fontFamily: "'Space Mono',monospace", flexShrink: 0 }}>{isDone ? `✓ ${doneDate}` : p.date}</span>
+                    <select value={status} onChange={e => changeStatus(e.target.value)} title="Статус"
+                      style={{ fontSize: 11, padding: "4px 8px", borderRadius: 3, border: `1px solid ${stCfg.border}`, background: stCfg.bg, color: stCfg.color, cursor: "pointer", fontWeight: 700, fontFamily: "'Exo 2',sans-serif" }}>
+                      {PROJECT_STATUSES.map(s => <option key={s.id} value={s.id} style={{ background: "#0c0903", color: "#e0d8c0" }}>{s.label}</option>)}
+                    </select>
+                    <button onClick={() => setProjectDeleteConfirm(realIdx)} title="Видалити" style={{ background: "none", border: "none", color: "#5a3a30", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "2px 4px" }} onMouseEnter={e => e.target.style.color="#f43f5e"} onMouseLeave={e => e.target.style.color="#5a3a30"}>×</button>
+                  </div>
+                );
+              };
+
+              const catGroups = PROJECT_CATEGORIES.map(cat => ({
+                cat,
+                items: activeProjects.filter(p => (p.category ?? "other") === cat.id),
+              })).filter(g => g.items.length > 0);
+
+              // виконані: найсвіжіші зверху
+              const sortedDone = [...doneProjects].sort((a, b) =>
+                (b.completedAt ? new Date(b.completedAt).getTime() : 0) - (a.completedAt ? new Date(a.completedAt).getTime() : 0));
+
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                  {catGroups.length === 0 && !doneProjects.length && (
+                    <div style={{ textAlign: "center", padding: 32, color: "#6a5f40", fontSize: 13 }}>Ще немає проектів. Додай перший!</div>
+                  )}
+                  {catGroups.map(({ cat, items }) => (
+                    <div key={cat.id}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                        <span style={{ background: `${cat.color}14`, border: `1px solid ${cat.color}44`, color: cat.color, padding: "3px 12px", borderRadius: 3, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>{cat.icon} {cat.label}</span>
+                        <span style={{ fontSize: 11, color: "#5a4a30" }}>{items.length} {items.length === 1 ? "проект" : "проекти"}</span>
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {items.map(projectCard)}
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Виконані проекти — затухлий список, найсвіжіші зверху */}
+                  {sortedDone.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 11, color: "#3a6a3a", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 8, marginTop: 4 }}>✓ Виконано · {sortedDone.length}</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {sortedDone.map(projectCard)}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
+              );
+            })()}
           </div>
         )}
+
+        {activeTab === "progress" && (() => {
+          const PRESET_TAGS = ["AI-інструмент", "проект", "навичка", "дохід", "ідея", "перемога", "урок"];
+          const addEntry = () => {
+            if (!progressInput.trim()) return;
+            const entry = { id: `pr_${Date.now()}`, date: progressDate, text: progressInput.trim(), tags: progressTags };
+            setProgressLog(prev => [entry, ...prev]);
+            recordActiveDay();
+            setProgressInput("");
+            setProgressTags([]);
+            setProgressDate(todayStr());
+          };
+          const grouped = progressLog.reduce((acc, e) => {
+            (acc[e.date] = acc[e.date] ?? []).push(e);
+            return acc;
+          }, {});
+          const sortedDates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+          const visibleDates = progressShowAll ? sortedDates : sortedDates.slice(0, 7);
+          const fmtDate = (ds) => {
+            const d = new Date(ds + "T00:00:00");
+            const today = todayStr();
+            const yest = (() => { const x = new Date(); x.setDate(x.getDate()-1); return x.toISOString().slice(0,10); })();
+            if (ds === today) return "Сьогодні";
+            if (ds === yest) return "Вчора";
+            return d.toLocaleDateString("uk-UA", { day: "numeric", month: "long", year: "numeric" });
+          };
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {/* Input card */}
+              <div className="wf-panel" style={{ padding: 16 }}>
+                <div className="wf-sec">✍️ Що зробив сьогодні?</div>
+                <textarea value={progressInput} onChange={e => setProgressInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter" && e.ctrlKey) addEntry(); }}
+                  placeholder="Опиши свій прогрес, досягнення або відкриття…"
+                  rows={3} style={{ width: "100%", background: "rgba(8,5,2,0.7)", border: "1px solid rgba(201,168,76,0.25)", color: "#e0d8c0", padding: "10px 12px", borderRadius: 4, fontSize: 13, fontFamily: "'Exo 2',sans-serif", resize: "vertical", outline: "none", boxSizing: "border-box", lineHeight: 1.5, colorScheme: "dark", marginBottom: 10 }} />
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+                  {PRESET_TAGS.map(tag => {
+                    const active = progressTags.includes(tag);
+                    return (
+                      <button key={tag} onClick={() => setProgressTags(p => active ? p.filter(t=>t!==tag) : [...p, tag])}
+                        style={{ fontSize: 11, padding: "3px 10px", borderRadius: 12, border: `1px solid ${active ? "rgba(201,168,76,0.6)" : "rgba(201,168,76,0.2)"}`, background: active ? "rgba(201,168,76,0.18)" : "none", color: active ? "#c9a84c" : "#6a5840", cursor: "pointer", fontFamily: "'Space Mono',monospace" }}>
+                        {tag}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  <input type="date" value={progressDate} onChange={e => setProgressDate(e.target.value)}
+                    style={{ background: "rgba(8,5,2,0.7)", border: "1px solid rgba(201,168,76,0.25)", color: "#9a8a60", padding: "6px 10px", borderRadius: 4, fontSize: 12, fontFamily: "'Space Mono',monospace", outline: "none", colorScheme: "dark" }} />
+                  <button onClick={addEntry} disabled={!progressInput.trim()}
+                    style={{ marginLeft: "auto", background: progressInput.trim() ? "#c9a84c" : "rgba(201,168,76,0.1)", border: "none", color: progressInput.trim() ? "#000" : "#5a4a30", padding: "8px 20px", borderRadius: 4, cursor: progressInput.trim() ? "pointer" : "default", fontWeight: 800, fontSize: 13, fontFamily: "'Exo 2',sans-serif" }}>
+                    + Додати
+                  </button>
+                </div>
+              </div>
+
+              {/* Log */}
+              {sortedDates.length === 0 ? (
+                <div className="wf-panel" style={{ padding: 24, textAlign: "center", color: "#4a3a20", fontSize: 13 }}>
+                  Ще немає записів — зроби перший! 🚀
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {visibleDates.map(ds => (
+                    <div key={ds}>
+                      <div style={{ fontSize: 11, color: "#6a5a40", textTransform: "uppercase", letterSpacing: 1.5, fontFamily: "'Space Mono',monospace", marginBottom: 6, paddingLeft: 2 }}>
+                        {fmtDate(ds)}
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {grouped[ds].map(entry => (
+                          <div key={entry.id} className="wf-panel" style={{ padding: "12px 14px", position: "relative" }}>
+                            <div style={{ position: "absolute", top: 8, right: 8, display: "flex", gap: 2 }}>
+                              <button onClick={() => { setProgressEditId(entry.id); setProgressEditText(entry.text); }}
+                                style={{ background: "none", border: "none", color: "#4a3a25", cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "2px 5px" }}
+                                onMouseEnter={e => e.target.style.color="#c9a84c"} onMouseLeave={e => e.target.style.color="#4a3a25"}>✎</button>
+                              <button onClick={() => setProgressLog(p => p.filter(e => e.id !== entry.id))}
+                                style={{ background: "none", border: "none", color: "#4a3a25", cursor: "pointer", fontSize: 16, lineHeight: 1, padding: "2px 4px" }}
+                                onMouseEnter={e => e.target.style.color="#f43f5e"} onMouseLeave={e => e.target.style.color="#4a3a25"}>×</button>
+                            </div>
+                            {progressEditId === entry.id ? (
+                              <div style={{ paddingRight: 52 }}>
+                                <textarea
+                                  autoFocus
+                                  value={progressEditText}
+                                  onChange={e => setProgressEditText(e.target.value)}
+                                  onKeyDown={e => {
+                                    if (e.key === "Enter" && e.ctrlKey) { setProgressLog(p => p.map(x => x.id === entry.id ? { ...x, text: progressEditText.trim() || x.text } : x)); setProgressEditId(null); }
+                                    if (e.key === "Escape") setProgressEditId(null);
+                                  }}
+                                  style={{ width: "100%", minHeight: 72, background: "rgba(8,5,2,0.8)", border: "1px solid rgba(201,168,76,0.35)", borderRadius: 3, padding: "8px 10px", color: "#fff", fontSize: 13, fontFamily: "'Exo 2',sans-serif", resize: "vertical", lineHeight: 1.6 }}
+                                />
+                                <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                                  <button onClick={() => { setProgressLog(p => p.map(x => x.id === entry.id ? { ...x, text: progressEditText.trim() || x.text } : x)); setProgressEditId(null); }}
+                                    style={{ background: "#c9a84c", border: "none", color: "#000", padding: "5px 14px", borderRadius: 3, fontWeight: 700, cursor: "pointer", fontSize: 12 }}>Зберегти</button>
+                                  <button onClick={() => setProgressEditId(null)}
+                                    style={{ background: "none", border: "1px solid rgba(201,168,76,0.25)", color: "#6a5a40", padding: "5px 12px", borderRadius: 3, cursor: "pointer", fontSize: 12 }}>Скасувати</button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div style={{ fontSize: 13, color: "#e0d8c0", lineHeight: 1.6, fontFamily: "'Exo 2',sans-serif", paddingRight: 52, whiteSpace: "pre-wrap" }}>{entry.text}</div>
+                            )}
+                            {entry.tags?.length > 0 && (
+                              <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 8 }}>
+                                {entry.tags.map(tag => (
+                                  <span key={tag} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.25)", color: "#8a7a50", fontFamily: "'Space Mono',monospace" }}>{tag}</span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  {sortedDates.length > 7 && (
+                    <button onClick={() => setProgressShowAll(v => !v)}
+                      style={{ background: "none", border: "1px solid rgba(201,168,76,0.2)", color: "#6a5840", padding: "8px", borderRadius: 3, cursor: "pointer", fontSize: 11, fontFamily: "'Space Mono',monospace" }}>
+                      {progressShowAll ? "▲ Сховати" : `▼ Показати всі (${sortedDates.length} днів)`}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {activeTab === "stats" && (() => {
+          const net = totalIncome - totalExpenses;
+          const netColor = net >= 0 ? "#00ff88" : "#f43f5e";
+          const SKILL_STAT_ROWS = [
+            { catId: "llm",        emoji: "🧠", label: "LLM",            tasks: [{ id: "prompts", label: "Промптів" }, { id: "real_tasks", label: "Задач вирішено" }] },
+            { catId: "image",      emoji: "🎨", label: "Зображення",     tasks: [{ id: "images_gen", label: "Згенеровано" }, { id: "images_commercial", label: "Комерційних" }] },
+            { catId: "video",      emoji: "🎬", label: "Відео",          tasks: [{ id: "videos_created", label: "Створено" }, { id: "videos_commercial", label: "Для клієнтів" }] },
+            { catId: "voice",      emoji: "🎙️", label: "Голос / Аудіо", tasks: [{ id: "audio_files", label: "Аудіо-файлів" }, { id: "audio_minutes", label: "Хвилин" }] },
+            { catId: "music",      emoji: "🎵", label: "Музика",         tasks: [{ id: "tracks_created", label: "Треків" }, { id: "tracks_published", label: "Опублікованих" }] },
+            { catId: "automation", emoji: "⚙️", label: "Автоматизація", tasks: [{ id: "automations_created", label: "Автоматизацій" }, { id: "hours_saved", label: "Год заощаджено" }] },
+            { catId: "code",       emoji: "💻", label: "Код",            tasks: [{ id: "lines_written", label: "Рядків коду" }, { id: "projects_launched", label: "Проектів" }] },
+            { catId: "design",     emoji: "✨", label: "Дизайн",         tasks: [{ id: "mockups_created", label: "Макетів" }, { id: "logos_created", label: "Логотипів" }] },
+            { catId: "content",    emoji: "📱", label: "Контент",        tasks: [{ id: "posts_published", label: "Постів" }, { id: "followers_gained", label: "Підписників" }, { id: "content_views", label: "Переглядів" }] },
+            { catId: "monetize",   emoji: "💰", label: "Монетизація",    tasks: [{ id: "ai_income", label: "Дохід ($)" }, { id: "clients", label: "Клієнтів" }] },
+          ];
+          // XP sources — "Сьогодні" береться з журналу XP, а "Загалом" рахується
+          // напряму з поточного стану (точне джерело правди), щоб усі вкладки, з яких
+          // приходить XP, мали правильні суми незалежно від моменту старту обліку.
+          const xpToday_act = ACTIVITY_DEFS.reduce((s, d) => s + (todayActivity[d.key] ?? 0) * d.xp, 0);
+          const todayLogEntries = xpLog.filter(e => e.date === todayStr());
+          const todayBySource = todayLogEntries.reduce((acc, e) => { acc[e.source] = (acc[e.source] ?? 0) + e.amount; return acc; }, {});
+          todayBySource.activity = xpToday_act;
+
+          // Точні «Загалом» з поточного стану:
+          const derivedAch = ACHIEVEMENTS.filter(a => unlockedAchievements.includes(a.id)).reduce((s, a) => s + a.xp, 0);
+          const derivedIncome = incomeEntries.reduce((s, e) => s + (e.xpPaid ?? 0), 0);
+          const derivedSession = sessions.dates.length * 5;
+          let skillTaskXP = 0;
+          SKILL_TASKS.forEach(cat => {
+            cat.progressive.forEach(t => {
+              const claimed = skillTasksData[`${cat.id}_${t.id}`]?.claimed ?? [];
+              t.milestones.forEach((m, i) => { if (claimed.includes(i)) skillTaskXP += m.xp; });
+            });
+            cat.oneTime.forEach(t => { if (skillTasksData[`${cat.id}_${t.id}`] === true) skillTaskXP += t.xp; });
+          });
+          const derivedSkill = totalTools * 100 + skillTaskXP;
+          // Цілі/план/проекти ведуться журналом (нові, відстежувані)
+          const totalBySource = xpLog.reduce((acc, e) => { acc[e.source] = (acc[e.source] ?? 0) + e.amount; return acc; }, {});
+          const logGoalPlan = (totalBySource.goal ?? 0) + (totalBySource.plan ?? 0);
+          const logProject = totalBySource.project ?? 0;
+          // Активність = решта (поглинає стартові 300 XP та все, що поза іншими джерелами).
+          // AI-сесії формально теж активність → зливаємо у «Активність».
+          const accountedNonActivity = derivedSkill + derivedAch + derivedIncome + derivedSession + logGoalPlan + logProject;
+          const derivedActivity = Math.max(0, totalXP - accountedNonActivity);
+          const activityTotal = derivedActivity + derivedSession;
+
+          const XP_GROUPS = [
+            { key: "activity",    emoji: "⚡", label: "Активність",            color: "#00ff88", desc: "дії + AI-сесії",                total: activityTotal, todayKeys: ["activity", "session"] },
+            { key: "goal_plan",   emoji: "🎯", label: "Цілі & задачі",         color: "#06b6d4", desc: "цілі + план дій",               total: logGoalPlan,   todayKeys: ["goal", "plan"] },
+            { key: "skill",       emoji: "🧩", label: "Навички + інструменти", color: "#6366f1", desc: `${totalTools} інструментів`,     total: derivedSkill,  todayKeys: ["skill"] },
+            { key: "project",     emoji: "🚀", label: "Проекти",               color: "#a855f7", desc: `${projects.length} проектів`,    total: logProject,    todayKeys: ["project"] },
+            { key: "achievement", emoji: "🏆", label: "Досягнення",            color: "#fbbf24", desc: `${unlockedAchievements.length} нагород`, total: derivedAch, todayKeys: ["achievement"] },
+            { key: "income",      emoji: "💰", label: "Фінанси",               color: "#10b981", desc: "дохід з AI",                    total: derivedIncome, todayKeys: ["income"] },
+          ];
+          const allGroups = XP_GROUPS;
+          const grpTodayVal = (grp) => grp.todayKeys.reduce((s, k) => s + (todayBySource[k] ?? 0), 0);
+          const sourcesTotal = XP_GROUPS.reduce((s, g) => s + g.total, 0);
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+              {/* Джерела XP */}
+              <div>
+                <div className="wf-sec" style={{ marginBottom: 16 }}>⭐ Джерела XP</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10 }}>
+                  {allGroups.map(grp => {
+                    const tval = grpTodayVal(grp);
+                    const aval = grp.total;
+                    if (aval === 0 && tval === 0) return null;
+                    return (
+                      <div key={grp.key} className="wf-card" style={{ padding: "12px 14px", border: `1px solid ${grp.color}33`, borderTop: `2px solid ${grp.color}` }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 10 }}>
+                          <span style={{ fontSize: 18 }}>{grp.emoji}</span>
+                          <div>
+                            <div style={{ fontSize: 10, color: "#c9b890", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1, fontWeight: 700 }}>{grp.label}</div>
+                            {grp.desc && <div style={{ fontSize: 9, color: "#5a5040", fontFamily: "'Space Mono',monospace" }}>{grp.desc}</div>}
+                          </div>
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                          <div style={{ background: "rgba(0,0,0,0.25)", borderRadius: 6, padding: "6px 8px" }}>
+                            <div style={{ fontSize: 9, color: "#6a5a38", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 3 }}>Сьогодні</div>
+                            <div style={{ fontSize: 15, fontWeight: 800, color: tval > 0 ? grp.color : "#4a4030", fontFamily: "'Space Mono',monospace" }}>{tval > 0 ? <>+{tval}<span style={{ fontSize: 10, fontWeight: 400, opacity: 0.7, marginLeft: 2 }}>XP</span></> : "—"}</div>
+                          </div>
+                          <div style={{ background: "rgba(0,0,0,0.25)", borderRadius: 6, padding: "6px 8px" }}>
+                            <div style={{ fontSize: 9, color: "#6a5a38", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 3 }}>Загалом</div>
+                            <div style={{ fontSize: 15, fontWeight: 800, color: grp.color, fontFamily: "'Space Mono',monospace" }}>{aval > 0 ? <>+{aval.toLocaleString()}<span style={{ fontSize: 10, fontWeight: 400, opacity: 0.7, marginLeft: 2 }}>XP</span></> : "—"}</div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div style={{ marginTop: 12, display: "flex", alignItems: "baseline", gap: 8, fontSize: 12, fontFamily: "'Space Mono',monospace", color: "#9a8a60" }}>
+                  <span>Разом по джерелах:</span>
+                  <b style={{ color: "#c9a84c", fontSize: 14 }}>{sourcesTotal.toLocaleString()} XP</b>
+                  <span style={{ color: "#5a5040" }}>= рівень ({totalXP.toLocaleString()} XP)</span>
+                </div>
+              </div>
+              {/* Фінанси */}
+              <div>
+                <div className="wf-sec" style={{ marginBottom: 16 }}>💸 Фінанси <span style={{ fontSize: 11, color: "#6a5f40", fontWeight: 400 }}>· ▼ розгорнути періоди</span></div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
+                  {(() => {
+                    const incEntries = incomeEntries.map(e => ({ date: e.date, delta: toUSD(e.amount, e.currency) }));
+                    const expEntries = expenseEntries.map(e => ({ date: e.date, delta: toUSD(e.amount, e.currency) }));
+                    const netEntries = [...incEntries, ...expenseEntries.map(e => ({ date: e.date, delta: -toUSD(e.amount, e.currency) }))];
+                    return [
+                      { label: "Дохід", value: `$${totalIncome.toFixed(2)}`, color: "#00ff88", entries: incEntries },
+                      { label: "Витрати", value: `$${totalExpenses.toFixed(2)}`, color: "#f43f5e", entries: expEntries },
+                      { label: net >= 0 ? "Профіт +" : "Збиток −", value: `$${Math.abs(net).toFixed(2)}`, color: netColor, entries: netEntries },
+                    ];
+                  })().map(s => (
+                    <MetricPeriods key={s.label} entries={s.entries} color={s.color} fmt={v => `$${v.toFixed(2)}`}
+                      className="wf-card"
+                      cardStyle={{ padding: "16px 14px", textAlign: "center", border: `1px solid ${s.color}33`, borderTop: `2px solid ${s.color}`, display: "flex", flexDirection: "column", alignItems: "center" }}>
+                      <div style={{ fontSize: 11, color: "#9a8a60", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 2, marginBottom: 8 }}>{s.label}</div>
+                      <div style={{ fontSize: 22, fontWeight: 800, color: s.color, fontFamily: "'Space Mono',monospace" }}>{s.value}</div>
+                    </MetricPeriods>
+                  ))}
+                </div>
+              </div>
+              {/* Час на вивчення ШІ */}
+              <div>
+                <div className="wf-sec" style={{ marginBottom: 16 }}>⏱️ Час на вивчення ШІ <span style={{ fontSize: 11, color: "#6a5f40", fontWeight: 400 }}>· 1 раз = 30 хв</span></div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
+                  {(() => {
+                    const eduH = (learnTime.education ?? 0) * 0.5;
+                    const bizH = (learnTime.business ?? 0) * 0.5;
+                    const vidCount = learnTime.edu_videos ?? 0;
+                    const totalH = eduH + bizH;
+                    const logFor = (...keys) => metricLog.filter(e => keys.includes(e.key));
+                    const hoursFmt = v => `${(v % 1 === 0 ? v : v.toFixed(1))} год`;
+                    return [
+                      { label: "Навчання",     emoji: "📚", hours: eduH,   sub: `${learnTime.education ?? 0} × 30хв`, color: "#06b6d4", entries: logFor("education").map(e => ({ date: e.date, delta: e.delta * 0.5 })), fmt: hoursFmt },
+                      { label: "Бізнес",       emoji: "💼", hours: bizH,   sub: `${learnTime.business ?? 0} × 30хв`,  color: "#f59e0b", entries: logFor("business").map(e => ({ date: e.date, delta: e.delta * 0.5 })), fmt: hoursFmt },
+                      { label: "Навч. відео",  emoji: "📺", hours: null, count: vidCount, sub: `${vidCount} відео`,    color: "#a855f7", entries: logFor("edu_videos"), fmt: v => v.toLocaleString() },
+                      { label: "Всього годин", emoji: "🎯", hours: totalH, sub: `edu+biz`,                            color: "#00ff88", entries: logFor("education", "business").map(e => ({ date: e.date, delta: e.delta * 0.5 })), fmt: hoursFmt },
+                    ];
+                  })().map(s => (
+                    <MetricPeriods key={s.label} entries={s.entries} color={s.color} fmt={s.fmt}
+                      className="wf-card"
+                      cardStyle={{ padding: "16px 14px", textAlign: "center", border: `1px solid ${s.color}33`, borderTop: `2px solid ${s.color}`, display: "flex", flexDirection: "column", alignItems: "center" }}>
+                      <div style={{ fontSize: 11, color: "#9a8a60", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 2, marginBottom: 8 }}>{s.emoji} {s.label}</div>
+                      <div style={{ fontSize: 22, fontWeight: 800, color: s.color, fontFamily: "'Space Mono',monospace" }}>
+                        {s.hours !== null ? <>{s.hours.toLocaleString()} <span style={{ fontSize: 13 }}>год</span></> : s.count}
+                      </div>
+                      <div style={{ fontSize: 11, color: "#6a5f40", fontFamily: "'Space Mono',monospace", marginTop: 4 }}>{s.sub}</div>
+                    </MetricPeriods>
+                  ))}
+                </div>
+              </div>
+              {/* Навички */}
+              <div>
+                <div className="wf-sec" style={{ marginBottom: 16 }}>💪 Навички — виконано <span style={{ fontSize: 11, color: "#6a5f40", fontWeight: 400 }}>· ▼ розгорнути періоди</span></div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {SKILL_STAT_ROWS.map(row => {
+                    const cat = SKILL_TASKS.find(c => c.id === row.catId);
+                    const catColor = cat?.color ?? "#c9a84c";
+                    const tasks = row.tasks.map(t => ({
+                      label: t.label,
+                      count: (skillTasksData[`${row.catId}_${t.id}`]?.count ?? 0),
+                      entries: metricLog.filter(e => e.key === `${row.catId}_${t.id}`),
+                    }));
+                    const hasAny = tasks.some(c => c.count > 0);
+                    return (
+                      <div key={row.catId} className="wf-card" style={{ padding: "12px 16px", border: `1px solid ${hasAny ? catColor + "44" : "rgba(201,168,76,0.12)"}`, borderLeft: `3px solid ${hasAny ? catColor : "rgba(201,168,76,0.2)"}` }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: tasks.length ? 4 : 0 }}>
+                          <span style={{ fontSize: 18, flexShrink: 0 }}>{row.emoji}</span>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: "#c8b89a", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>{row.label}</span>
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fit, minmax(200px, 1fr))`, gap: "8px 18px" }}>
+                          {tasks.map(c => (
+                            <MetricPeriods key={c.label} entries={c.entries} color={catColor} align="flex-start"
+                              cardStyle={{ padding: "6px 8px", borderRadius: 4 }}>
+                              <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 12 }}>
+                                <span style={{ color: "#6a5f40" }}>{c.label}: </span>
+                                <span style={{ color: c.count > 0 ? catColor : "#4a4030", fontWeight: 700 }}>{c.count.toLocaleString()}</span>
+                              </div>
+                            </MetricPeriods>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div style={{ marginTop: 10, fontSize: 10, color: "#5a5040", fontFamily: "'Space Mono',monospace" }}>
+                  Загальні лічильники — за весь час. Розбивка «Сьог/Міс/Рік» та по періодах рахується з цього оновлення (для фінансів — за всю історію записів).
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
+
+      {/* ── AI Chat Widget ── */}
+    {(() => {
+      const AI_MODELS = [
+        { id: "gpt-4o-mini",              label: "GPT-4o mini",    provider: "openai",    icon: "🟢" },
+        { id: "gpt-4o",                   label: "GPT-4o",         provider: "openai",    icon: "🟢" },
+        { id: "gpt-4.5-preview",          label: "GPT-4.5",        provider: "openai",    icon: "🟢" },
+        { id: "gpt-4.1",                  label: "GPT-4.1",        provider: "openai",    icon: "🟢" },
+        { id: "gpt-4.1-mini",             label: "GPT-4.1 mini",   provider: "openai",    icon: "🟢" },
+        { id: "o3",                       label: "o3",             provider: "openai",    icon: "🟢" },
+        { id: "o3-mini",                  label: "o3-mini",        provider: "openai",    icon: "🟢" },
+        { id: "o4-mini",                  label: "o4-mini",        provider: "openai",    icon: "🟢" },
+        { id: "claude-haiku-4-5-20251001",label: "Claude Haiku",   provider: "anthropic", icon: "🟠" },
+        { id: "claude-sonnet-4-6",        label: "Claude Sonnet",  provider: "anthropic", icon: "🟠" },
+        { id: "claude-opus-4-8",          label: "Claude Opus",    provider: "anthropic", icon: "🟠" },
+        { id: "gemini-2.5-flash",         label: "Gemini 2.5 Flash", provider: "gemini",  icon: "🔵" },
+        { id: "gemini-2.0-flash",         label: "Gemini 2.0 Flash", provider: "gemini",  icon: "🔵" },
+        { id: "gemini-1.5-flash",         label: "Gemini 1.5 Flash", provider: "gemini",  icon: "🔵" },
+        { id: "gemini-2.5-pro",           label: "Gemini 2.5 Pro",   provider: "gemini",  icon: "🔵" },
+      ];
+      const isCustomModel = !AI_MODELS.find(m => m.id === aiModel);
+      const curModel = AI_MODELS.find(m => m.id === aiModel) ?? { id: aiModel, label: aiModel, provider: "openai", icon: "🟢" };
+
+      const buildSystemPrompt = () => {
+        const level = Math.floor(Math.sqrt(totalXP / 80));
+        const toolCount = Object.values(skillData).reduce((s, v) => s + (v.unlockedTools?.length ?? 0), 0);
+        const monthSessions = sessions.dates.filter(d => d.startsWith(new Date().toISOString().slice(0, 7))).length;
+        return `Ти AI-асистент у персональному трекері прогресу Вови у вивченні AI-інструментів та заробітку з AI.\n\nПоточний стан:\n- XP: ${totalXP} → Рівень ${level}\n- Вивчено AI-інструментів: ${toolCount}\n- Дохід загалом: $${totalIncome.toFixed(2)}\n- Стрік: ${streak} днів поспіль\n- Проекти: ${projects.length} всього, ${projects.filter(p => p.status === "done").length} завершено\n- Сесій цього місяця: ${monthSessions}\n\nВеди себе як наставник і мотиватор. Давай конкретні поради, задачки та рекомендації виходячи з реального прогресу. Відповідай українською мовою. Будь стислим але корисним.`;
+      };
+
+      const sendMessage = async () => {
+        if (!aiInput.trim() && aiAttachments.length === 0) return;
+        const provider = curModel.provider;
+        const key = aiApiKeys[provider];
+        if (!key) { setAiSettingsOpen(true); return; }
+
+        const userMsg = { role: "user", content: aiInput.trim(), attachments: aiAttachments.length ? [...aiAttachments] : undefined, ts: Date.now() };
+        const newMsgs = [...aiMessages, userMsg];
+        setAiMessages(newMsgs);
+        setAiInput("");
+        setAiAttachments([]);
+        setAiLoading(true);
+
+        try {
+          const sys = buildSystemPrompt();
+          if (provider === "openai") {
+            const msgs = [
+              { role: "system", content: sys },
+              ...newMsgs.map(m => ({
+                role: m.role,
+                content: m.attachments?.length
+                  ? [{ type: "text", text: m.content || "" }, ...m.attachments.map(a => ({ type: "image_url", image_url: { url: `data:${a.type};base64,${a.data}` } }))]
+                  : (m.content || "")
+              }))
+            ];
+            const res = await fetch("https://api.openai.com/v1/chat/completions", {
+              method: "POST",
+              headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ model: aiModel, messages: msgs, stream: true })
+            });
+            if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message ?? res.statusText); }
+            const reader = res.body.getReader();
+            const dec = new TextDecoder();
+            let acc = "";
+            setAiMessages(prev => [...prev, { role: "assistant", content: "", ts: Date.now() }]);
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              for (const line of dec.decode(value).split("\n")) {
+                if (!line.startsWith("data: ") || line.includes("[DONE]")) continue;
+                try { const d = JSON.parse(line.slice(6)); acc += d.choices?.[0]?.delta?.content ?? ""; } catch (_) {}
+              }
+              setAiMessages(prev => prev.map((m, i) => i === prev.length - 1 ? { ...m, content: acc } : m));
+            }
+          } else if (provider === "anthropic") {
+            const msgs = newMsgs.map(m => ({
+              role: m.role,
+              content: m.attachments?.length
+                ? [...m.attachments.map(a => ({ type: "image", source: { type: "base64", media_type: a.type, data: a.data } })), { type: "text", text: m.content || "" }]
+                : (m.content || "")
+            }));
+            const res = await fetch("https://api.anthropic.com/v1/messages", {
+              method: "POST",
+              headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json", "anthropic-dangerous-allow-browser": "true" },
+              body: JSON.stringify({ model: aiModel, max_tokens: 2048, system: sys, messages: msgs })
+            });
+            if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message ?? res.statusText); }
+            const data = await res.json();
+            setAiMessages(prev => [...prev, { role: "assistant", content: data.content?.[0]?.text ?? "Порожня відповідь", ts: Date.now() }]);
+          } else if (provider === "gemini") {
+            const contents = newMsgs
+              .map(m => ({
+                role: m.role === "assistant" ? "model" : "user",
+                parts: [
+                  ...(m.attachments ?? []).filter(a => a.type && a.data).map(a => ({ inlineData: { mimeType: a.type, data: a.data } })),
+                  ...(m.content?.trim() ? [{ text: m.content }] : [])
+                ]
+              }))
+              .filter(m => m.parts.length > 0);
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${aiModel}:generateContent?key=${key}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ system_instruction: { parts: [{ text: sys }] }, contents })
+            });
+            if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message ?? res.statusText); }
+            const data = await res.json();
+            setAiMessages(prev => [...prev, { role: "assistant", content: data.candidates?.[0]?.content?.parts?.[0]?.text ?? "Порожня відповідь", ts: Date.now() }]);
+          }
+        } catch (err) {
+          setAiMessages(prev => [...prev, { role: "assistant", content: `❌ Помилка: ${err.message}`, ts: Date.now() }]);
+        }
+        setAiLoading(false);
+      };
+
+      const handlePaste = (e) => {
+        for (const item of e.clipboardData?.items ?? []) {
+          if (item.type.startsWith("image/")) {
+            const file = item.getAsFile();
+            const reader = new FileReader();
+            reader.onload = ev => setAiAttachments(prev => [...prev, { type: item.type, data: ev.target.result.split(",")[1] }]);
+            reader.readAsDataURL(file);
+          }
+        }
+      };
+
+      const handleFileInput = (e) => {
+        for (const file of e.target.files ?? []) {
+          if (!file.type.startsWith("image/")) continue;
+          const reader = new FileReader();
+          reader.onload = ev => setAiAttachments(prev => [...prev, { type: file.type, data: ev.target.result.split(",")[1] }]);
+          reader.readAsDataURL(file);
+        }
+        e.target.value = "";
+      };
+
+      const renderMsg = (text) => text.split("\n").map((line, i, arr) => (
+        <span key={i}>{line}{i < arr.length - 1 && <br />}</span>
+      ));
+
+      return (
+        <div data-ai-chat style={{ position: "fixed", bottom: 20, right: 20, zIndex: 9999, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 10 }}>
+          {aiOpen && (
+            <div style={{ width: 290, maxWidth: "calc(100vw - 40px)", maxHeight: "min(520px, calc(100vh - 110px))", background: "linear-gradient(180deg,rgba(12,8,3,0.97),rgba(7,5,1,0.98))", border: "1px solid rgba(201,168,76,0.3)", borderTop: "2px solid rgba(201,168,76,0.55)", borderRadius: 8, boxShadow: "0 12px 48px rgba(0,0,0,0.8)", display: "flex", flexDirection: "column", fontFamily: "'Exo 2',sans-serif" }}>
+
+              {/* Header */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderBottom: "1px solid rgba(201,168,76,0.15)", background: "rgba(201,168,76,0.04)" }}>
+                <span style={{ fontSize: 15 }}>🤖</span>
+                <span style={{ fontSize: 12, color: "#c9a84c", fontWeight: 700, letterSpacing: 1 }}>AI АСИСТЕНТ</span>
+                <div style={{ marginLeft: "auto" }}>
+                  <button onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setAiDropPos({ bottom: window.innerHeight - r.top + 6, right: window.innerWidth - r.right }); setAiModelOpen(v => !v); }} style={{ background: "rgba(201,168,76,0.08)", border: "1px solid rgba(201,168,76,0.22)", color: "#9a8a60", padding: "3px 8px", borderRadius: 3, cursor: "pointer", fontSize: 10, fontFamily: "'Space Mono',monospace" }}>
+                    {curModel.icon} {curModel.label} ▾
+                  </button>
+                </div>
+                <button onClick={() => setAiSettingsOpen(v => !v)} title="API ключі" style={{ background: aiSettingsOpen ? "rgba(201,168,76,0.12)" : "none", border: "none", color: "#6a5840", cursor: "pointer", fontSize: 14, padding: "2px 5px", borderRadius: 3 }}>⚙</button>
+                <button onClick={() => setAiMessages([])} title="Очистити" style={{ background: "none", border: "none", color: "#5a3a30", cursor: "pointer", fontSize: 13, padding: "2px 4px" }}>🗑</button>
+                <button onClick={() => setAiOpen(false)} style={{ background: "none", border: "none", color: "#6a5840", cursor: "pointer", fontSize: 18, padding: "2px 4px", lineHeight: 1 }}>×</button>
+              </div>
+
+              {/* Settings */}
+              {aiSettingsOpen && (
+                <div style={{ padding: "12px 14px", borderBottom: "1px solid rgba(201,168,76,0.12)", background: "rgba(0,0,0,0.3)", display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ fontSize: 10, color: "#6a5840", textTransform: "uppercase", letterSpacing: 1 }}>API Ключі (зберігаються локально)</div>
+                  {[{k:"openai",label:"OpenAI",ph:"sk-..."},{k:"anthropic",label:"Anthropic",ph:"sk-ant-..."},{k:"gemini",label:"Google Gemini",ph:"AIza..."}].map(({k,label,ph}) => (
+                    <div key={k} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                      <label style={{ fontSize: 10, color: "#8a7a50" }}>{label}</label>
+                      <input type="password" value={aiApiKeys[k]} onChange={e => setAiApiKeys(p => ({...p,[k]:e.target.value}))} placeholder={ph}
+                        style={{ background: "rgba(8,5,2,0.8)", border: "1px solid rgba(201,168,76,0.2)", color: "#c9a84c", padding: "5px 8px", borderRadius: 3, fontSize: 11, fontFamily: "'Space Mono',monospace", outline: "none" }} />
+                    </div>
+                  ))}
+                  {/* Check available Gemini models */}
+                  <button onClick={async () => {
+                    if (!aiApiKeys.gemini) { setAiAvailModels(["⚠ спочатку введи Gemini ключ"]); return; }
+                    setAiAvailModels(["⏳ завантаження…"]);
+                    try {
+                      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${aiApiKeys.gemini}`);
+                      const d = await r.json();
+                      if (d.error) { setAiAvailModels([`❌ ${d.error.message}`]); return; }
+                      const list = (d.models ?? [])
+                        .filter(m => m.supportedGenerationMethods?.includes("generateContent"))
+                        .map(m => m.name.replace("models/", ""))
+                        .filter(n => n.startsWith("gemini"));
+                      setAiAvailModels(list.length ? list : ["(порожньо)"]);
+                    } catch (e) { setAiAvailModels([`❌ ${e.message}`]); }
+                  }} style={{ background: "rgba(70,90,201,0.12)", border: "1px solid rgba(100,120,220,0.35)", color: "#8ea0e0", padding: "6px", borderRadius: 3, cursor: "pointer", fontSize: 10, fontFamily: "'Space Mono',monospace", marginTop: 2 }}>
+                    🔵 Перевірити доступні Gemini-моделі
+                  </button>
+                  {aiAvailModels && (
+                    <div style={{ fontSize: 10, color: "#8a7a50", fontFamily: "'Space Mono',monospace", background: "rgba(8,5,2,0.6)", border: "1px solid rgba(201,168,76,0.15)", borderRadius: 3, padding: "6px 8px", maxHeight: 110, overflowY: "auto", lineHeight: 1.5 }}>
+                      {aiAvailModels.map((m, i) => (
+                        <div key={i} onClick={() => { if (m.startsWith("gemini")) { setAiModel(m); setAiAvailModels(null); } }}
+                          style={{ cursor: m.startsWith("gemini") ? "pointer" : "default", color: m === aiModel ? "#c9a84c" : undefined, padding: "1px 0" }}>
+                          {m.startsWith("gemini") ? `• ${m}${m === aiModel ? " ✓" : ""}` : m}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Messages */}
+              <div ref={aiMsgsRef} style={{ flex: 1, maxHeight: 380, overflowY: "auto", padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+                {aiMessages.length === 0 ? (
+                  <div style={{ fontSize: 12, color: "#4a3a20", textAlign: "center", padding: "24px 0" }}>
+                    Привіт! Я знаю твій прогрес і готовий допомогти.<br />
+                    <span style={{ fontSize: 11, color: "#3a2a15" }}>Запитай щось або попроси задачку 🎯</span>
+                  </div>
+                ) : aiMessages.map((msg, i) => {
+                  const isUser = msg.role === "user";
+                  return (
+                    <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: isUser ? "flex-end" : "flex-start", gap: 3 }}>
+                      {msg.attachments?.length > 0 && (
+                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: isUser ? "flex-end" : "flex-start" }}>
+                          {msg.attachments.map((a, ai) => <img key={ai} src={`data:${a.type};base64,${a.data}`} alt="" style={{ maxWidth: 120, maxHeight: 80, borderRadius: 4, border: "1px solid rgba(201,168,76,0.25)" }} />)}
+                        </div>
+                      )}
+                      {msg.content && (
+                        <div style={{ maxWidth: "85%", padding: "7px 11px", borderRadius: isUser ? "10px 10px 2px 10px" : "10px 10px 10px 2px", background: isUser ? "rgba(201,168,76,0.13)" : "rgba(255,255,255,0.04)", border: `1px solid ${isUser ? "rgba(201,168,76,0.28)" : "rgba(255,255,255,0.07)"}`, fontSize: 12, lineHeight: 1.55, color: isUser ? "#e0d8c0" : "#b8b0a0", wordBreak: "break-word" }}>
+                          {renderMsg(msg.content)}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {aiLoading && (
+                  <div style={{ display: "flex" }}>
+                    <div style={{ padding: "8px 14px", borderRadius: "10px 10px 10px 2px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", fontSize: 16, color: "#5a4830", letterSpacing: 3 }}>···</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Attachment previews */}
+              {aiAttachments.length > 0 && (
+                <div style={{ display: "flex", gap: 6, padding: "6px 12px", borderTop: "1px solid rgba(201,168,76,0.1)", flexWrap: "wrap" }}>
+                  {aiAttachments.map((a, i) => (
+                    <div key={i} style={{ position: "relative" }}>
+                      <img src={`data:${a.type};base64,${a.data}`} alt="" style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 4, border: "1px solid rgba(201,168,76,0.3)" }} />
+                      <button onClick={() => setAiAttachments(p => p.filter((_,j)=>j!==i))} style={{ position: "absolute", top: -4, right: -4, background: "#f43f5e", border: "none", color: "#fff", borderRadius: "50%", width: 15, height: 15, fontSize: 9, cursor: "pointer", lineHeight: 1, padding: 0 }}>×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Input */}
+              <div style={{ padding: "10px 12px", borderTop: "1px solid rgba(201,168,76,0.15)", display: "flex", gap: 6, alignItems: "flex-end" }}>
+                <label title="Прикріпити зображення" style={{ cursor: "pointer", color: "#5a4a30", fontSize: 18, flexShrink: 0, paddingBottom: 3 }}>
+                  📎<input type="file" accept="image/*" multiple onChange={handleFileInput} style={{ display: "none" }} />
+                </label>
+                <textarea value={aiInput} onChange={e => setAiInput(e.target.value)} onPaste={handlePaste}
+                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                  placeholder="Повідомлення… (Enter — надіслати)"
+                  rows={1} style={{ flex: 1, background: "rgba(8,5,2,0.7)", border: "1px solid rgba(201,168,76,0.2)", color: "#e0d8c0", padding: "7px 10px", borderRadius: 4, fontSize: 12, fontFamily: "'Exo 2',sans-serif", resize: "none", outline: "none", maxHeight: 100, overflowY: "auto", lineHeight: 1.45, colorScheme: "dark" }} />
+                <button onClick={sendMessage} disabled={aiLoading || (!aiInput.trim() && aiAttachments.length === 0)}
+                  style={{ background: "rgba(201,168,76,0.18)", border: "1px solid rgba(201,168,76,0.4)", color: aiLoading ? "#4a3a20" : "#c9a84c", padding: "7px 12px", borderRadius: 4, cursor: aiLoading ? "default" : "pointer", fontSize: 14, flexShrink: 0 }}>
+                  ▶
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Model dropdown — fixed, outside panel so it's never clipped */}
+          {aiModelOpen && aiDropPos && (
+            <div style={{ position: "fixed", bottom: aiDropPos.bottom, right: aiDropPos.right, background: "rgba(10,7,2,0.99)", border: "1px solid rgba(201,168,76,0.35)", borderRadius: 6, overflowY: "auto", maxHeight: "min(280px, calc(100vh - 140px))", minWidth: 165, zIndex: 10001, boxShadow: "0 -6px 28px rgba(0,0,0,0.85)" }}
+              onMouseLeave={() => setAiModelOpen(false)}>
+              {["gemini","openai","anthropic"].map(prov => (
+                <div key={prov}>
+                  <div style={{ fontSize: 9, color: "#5a4a30", padding: "6px 12px 2px", textTransform: "uppercase", letterSpacing: 1.5 }}>{{ openai:"OpenAI", anthropic:"Anthropic", gemini:"Google" }[prov]}</div>
+                  {AI_MODELS.filter(m => m.provider === prov).map(m => (
+                    <button key={m.id} onClick={() => { setAiModel(m.id); setAiModelOpen(false); }}
+                      style={{ display: "block", width: "100%", textAlign: "left", padding: "7px 14px", background: m.id === aiModel ? "rgba(201,168,76,0.14)" : "none", border: "none", color: m.id === aiModel ? "#c9a84c" : "#9a8a60", cursor: "pointer", fontSize: 11, fontFamily: "'Space Mono',monospace" }}>
+                      {m.icon} {m.label}{m.id === aiModel ? " ✓" : ""}
+                    </button>
+                  ))}
+                </div>
+              ))}
+              <div style={{ borderTop: "1px solid rgba(201,168,76,0.15)", padding: "6px 10px 8px" }}>
+                <div style={{ fontSize: 9, color: "#5a4a30", marginBottom: 4, textTransform: "uppercase", letterSpacing: 1 }}>Свій model ID</div>
+                <input
+                  placeholder="напр. gpt-5, chatgpt-4o-latest…"
+                  defaultValue={isCustomModel ? aiModel : ""}
+                  onKeyDown={e => { if (e.key === "Enter" && e.target.value.trim()) { setAiModel(e.target.value.trim()); setAiModelOpen(false); } }}
+                  onBlur={e => { if (e.target.value.trim()) { setAiModel(e.target.value.trim()); } }}
+                  style={{ width: "100%", background: "rgba(8,5,2,0.9)", border: "1px solid rgba(201,168,76,0.25)", color: "#c9a84c", padding: "4px 8px", borderRadius: 3, fontSize: 10, fontFamily: "'Space Mono',monospace", outline: "none", boxSizing: "border-box" }} />
+              </div>
+            </div>
+          )}
+
+          {/* FAB button */}
+          <button onClick={() => { setAiOpen(v => !v); setAiModelOpen(false); }}
+            style={{ width: 52, height: 52, borderRadius: "50%", background: aiOpen ? "rgba(201,168,76,0.22)" : "linear-gradient(135deg,rgba(201,168,76,0.22),rgba(120,80,20,0.22))", border: `2px solid ${aiOpen ? "rgba(201,168,76,0.65)" : "rgba(201,168,76,0.35)"}`, color: "#c9a84c", fontSize: 22, cursor: "pointer", boxShadow: "0 4px 20px rgba(0,0,0,0.65), 0 0 14px rgba(201,168,76,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {aiOpen ? "×" : "🤖"}
+          </button>
+        </div>
+      );
+    })()}
     </div>
   );
 }
