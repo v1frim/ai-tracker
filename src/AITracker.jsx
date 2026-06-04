@@ -3797,11 +3797,11 @@ export default function AITracker() {
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
                           <div style={{ background: "rgba(0,0,0,0.25)", borderRadius: 6, padding: "6px 8px" }}>
                             <div style={{ fontSize: 9, color: "#6a5a38", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 3 }}>Сьогодні</div>
-                            <div style={{ fontSize: 15, fontWeight: 800, color: tval > 0 ? grp.color : "#4a4030", fontFamily: "'Space Mono',monospace" }}>{tval > 0 ? `+${tval}` : "—"}</div>
+                            <div style={{ fontSize: 15, fontWeight: 800, color: tval > 0 ? grp.color : "#4a4030", fontFamily: "'Space Mono',monospace" }}>{tval > 0 ? <>+{tval}<span style={{ fontSize: 10, fontWeight: 400, opacity: 0.7, marginLeft: 2 }}>XP</span></> : "—"}</div>
                           </div>
                           <div style={{ background: "rgba(0,0,0,0.25)", borderRadius: 6, padding: "6px 8px" }}>
                             <div style={{ fontSize: 9, color: "#6a5a38", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 3 }}>Загалом</div>
-                            <div style={{ fontSize: 15, fontWeight: 800, color: grp.color, fontFamily: "'Space Mono',monospace" }}>{aval > 0 ? `+${aval.toLocaleString()}` : "—"}</div>
+                            <div style={{ fontSize: 15, fontWeight: 800, color: grp.color, fontFamily: "'Space Mono',monospace" }}>{aval > 0 ? <>+{aval.toLocaleString()}<span style={{ fontSize: 10, fontWeight: 400, opacity: 0.7, marginLeft: 2 }}>XP</span></> : "—"}</div>
                           </div>
                         </div>
                       </div>
