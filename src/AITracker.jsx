@@ -575,67 +575,83 @@ function lastNDays(n) {
   return days;
 }
 
-// ── Floating 3D background — dark blue geometric ───────────────────────────
-const BG_SHAPES = [
-  // Back layer — large panels, barely move
-  { id:  1, type: "shard", left: -6,  top: -10, size: 500, depth: 0.12, phase: 0.0, op: 0.90, v: "a" },
-  { id:  2, type: "shard", left: 36,  top: -14, size: 460, depth: 0.16, phase: 1.9, op: 0.85, v: "b" },
-  { id:  3, type: "shard", left: 60,  top: 20,  size: 420, depth: 0.14, phase: 3.1, op: 0.82, v: "c" },
-  { id:  4, type: "shard", left: 74,  top: -20, size: 440, depth: 0.19, phase: 0.8, op: 0.88, v: "d" },
-  // Mid layer
-  { id:  5, type: "shard", left: 6,   top: 48,  size: 300, depth: 0.28, phase: 2.2, op: 0.76, v: "b" },
-  { id:  6, type: "shard", left: 44,  top: 54,  size: 270, depth: 0.34, phase: 4.1, op: 0.70, v: "a" },
-  { id:  7, type: "shard", left: 76,  top: 52,  size: 310, depth: 0.26, phase: 1.3, op: 0.74, v: "d" },
-  { id:  8, type: "shard", left: -2,  top: 22,  size: 240, depth: 0.32, phase: 5.2, op: 0.68, v: "c" },
-  // Glow crack lines
-  { id:  9, type: "glow",  left: 18,  top: 12,  size: 320, depth: 0.38, phase: 0.6, op: 0.55, v: "a" },
-  { id: 10, type: "glow",  left: 50,  top: 6,   size: 280, depth: 0.44, phase: 2.7, op: 0.48, v: "b" },
-  { id: 11, type: "glow",  left: 66,  top: 60,  size: 240, depth: 0.46, phase: 1.2, op: 0.42, v: "c" },
-  { id: 12, type: "glow",  left: 30,  top: 68,  size: 200, depth: 0.52, phase: 3.8, op: 0.38, v: "a" },
-  // Front small shards — move most with cursor
-  { id: 13, type: "shard", left: 2,   top: 72,  size: 190, depth: 0.50, phase: 3.4, op: 0.62, v: "c" },
-  { id: 14, type: "shard", left: 20,  top: 80,  size: 170, depth: 0.56, phase: 0.9, op: 0.55, v: "a" },
-  { id: 15, type: "shard", left: 84,  top: 24,  size: 210, depth: 0.47, phase: 2.4, op: 0.65, v: "b" },
+// ── Animated deep-space background — nebula + parallax planets ──────────────
+// Planet colour variants: [highlight, mid, shadow]
+const PLANET_COLORS = {
+  a: ["#7fb0ec", "#2a4f96", "#0a1838"], // blue
+  b: ["#62dcd6", "#1f7e90", "#062633"], // teal/cyan
+  c: ["#ad94ec", "#4c3c90", "#181244"], // indigo
+  d: ["#b4c2de", "#5a6c96", "#172040"], // ice-slate
+  e: ["#dceff6", "#8aa8be", "#283643"], // pale moon
+};
+
+// From larger/farther (small depth) to smaller/closer (big depth → moves more)
+const PLANETS = [
+  { id: "p1", left: 6,  top: 58, size: 240, depth: 0.10, phase: 0.0, v: "a", ring: true },
+  { id: "p2", left: 73, top: 12, size: 150, depth: 0.18, phase: 1.6, v: "b" },
+  { id: "p3", left: 58, top: 66, size: 96,  depth: 0.30, phase: 3.1, v: "c" },
+  { id: "p4", left: 86, top: 64, size: 60,  depth: 0.44, phase: 0.8, v: "d" },
+  { id: "p5", left: 28, top: 16, size: 48,  depth: 0.52, phase: 2.3, v: "e" },
+  { id: "p6", left: 46, top: 40, size: 34,  depth: 0.62, phase: 4.0, v: "b" },
+  { id: "p7", left: 16, top: 32, size: 22,  depth: 0.74, phase: 5.1, v: "e" },
 ];
 
-function ShardSvg({ s, v }) {
-  const pts = {
-    a: `0,${s*0.28} ${s*0.65},0 ${s},${s*0.60} ${s*0.28},${s}`,
-    b: `${s*0.24},0 ${s},${s*0.18} ${s*0.80},${s} 0,${s*0.84}`,
-    c: `${s*0.08},0 ${s*0.94},${s*0.06} ${s},${s*0.90} ${s*0.06},${s*0.96}`,
-    d: `${s*0.46},0 ${s*0.96},${s*0.42} ${s*0.54},${s} 0,${s*0.56}`,
-  }[v] || "";
-  const id = `sg${v}${s}`;
-  return (
-    <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`} style={{ display: "block" }}>
-      <defs>
-        <filter id={id}>
-          <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="b" />
-          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-        </filter>
-      </defs>
-      <polygon points={pts} fill="#050a16" fillOpacity="0.94" stroke="#1e58c8" strokeWidth="1.2" strokeOpacity="0.70" filter={`url(#${id})`} />
-    </svg>
-  );
-}
+// Nebula clouds (own slow CSS drift, light cursor parallax)
+const NEBULA = [
+  { id: "n1", left: 70, top: 68, size: 64, color: "rgba(22,86,168,0.45)",  depth: 0.05, phase: 0.5, dur: 26 },
+  { id: "n2", left: 12, top: 40, size: 54, color: "rgba(18,128,148,0.32)", depth: 0.07, phase: 2.0, dur: 32 },
+  { id: "n3", left: 82, top: 8,  size: 46, color: "rgba(46,66,156,0.30)",  depth: 0.04, phase: 3.5, dur: 29 },
+  { id: "n4", left: 34, top: 78, size: 42, color: "rgba(12,98,128,0.26)",  depth: 0.08, phase: 1.2, dur: 35 },
+];
 
-function GlowLineSvg({ s, v }) {
-  const L = {
-    a: [0, s*0.38, s, s*0.12],
-    b: [s*0.14, 0, s*0.86, s],
-    c: [0, s*0.72, s, s*0.28],
-  }[v] || [0, 0, s, s];
-  const id = `gl${v}${s}`;
+const STARS = Array.from({ length: 80 }, (_, i) => ({
+  id: i,
+  left: Math.random() * 100,
+  top: Math.random() * 100,
+  size: Math.random() < 0.82 ? 1.4 : 2.4,
+  delay: Math.random() * 4,
+  dur: 2.6 + Math.random() * 3.4,
+}));
+
+function PlanetSvg({ s, v, ring }) {
+  const [c1, c2, c3] = PLANET_COLORS[v] || PLANET_COLORS.a;
+  const S = Math.round(s * 1.9);
+  const cx = S / 2, cy = S / 2, r = s / 2;
+  const id = `pl${v}${s}`;
   return (
-    <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`} style={{ display: "block" }}>
+    <svg width={S} height={S} viewBox={`0 0 ${S} ${S}`} style={{ display: "block", overflow: "visible" }}>
       <defs>
-        <filter id={id}>
-          <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="b" />
-          <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-        </filter>
+        <radialGradient id={`${id}s`} cx="36%" cy="32%" r="78%">
+          <stop offset="0%" stopColor={c1} />
+          <stop offset="52%" stopColor={c2} />
+          <stop offset="100%" stopColor={c3} />
+        </radialGradient>
+        <radialGradient id={`${id}sh`} cx="68%" cy="72%" r="72%">
+          <stop offset="38%" stopColor="rgba(0,0,0,0)" />
+          <stop offset="100%" stopColor="rgba(0,0,0,0.62)" />
+        </radialGradient>
+        <radialGradient id={`${id}g`} cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor={c2} stopOpacity="0.55" />
+          <stop offset="55%" stopColor={c2} stopOpacity="0.12" />
+          <stop offset="100%" stopColor={c2} stopOpacity="0" />
+        </radialGradient>
       </defs>
-      <line x1={L[0]} y1={L[1]} x2={L[2]} y2={L[3]} stroke="#2070e8" strokeWidth="2.5" strokeOpacity="0.75" filter={`url(#${id})`} />
-      <line x1={L[0]} y1={L[1]} x2={L[2]} y2={L[3]} stroke="#90c0ff" strokeWidth="0.8" strokeOpacity="0.45" />
+      {/* outer glow */}
+      <circle cx={cx} cy={cy} r={s * 0.86} fill={`url(#${id}g)`} />
+      {/* ring (drawn behind → reads as a halo ring) */}
+      {ring && (
+        <g transform={`rotate(-24 ${cx} ${cy})`}>
+          <ellipse cx={cx} cy={cy} rx={r * 1.6} ry={r * 0.5} fill="none" stroke={c1} strokeOpacity="0.5" strokeWidth={Math.max(1, s * 0.028)} />
+          <ellipse cx={cx} cy={cy} rx={r * 1.34} ry={r * 0.42} fill="none" stroke={c1} strokeOpacity="0.22" strokeWidth={Math.max(1, s * 0.016)} />
+        </g>
+      )}
+      {/* sphere */}
+      <circle cx={cx} cy={cy} r={r} fill={`url(#${id}s)`} />
+      {/* terminator shadow → 3D volume */}
+      <circle cx={cx} cy={cy} r={r} fill={`url(#${id}sh)`} />
+      {/* specular highlight */}
+      <ellipse cx={cx - r * 0.34} cy={cy - r * 0.38} rx={r * 0.32} ry={r * 0.18}
+        fill="#ffffff" fillOpacity="0.14" transform={`rotate(-28 ${cx - r * 0.34} ${cy - r * 0.38})`} />
     </svg>
   );
 }
@@ -652,18 +668,20 @@ function FloatingBg() {
       tgtRef.current.y = (e.clientY / window.innerHeight - 0.5) * 2;
     };
     const tick = () => {
-      curRef.current.x += (tgtRef.current.x - curRef.current.x) * 0.038;
-      curRef.current.y += (tgtRef.current.y - curRef.current.y) * 0.038;
+      // smooth easing → slight, gentle delay following the cursor
+      curRef.current.x += (tgtRef.current.x - curRef.current.x) * 0.035;
+      curRef.current.y += (tgtRef.current.y - curRef.current.y) * 0.035;
       const t = Date.now() / 1000;
       wrapRef.current?.querySelectorAll("[data-bg]").forEach(el => {
         const depth = +el.dataset.depth;
         const phase = +el.dataset.phase;
-        const tx = curRef.current.x * depth * -28;
-        const ty = curRef.current.y * depth * -28;
-        const fy = Math.sin(t * 0.38 + phase) * 8;
-        const fx = Math.cos(t * 0.28 + phase) * 4;
-        const rot = Math.sin(t * 0.14 + phase) * 3;
-        el.style.transform = `translate(${tx+fx}px,${ty+fy}px) rotate(${rot}deg)`;
+        const amp = +(el.dataset.amp ?? 1);
+        const tx = curRef.current.x * depth * -46;
+        const ty = curRef.current.y * depth * -46;
+        const fy = Math.sin(t * 0.32 + phase) * 10 * amp;
+        const fx = Math.cos(t * 0.24 + phase) * 6 * amp;
+        const cen = el.dataset.center ? "translate(-50%,-50%) " : "";
+        el.style.transform = `${cen}translate(${tx + fx}px,${ty + fy}px)`;
       });
       rafRef.current = requestAnimationFrame(tick);
     };
@@ -674,11 +692,34 @@ function FloatingBg() {
 
   return (
     <div ref={wrapRef} style={{ position: "fixed", inset: 0, overflow: "hidden", pointerEvents: "none", zIndex: 0 }}>
-      {BG_SHAPES.map(s => (
-        <div key={s.id} data-bg data-depth={s.depth} data-phase={s.phase}
-          style={{ position: "absolute", left: `${s.left}%`, top: `${s.top}%`, opacity: s.op, willChange: "transform" }}>
-          {s.type === "shard" && <ShardSvg s={s.size} v={s.v} />}
-          {s.type === "glow"  && <GlowLineSvg s={s.size} v={s.v} />}
+      <style>{`
+        @keyframes bgTwinkle { 0%,100%{opacity:0.18} 50%{opacity:1} }
+        @keyframes bgNebula  { 0%,100%{opacity:0.7;transform:translate(-50%,-50%) scale(1)} 50%{opacity:1;transform:translate(-50%,-50%) scale(1.12)} }
+      `}</style>
+
+      {/* deep-space base gradient */}
+      <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 72% 28%, #0c2350 0%, #061427 42%, #02060f 100%)" }} />
+
+      {/* nebula clouds — slow CSS pulse + faint cursor parallax */}
+      {NEBULA.map(n => (
+        <div key={n.id} data-bg data-depth={n.depth} data-phase={n.phase} data-amp="0.4" data-center="1"
+          style={{ position: "absolute", left: `${n.left}%`, top: `${n.top}%`, width: `${n.size}vmax`, height: `${n.size}vmax`,
+            borderRadius: "50%", background: `radial-gradient(circle, ${n.color} 0%, transparent 70%)`, filter: "blur(46px)",
+            transform: "translate(-50%,-50%)", animation: `bgNebula ${n.dur}s ease-in-out infinite`, willChange: "transform, opacity" }} />
+      ))}
+
+      {/* starfield */}
+      {STARS.map(st => (
+        <div key={st.id} style={{ position: "absolute", left: `${st.left}%`, top: `${st.top}%`, width: st.size, height: st.size,
+          borderRadius: "50%", background: "#d4e8ff", boxShadow: "0 0 4px #9cc8ff",
+          animation: `bgTwinkle ${st.dur}s ease-in-out ${st.delay}s infinite` }} />
+      ))}
+
+      {/* parallax planets */}
+      {PLANETS.map(p => (
+        <div key={p.id} data-bg data-depth={p.depth} data-phase={p.phase}
+          style={{ position: "absolute", left: `${p.left}%`, top: `${p.top}%`, willChange: "transform" }}>
+          <PlanetSvg s={p.size} v={p.v} ring={p.ring} />
         </div>
       ))}
     </div>
@@ -3950,8 +3991,13 @@ export default function AITracker() {
                     );
                   })}
                 </div>
+                <div style={{ marginTop: 12, display: "flex", alignItems: "baseline", gap: 8, fontSize: 12, fontFamily: "'Space Mono',monospace", color: "#9a8a60" }}>
+                  <span>Разом по джерелах:</span>
+                  <b style={{ color: "#c9a84c", fontSize: 14 }}>{(loggedSum + Math.max(0, untracked)).toLocaleString()} XP</b>
+                  <span style={{ color: "#5a5040" }}>= рівень ({totalXP.toLocaleString()} XP)</span>
+                </div>
                 {untracked < 0 && (
-                  <div style={{ marginTop: 12, fontSize: 11, fontFamily: "'Space Mono',monospace", color: "#f43f5e" }}>
+                  <div style={{ marginTop: 6, fontSize: 11, fontFamily: "'Space Mono',monospace", color: "#f43f5e" }}>
                     Розбіжність: <b>{untracked.toLocaleString()} XP</b>
                   </div>
                 )}
