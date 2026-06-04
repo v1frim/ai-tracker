@@ -1542,14 +1542,31 @@ export default function AITracker() {
       if (!repos.length) { setGhSyncMsg("Репозиторіїв не знайдено"); setGhSyncing(false); return; }
 
       // 2. По кожному репо — сумарні додані рядки (code_frequency = additions усього репо).
-      //    Це надійніше за contributors: не треба зіставляти автора, відповідь менша.
+      //    Кешуємо результат: повторні синки рахують лише репо, що змінились (pushed_at),
+      //    решту беремо з кешу → майже не витрачаємо ліміт запитів.
+      const cache = {};
+      (githubSync.repos || []).forEach(r => { if (r.name) cache[r.name] = { lines: r.lines, pushedAt: r.pushedAt }; });
+      const keepCached = (repo) => {
+        const c = cache[repo.name];
+        if (c && c.lines > 0) { perRepo.push({ name: repo.name, lines: c.lines, pushedAt: c.pushedAt }); totalNet += c.lines; }
+      };
+
       const perRepo = [];
       let totalNet = 0;
-      let pending = 0;        // репо, де GitHub ще рахує (202)
-      let rateLimited = false; // натрапили на 403
+      let pending = 0;          // репо, де GitHub ще рахує (202)
+      let fetched = 0;          // реально завантажено цього разу
+      let cachedCount = 0;      // взято з кешу без запиту
+      let rateLimited = false;  // натрапили на 403
       for (let i = 0; i < repos.length; i++) {
-        if (rateLimited) break;
         const repo = repos[i];
+        const c = cache[repo.name];
+        // репо не змінилось з минулого синку → беремо з кешу, без запиту
+        if (c && c.pushedAt && c.pushedAt === repo.pushed_at && typeof c.lines === "number") {
+          if (c.lines > 0) { perRepo.push({ name: repo.name, lines: c.lines, pushedAt: repo.pushed_at }); totalNet += c.lines; }
+          cachedCount++;
+          continue;
+        }
+        if (rateLimited) { keepCached(repo); continue; } // ліміт вичерпано — лишаємо старе значення
         setGhSyncMsg(`Аналізую ${i + 1}/${repos.length}: ${repo.name}…`);
         let data = "pending";
         // GitHub обчислює статистику ліниво — перший запит часто дає 202; чекаємо й повторюємо
@@ -1561,20 +1578,32 @@ export default function AITracker() {
           data = await sr.json();
           break;
         }
-        if (rateLimited) break;
-        if (data === "pending") { pending++; continue; }   // не дочекались — спробуємо наступного разу
+        if (rateLimited) { keepCached(repo); continue; }
+        if (data === "pending") { pending++; keepCached(repo); continue; } // лишаємо старе, поки рахується
         if (!Array.isArray(data)) data = [];
         // code_frequency: масив [тиждень, додано, видалено]; беремо суму доданих рядків
         let repoLines = 0;
         data.forEach(w => { if (Array.isArray(w) && w[1] > 0) repoLines += w[1]; });
-        if (repoLines > 0) { perRepo.push({ name: repo.name, lines: repoLines }); totalNet += repoLines; }
+        fetched++;
+        if (repoLines > 0) { perRepo.push({ name: repo.name, lines: repoLines, pushedAt: repo.pushed_at }); totalNet += repoLines; }
       }
       perRepo.sort((a, b) => b.lines - a.lines);
 
-      // 3. Діагностика проблемних випадків замість мовчазного «0»
+      // 3. Зберігаємо все, що маємо (включно з кешем), щоб прогрес не губився
+      const haveData = perRepo.length > 0 || cachedCount > 0;
+      if (haveData) {
+        setProgressiveCount("code", "lines_written", totalNet);
+        setGithubSync(prev => ({ ...prev, user, token, lastSync: Date.now(), totalLines: totalNet, repos: perRepo }));
+        setUnlockedAchievements(ua => {
+          checkAchievements(totalTools, totalIncome, projects.length, skillData, ua, streak, sessions.dates.length);
+          return ua;
+        });
+      }
+
+      // 4. Підсумкове повідомлення
       if (rateLimited) {
-        const hint = token ? "" : " Додай Personal Access Token, щоб зняти ліміт.";
-        setGhSyncMsg(`⚠ Ліміт запитів GitHub (403).${hint} Спробуй за кілька хвилин.`);
+        const hint = token ? "Спробуй ще раз за кілька хвилин." : "Додай Personal Access Token, щоб зняти ліміт.";
+        setGhSyncMsg(`⚠ Ліміт запитів GitHub (403). ${haveData ? `Збережено ${totalNet.toLocaleString()} рядків. ` : ""}${hint}`);
         setGhSyncing(false);
         return;
       }
@@ -1583,24 +1612,15 @@ export default function AITracker() {
         setGhSyncing(false);
         return;
       }
-
-      // 4. Записуємо у лічильник «Рядків коду написано» (заміна, не додавання)
-      setProgressiveCount("code", "lines_written", totalNet);
-      setGithubSync(prev => ({ ...prev, user, token, lastSync: Date.now(), totalLines: totalNet, repos: perRepo }));
       const pendNote = pending > 0 ? ` · ${pending} ще рахуються — синхронізуй ще раз` : "";
-      setGhSyncMsg(`✓ ${totalNet.toLocaleString()} рядків з ${perRepo.length} репо${pendNote}`);
-
-      // 5. Перевірка досягнень за рядками коду
-      setUnlockedAchievements(ua => {
-        checkAchievements(totalTools, totalIncome, projects.length, skillData, ua, streak, sessions.dates.length);
-        return ua;
-      });
+      const cacheNote = cachedCount > 0 ? ` · ${cachedCount} з кешу` : "";
+      setGhSyncMsg(`✓ ${totalNet.toLocaleString()} рядків з ${perRepo.length} репо${cacheNote}${pendNote}`);
     } catch (e) {
       setGhSyncMsg(`⚠ ${e.message}`);
     } finally {
       setGhSyncing(false);
     }
-  }, [githubSync.user, githubSync.token, setProgressiveCount, checkAchievements, totalTools, totalIncome, projects, skillData, streak, sessions.dates]);
+  }, [githubSync.user, githubSync.token, githubSync.repos, setProgressiveCount, checkAchievements, totalTools, totalIncome, projects, skillData, streak, sessions.dates]);
 
   const updateMonthlyTarget = useCallback((val) => {
     const t = parseInt(val);
