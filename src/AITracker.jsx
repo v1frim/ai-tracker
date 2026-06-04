@@ -270,6 +270,33 @@ const PLAN_TYPES = [
   { id: "other",    label: "Інше",     color: "#9a8a60", bg: "rgba(154,138,96,0.08)" },
 ];
 
+const PROJECT_CATEGORIES = [
+  { id: "ai",       label: "ШІ / ML",   color: "#00ff88", icon: "🤖" },
+  { id: "web",      label: "Веб",       color: "#6366f1", icon: "🌐" },
+  { id: "bot",      label: "Бот",       color: "#a855f7", icon: "🤖" },
+  { id: "content",  label: "Контент",   color: "#ec4899", icon: "📹" },
+  { id: "business", label: "Бізнес",    color: "#f59e0b", icon: "💼" },
+  { id: "learning", label: "Навчання",  color: "#06b6d4", icon: "📚" },
+  { id: "other",    label: "Інше",      color: "#9a8a60", icon: "📦" },
+];
+
+const getItemPeriod = (completedAt) => {
+  if (!completedAt) return { key: "p9_old", label: "Раніше" };
+  const d = new Date(completedAt);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const itemDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diff = Math.floor((today - itemDay) / 86400000);
+  if (diff === 0) return { key: "p0_today",  label: "Сьогодні" };
+  if (diff === 1) return { key: "p1_yesterday", label: "Вчора" };
+  if (diff <= 7)  return { key: "p2_week",   label: "Цей тиждень" };
+  if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear())
+    return { key: "p3_month", label: "Цей місяць" };
+  if (d.getFullYear() === now.getFullYear())
+    return { key: "p4_year",  label: String(now.getFullYear()) };
+  return { key: `p5_${d.getFullYear()}`, label: String(d.getFullYear()) };
+};
+
 const PLAN_URGENCIES = [
   { id: "now",   label: "Зараз", order: 0 },
   { id: "soon",  label: "Скоро", order: 1 },
@@ -925,6 +952,12 @@ export default function AITracker() {
   const [toolRevokeConfirm, setToolRevokeConfirm] = useState(null); // { skillId, tool }
   const [projectDeleteConfirm, setProjectDeleteConfirm] = useState(null); // index
   const [projects, setProjects] = useState(saved?.projects ?? DEFAULT_PROJECTS);
+  const [projectCategory, setProjectCategory] = useState("ai");
+  const [tasksDoneOpen, setTasksDoneOpen] = useState(false);
+  const [goalsDoneOpen, setGoalsDoneOpen] = useState(false);
+  const [planDoneOpen, setPlanDoneOpen] = useState(false);
+  const [projectsDoneOpen, setProjectsDoneOpen] = useState(false);
+  const [donePeriodsCollapsed, setDonePeriodsCollapsed] = useState({});
   const [projectInput, setProjectInput] = useState("");
   const [projectCompletionXP, setProjectCompletionXP] = useState(200);
   const [sessions, setSessions] = useState(saved?.sessions ?? DEFAULT_SESSIONS);
@@ -1261,6 +1294,58 @@ export default function AITracker() {
     }
   }, [showAchievementToast, logXP]);
 
+  const renderDoneSection = (items, { sectionKey, open, setOpen, onUndo, onDelete, labelFn, xpFn }) => {
+    if (!items.length) return null;
+    const groups = {};
+    const groupOrder = [];
+    items.forEach(item => {
+      const p = getItemPeriod(item.completedAt);
+      if (!groups[p.key]) { groups[p.key] = { label: p.label, key: p.key, items: [] }; groupOrder.push(p.key); }
+      groups[p.key].items.push(item);
+    });
+    groupOrder.sort();
+    return (
+      <div style={{ background: "rgba(5,3,1,0.82)", border: "1px solid rgba(0,255,136,0.22)", borderRadius: 4, overflow: "hidden" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", cursor: "pointer", background: open ? "rgba(0,255,136,0.07)" : "rgba(0,255,136,0.03)", userSelect: "none" }} onClick={() => setOpen(v => !v)}>
+          <span style={{ fontSize: 12, color: "#00ff88", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5 }}>✓ Досягнуто</span>
+          <span style={{ fontSize: 11, background: "rgba(0,255,136,0.12)", border: "1px solid rgba(0,255,136,0.25)", color: "#00ff88", padding: "1px 8px", borderRadius: 20, fontFamily: "'Space Mono',monospace" }}>{items.length}</span>
+          <span style={{ marginLeft: "auto", color: "#00aa55", fontSize: 13 }}>{open ? "▲" : "▼"}</span>
+        </div>
+        {open && (
+          <div style={{ maxHeight: 420, overflowY: "auto", paddingBottom: 6 }}>
+            {groupOrder.map(gk => {
+              const g = groups[gk];
+              const collapsed = donePeriodsCollapsed[`${sectionKey}_${gk}`];
+              return (
+                <div key={gk}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 16px 5px", cursor: "pointer", borderTop: "1px solid rgba(0,255,136,0.07)" }}
+                    onClick={() => setDonePeriodsCollapsed(prev => ({ ...prev, [`${sectionKey}_${gk}`]: !collapsed }))}>
+                    <span style={{ fontSize: 10, color: "#3a6a3a", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2 }}>{g.label}</span>
+                    <span style={{ fontSize: 10, color: "#2a4a2a" }}>· {g.items.length}</span>
+                    <span style={{ color: "#2a4a2a", fontSize: 10, marginLeft: "auto" }}>{collapsed ? "▶" : "▼"}</span>
+                  </div>
+                  {!collapsed && g.items.map((item, ii) => {
+                    const xp = xpFn?.(item);
+                    return (
+                      <div key={item.id ?? `${sectionKey}_${ii}`} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 16px 6px 28px" }}>
+                        <button onClick={() => onUndo(item)}
+                          style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid #00ff88", background: "#00ff88", cursor: "pointer", flexShrink: 0, fontSize: 9, color: "#000", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>✓</button>
+                        <span style={{ flex: 1, color: "#5a6a50", fontSize: 12, textDecoration: "line-through", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{labelFn(item)}</span>
+                        {xp > 0 && <span style={{ fontSize: 10, color: "#3a5030", fontFamily: "'Space Mono',monospace", flexShrink: 0 }}>+{xp} XP</span>}
+                        <button onClick={() => onDelete(item)}
+                          style={{ background: "none", border: "none", color: "#4a4030", cursor: "pointer", fontSize: 15, padding: "0 2px", flexShrink: 0 }}>×</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const gainXP = useCallback((amount, label = "", source = "other") => {
     setTotalXP(prev => prev + amount);
     setTodayXP(prev => prev.date === todayStr() ? { ...prev, total: prev.total + amount } : { date: todayStr(), total: amount });
@@ -1485,7 +1570,7 @@ export default function AITracker() {
   const addProject = useCallback(() => {
     if (!projectInput.trim()) return;
     const cxp = Math.max(0, parseInt(projectCompletionXP) || 0);
-    const newProjects = [...projects, { name: projectInput.trim(), date: new Date().toLocaleDateString("uk-UA"), status: "in_progress", creationXP: 0, completionXP: cxp, completionXPPaid: false }];
+    const newProjects = [...projects, { name: projectInput.trim(), date: new Date().toLocaleDateString("uk-UA"), status: "in_progress", creationXP: 0, completionXP: cxp, completionXPPaid: false, category: projectCategory }];
     setProjects(newProjects);
     recordActiveDay();
     setProjectCompletionXP(200);
@@ -2000,7 +2085,7 @@ export default function AITracker() {
                   const isEmpty = !focusLongGoals.length && !focusPlanItems.length && !focusTasks.length;
                   const completeTask = (id) => setGoals(prev => prev.map(x => {
                     if (x.id !== id) return x;
-                    if (!x.done && !x.xpAwarded) { gainXP(x.xp ?? 100, "(задачу виконано)", "goal"); return { ...x, done: true, xpAwarded: true }; }
+                    if (!x.done && !x.xpAwarded) { gainXP(x.xp ?? 100, "(задачу виконано)", "goal"); return { ...x, done: true, xpAwarded: true, completedAt: new Date().toISOString() }; }
                     return { ...x, done: !x.done };
                   }));
                   return (
@@ -2769,11 +2854,11 @@ export default function AITracker() {
                         <button onClick={() => setGoals(prev => prev.map(x => {
                           if (x.id !== g.id) return x;
                           if (!x.done) {
-                            if (!x.xpAwarded) { gainXP(g.xp ?? 100, "(задачу виконано)", "goal"); return { ...x, done: true, xpAwarded: true }; }
-                            return { ...x, done: true };
+                            if (!x.xpAwarded) { gainXP(g.xp ?? 100, "(задачу виконано)", "goal"); return { ...x, done: true, xpAwarded: true, completedAt: new Date().toISOString() }; }
+                            return { ...x, done: true, completedAt: new Date().toISOString() };
                           }
                           if (x.xpAwarded) loseXP(x.xp ?? 100, "goal", "↩ задачу скасовано");
-                          return { ...x, done: false, xpAwarded: false };
+                          return { ...x, done: false, xpAwarded: false, completedAt: null };
                         }))} style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${pr.color}66`, background: "transparent", cursor: "pointer", flexShrink: 0, fontSize: 10, color: pr.color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }} />
                         {goalEditId === g.id ? (
                           (() => {
@@ -2830,30 +2915,18 @@ export default function AITracker() {
             })}
 
             {/* Done tasks */}
-            {(() => {
-              const doneTasks = goals.filter(g => g.done);
-              if (!doneTasks.length) return null;
-              return (
-                <div style={{ background: "rgba(5,3,1,0.60)", border: "1px solid rgba(0,255,136,0.15)", borderRadius: 4, padding: 16 }}>
-                  <div style={{ fontSize: 12, color: "#00ff88", fontWeight: 700, marginBottom: 10, textTransform: "uppercase", letterSpacing: 1.5 }}>✓ Виконано ({doneTasks.length})</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {doneTasks.map(g => (
-                      <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px" }}>
-                        <button onClick={() => setGoals(prev => prev.map(x => {
-                          if (x.id !== g.id) return x;
-                          if (x.xpAwarded) loseXP(x.xp ?? 100, "goal", "↩ задачу скасовано");
-                          return { ...x, done: false, xpAwarded: false };
-                        }))}
-                          style={{ width: 20, height: 20, borderRadius: "50%", border: "2px solid #00ff88", background: "#00ff88", cursor: "pointer", flexShrink: 0, fontSize: 10, color: "#000", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>✓</button>
-                        <span style={{ flex: 1, color: "#6a7060", fontSize: 12, textDecoration: "line-through" }}>{g.text}</span>
-                        <button onClick={() => setGoals(prev => prev.filter(x => x.id !== g.id))}
-                          style={{ background: "none", border: "none", color: "#4a4030", cursor: "pointer", fontSize: 15, padding: "0 3px" }}>×</button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
+            {renderDoneSection(goals.filter(g => g.done), {
+              sectionKey: "tasks",
+              open: tasksDoneOpen, setOpen: setTasksDoneOpen,
+              onUndo: (g) => setGoals(prev => prev.map(x => {
+                if (x.id !== g.id) return x;
+                if (x.xpAwarded) loseXP(x.xp ?? 100, "goal", "↩ задачу скасовано");
+                return { ...x, done: false, xpAwarded: false, completedAt: null };
+              })),
+              onDelete: (g) => setGoals(prev => prev.filter(x => x.id !== g.id)),
+              labelFn: g => g.text,
+              xpFn: g => g.xp ?? 100,
+            })}
 
             {goals.length === 0 && (
               <div style={{ textAlign: "center", padding: 32, color: "#6a5f40", fontSize: 13 }}>Ще немає задач. Додай першу!</div>
@@ -2932,11 +3005,11 @@ export default function AITracker() {
                         <button onClick={() => setLongGoals(prev => prev.map(x => {
                           if (x.id !== g.id) return x;
                           if (!x.done) {
-                            if (!x.xpAwarded) { gainXP(x.customXP ?? 200, "(ціль досягнута)", "goal"); return { ...x, done: true, xpAwarded: true }; }
-                            return { ...x, done: true };
+                            if (!x.xpAwarded) { gainXP(x.customXP ?? 200, "(ціль досягнута)", "goal"); return { ...x, done: true, xpAwarded: true, completedAt: new Date().toISOString() }; }
+                            return { ...x, done: true, completedAt: new Date().toISOString() };
                           }
                           if (x.xpAwarded) loseXP(x.customXP ?? 200, "goal", "↩ ціль скасовано");
-                          return { ...x, done: false, xpAwarded: false };
+                          return { ...x, done: false, xpAwarded: false, completedAt: null };
                         }))} style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${per.color}66`, background: "transparent", cursor: "pointer", flexShrink: 0, fontSize: 10, color: per.color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }} />
                         {longGoalEditId === g.id ? (
                           (() => {
@@ -2992,30 +3065,18 @@ export default function AITracker() {
             })}
 
             {/* Done goals */}
-            {(() => {
-              const doneGoals = longGoals.filter(g => g.done);
-              if (!doneGoals.length) return null;
-              return (
-                <div style={{ background: "rgba(5,3,1,0.60)", border: "1px solid rgba(0,255,136,0.15)", borderRadius: 4, padding: 16 }}>
-                  <div style={{ fontSize: 12, color: "#00ff88", fontWeight: 700, marginBottom: 10, textTransform: "uppercase", letterSpacing: 1.5 }}>✓ Досягнуто ({doneGoals.length})</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {doneGoals.map(g => (
-                      <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px" }}>
-                        <button onClick={() => setLongGoals(prev => prev.map(x => {
-                          if (x.id !== g.id) return x;
-                          if (x.xpAwarded) loseXP(x.customXP ?? 200, "goal", "↩ ціль скасовано");
-                          return { ...x, done: false, xpAwarded: false };
-                        }))}
-                          style={{ width: 20, height: 20, borderRadius: "50%", border: "2px solid #00ff88", background: "#00ff88", cursor: "pointer", flexShrink: 0, fontSize: 10, color: "#000", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>✓</button>
-                        <span style={{ flex: 1, color: "#6a7060", fontSize: 12, textDecoration: "line-through" }}>{g.text}</span>
-                        <button onClick={() => setLongGoals(prev => prev.filter(x => x.id !== g.id))}
-                          style={{ background: "none", border: "none", color: "#4a4030", cursor: "pointer", fontSize: 15, padding: "0 3px" }}>×</button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
+            {renderDoneSection(longGoals.filter(g => g.done), {
+              sectionKey: "goals",
+              open: goalsDoneOpen, setOpen: setGoalsDoneOpen,
+              onUndo: (g) => setLongGoals(prev => prev.map(x => {
+                if (x.id !== g.id) return x;
+                if (x.xpAwarded) loseXP(x.customXP ?? 200, "goal", "↩ ціль скасовано");
+                return { ...x, done: false, xpAwarded: false, completedAt: null };
+              })),
+              onDelete: (g) => setLongGoals(prev => prev.filter(x => x.id !== g.id)),
+              labelFn: g => g.text,
+              xpFn: g => g.customXP ?? 200,
+            })}
 
             {longGoals.length === 0 && (
               <div style={{ textAlign: "center", padding: 32, color: "#6a5f40", fontSize: 13 }}>Ще немає цілей. Додай першу!</div>
@@ -3076,16 +3137,15 @@ export default function AITracker() {
               const items = plan
                 .filter(p => (p.type ?? "other") === pt.id && !p.done)
                 .sort((a, b) => (urgencyOrder[a.urgency ?? "later"] ?? 2) - (urgencyOrder[b.urgency ?? "later"] ?? 2));
-              const done = plan.filter(p => (p.type ?? "other") === pt.id && p.done);
-              if (!items.length && !done.length) return null;
+              if (!items.length) return null;
               return (
                 <div key={pt.id}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                     <span style={{ background: pt.bg, border: `1px solid ${pt.color}44`, color: pt.color, padding: "3px 12px", borderRadius: 3, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>{pt.label}</span>
-                    <span style={{ fontSize: 11, color: "#5a4a30" }}>{items.length} активних{done.length > 0 ? ` · ${done.length} виконано` : ""}</span>
+                    <span style={{ fontSize: 11, color: "#5a4a30" }}>{items.length} активних</span>
                   </div>
                   <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.12)", borderRadius: 4, padding: 12, display: "flex", flexDirection: "column", gap: 7 }}>
-                    {[...items, ...done].map(item => (
+                    {items.map(item => (
                       <div key={item.id}
                         draggable={true}
                         onDragStart={() => { dragRef.current = { id: item.id, list: "plan" }; }}
@@ -3108,11 +3168,11 @@ export default function AITracker() {
                         <button onClick={() => setPlan(prev => prev.map(x => {
                           if (x.id !== item.id) return x;
                           if (!x.done) {
-                            if (!x.xpAwarded) { gainXP(x.xp ?? 75, "(план дій)", "plan"); return { ...x, done: true, xpAwarded: true }; }
-                            return { ...x, done: true };
+                            if (!x.xpAwarded) { gainXP(x.xp ?? 75, "(план дій)", "plan"); return { ...x, done: true, xpAwarded: true, completedAt: new Date().toISOString() }; }
+                            return { ...x, done: true, completedAt: new Date().toISOString() };
                           }
                           if (x.xpAwarded) loseXP(x.xp ?? 75, "plan", "↩ план скасовано");
-                          return { ...x, done: false, xpAwarded: false };
+                          return { ...x, done: false, xpAwarded: false, completedAt: null };
                         }))}
                           style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${item.done ? "#9a8a60" : pt.color}`, background: item.done ? "#9a8a60" : "transparent", cursor: "pointer", flexShrink: 0, fontSize: 12, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
                           {item.done ? "✓" : ""}
@@ -3187,6 +3247,23 @@ export default function AITracker() {
                   </div>
                 </div>
               );
+            })}
+
+            {/* Done plan items */}
+            {renderDoneSection(plan.filter(p => p.done), {
+              sectionKey: "plan",
+              open: planDoneOpen, setOpen: setPlanDoneOpen,
+              onUndo: (item) => setPlan(prev => prev.map(x => {
+                if (x.id !== item.id) return x;
+                if (x.xpAwarded) loseXP(x.xp ?? 75, "plan", "↩ план скасовано");
+                return { ...x, done: false, xpAwarded: false, completedAt: null };
+              })),
+              onDelete: (item) => setPlan(prev => prev.filter(x => x.id !== item.id)),
+              labelFn: item => {
+                const pt = PLAN_TYPES.find(t => t.id === (item.type ?? "other"));
+                return `${pt ? pt.label + ": " : ""}${item.text}`;
+              },
+              xpFn: item => item.xp ?? 75,
             })}
           </div>
         )}
@@ -4001,6 +4078,10 @@ export default function AITracker() {
                 placeholder="Назва проекту..."
                 style={{ flex: 1, minWidth: 200, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "10px 14px", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace" }}
               />
+              <select value={projectCategory} onChange={e => setProjectCategory(e.target.value)}
+                style={{ background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "10px 12px", color: "#c9a84c", fontSize: 12, cursor: "pointer" }}>
+                {PROJECT_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
+              </select>
               <div style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: "6px 12px" }}>
                 <span style={{ fontSize: 11, color: "#6a5a40", whiteSpace: "nowrap" }}>XP за виконання:</span>
                 <input
@@ -4012,8 +4093,11 @@ export default function AITracker() {
               </div>
               <button className="act-btn" onClick={addProject} style={{ background: "#6366f1", color: "#fff", border: "none", padding: "10px 18px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 13, whiteSpace: "nowrap" }}>+ Додати</button>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {projects.map((p, i) => {
+            {/* Active projects grouped by category */}
+            {(() => {
+              const activeProjects = projects.filter(p => (p.status ?? "done") !== "done");
+              const doneProjects = projects.filter(p => (p.status ?? "done") === "done");
+              const projectCard = (p, i) => {
                 const status = p.status ?? "done";
                 const statusCfg = {
                   done:        { label: "✓ завершено",   color: "#00ff88", bg: "rgba(0,255,136,0.10)", border: "rgba(0,255,136,0.30)" },
@@ -4021,42 +4105,82 @@ export default function AITracker() {
                   cancelled:   { label: "✕ скасовано",  color: "#6a5a40", bg: "rgba(106,90,64,0.10)",  border: "rgba(106,90,64,0.25)" },
                 }[status];
                 const cxp = p.completionXP ?? 0;
+                const realIdx = projects.indexOf(p);
                 const cycleStatus = () => {
-                  const next = status === "done" ? "in_progress" : "done";
                   setProjects(prev => prev.map((x, idx) => {
-                    if (idx !== i) return x;
+                    if (idx !== realIdx) return x;
+                    const next = (x.status ?? "done") === "done" ? "in_progress" : "done";
                     const paid = x.completionXPPaid ?? false;
                     if (next === "done" && !paid && cxp > 0) {
                       gainXP(cxp, `🚀 ${x.name}`, "project");
-                      return { ...x, status: next, completionXPPaid: true };
+                      return { ...x, status: next, completionXPPaid: true, completedAt: new Date().toISOString() };
                     }
                     if (next === "in_progress" && paid && cxp > 0) {
                       loseXP(cxp, "project", "↩ проект не завершено");
-                      return { ...x, status: next, completionXPPaid: false };
+                      return { ...x, status: next, completionXPPaid: false, completedAt: null };
                     }
-                    return { ...x, status: next };
+                    return { ...x, status: next, completedAt: next === "done" ? new Date().toISOString() : null };
                   }));
                 };
-                const cardBorder = status === "done" ? "rgba(99,102,241,0.30)" : status === "in_progress" ? "rgba(245,158,11,0.30)" : "rgba(106,90,64,0.20)";
-                const cardBg = status === "done" ? "rgba(99,102,241,0.07)" : status === "in_progress" ? "rgba(245,158,11,0.06)" : "rgba(20,15,5,0.5)";
+                const cat = PROJECT_CATEGORIES.find(c => c.id === (p.category ?? "other")) ?? PROJECT_CATEGORIES[PROJECT_CATEGORIES.length - 1];
                 return (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, background: cardBg, border: `1px solid ${cardBorder}`, borderLeft: `3px solid ${statusCfg.color}`, borderRadius: 4, padding: "13px 16px", opacity: status === "cancelled" ? 0.6 : 1 }}>
-                    <span style={{ fontSize: 20 }}>{status === "in_progress" ? "⚙️" : status === "cancelled" ? "📦" : "🚀"}</span>
+                  <div key={realIdx} style={{ display: "flex", alignItems: "center", gap: 12, background: "rgba(5,3,1,0.76)", border: `1px solid rgba(201,168,76,0.15)`, borderLeft: `3px solid ${cat.color}`, borderRadius: 4, padding: "12px 16px", opacity: status === "cancelled" ? 0.6 : 1 }}>
+                    <span style={{ fontSize: 18 }}>{cat.icon}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ color: status === "cancelled" ? "#6a5a40" : "#e0d8c0", fontSize: 13, fontFamily: "'Exo 2',sans-serif", fontWeight: 600, textDecoration: status === "cancelled" ? "line-through" : "none" }}>{p.name}</div>
                       {cxp > 0 && (
-                        <div style={{ fontSize: 11, color: status === "done" ? "#c9a84c" : "#5a4a20", fontFamily: "'Space Mono',monospace", marginTop: 2 }}>
-                          {status === "done" ? `✓ +${cxp} XP за виконання` : `🔒 +${cxp} XP при завершенні`}
-                        </div>
+                        <div style={{ fontSize: 11, color: "#5a4a20", fontFamily: "'Space Mono',monospace", marginTop: 2 }}>🔒 +{cxp} XP при завершенні</div>
                       )}
                     </div>
                     <span style={{ color: "#6a5a40", fontSize: 11, fontFamily: "'Space Mono',monospace", flexShrink: 0 }}>{p.date}</span>
-                    <button onClick={cycleStatus} title="Змінити статус" style={{ fontSize: 11, padding: "4px 10px", borderRadius: 3, border: `1px solid ${statusCfg.border}`, background: statusCfg.bg, color: statusCfg.color, cursor: "pointer", fontWeight: 700, whiteSpace: "nowrap", fontFamily: "'Exo 2',sans-serif" }}>{statusCfg.label}</button>
-                    <button onClick={() => setProjectDeleteConfirm(i)} title="Видалити проект" style={{ background: "none", border: "none", color: "#5a3a30", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "2px 4px", transition: "color 0.15s" }} onMouseEnter={e => e.target.style.color="#f43f5e"} onMouseLeave={e => e.target.style.color="#5a3a30"}>×</button>
+                    <button onClick={cycleStatus} title="Завершити"
+                      style={{ fontSize: 11, padding: "4px 10px", borderRadius: 3, border: `1px solid ${statusCfg.border}`, background: statusCfg.bg, color: statusCfg.color, cursor: "pointer", fontWeight: 700, whiteSpace: "nowrap", fontFamily: "'Exo 2',sans-serif" }}>{statusCfg.label}</button>
+                    <button onClick={() => setProjectDeleteConfirm(realIdx)} title="Видалити" style={{ background: "none", border: "none", color: "#5a3a30", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "2px 4px" }} onMouseEnter={e => e.target.style.color="#f43f5e"} onMouseLeave={e => e.target.style.color="#5a3a30"}>×</button>
                   </div>
                 );
-              })}
-            </div>
+              };
+
+              const catGroups = PROJECT_CATEGORIES.map(cat => ({
+                cat,
+                items: activeProjects.filter(p => (p.category ?? "other") === cat.id),
+              })).filter(g => g.items.length > 0);
+
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                  {catGroups.length === 0 && activeProjects.length === 0 && !doneProjects.length && (
+                    <div style={{ textAlign: "center", padding: 32, color: "#6a5f40", fontSize: 13 }}>Ще немає проектів. Додай перший!</div>
+                  )}
+                  {catGroups.map(({ cat, items }) => (
+                    <div key={cat.id}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                        <span style={{ background: `${cat.color}14`, border: `1px solid ${cat.color}44`, color: cat.color, padding: "3px 12px", borderRadius: 3, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>{cat.icon} {cat.label}</span>
+                        <span style={{ fontSize: 11, color: "#5a4a30" }}>{items.length} {items.length === 1 ? "проект" : "проекти"}</span>
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {items.map((p) => projectCard(p, projects.indexOf(p)))}
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Done projects */}
+                  {renderDoneSection(doneProjects, {
+                    sectionKey: "projects",
+                    open: projectsDoneOpen, setOpen: setProjectsDoneOpen,
+                    onUndo: (p) => {
+                      const realIdx = projects.indexOf(p);
+                      setProjects(prev => prev.map((x, idx) => {
+                        if (idx !== realIdx) return x;
+                        if (x.completionXPPaid && (x.completionXP ?? 0) > 0) loseXP(x.completionXP, "project", "↩ проект не завершено");
+                        return { ...x, status: "in_progress", completionXPPaid: false, completedAt: null };
+                      }));
+                    },
+                    onDelete: (p) => setProjectDeleteConfirm(projects.indexOf(p)),
+                    labelFn: p => p.name,
+                    xpFn: p => p.completionXP ?? 0,
+                  })}
+                </div>
+              );
+            })()}
           </div>
         )}
 
