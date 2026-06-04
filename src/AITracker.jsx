@@ -1201,6 +1201,15 @@ export default function AITracker() {
   const longestStreak = useMemo(() => calcLongestStreak(sessions.dates), [sessions.dates]);
   const monthSessions = useMemo(() => sessionsThisMonth(sessions.dates), [sessions.dates]);
   const doneToday = sessions.dates.includes(todayStr());
+
+  // XP за сьогодні — рахуємо з журналу XP + активності (єдине джерело правди),
+  // щоб верхня панель не розходилася з «Джерелами XP».
+  const todayXpTotal = useMemo(() => {
+    const today = todayStr();
+    const actToday = ACTIVITY_DEFS.reduce((s, d) => s + (todayActivity[d.key] ?? 0) * d.xp, 0);
+    const logToday = xpLog.filter(e => e.date === today && e.source !== "activity").reduce((s, e) => s + e.amount, 0);
+    return Math.max(0, actToday + logToday);
+  }, [xpLog, todayActivity]);
   const heatmapDays = useMemo(() => lastNDays(56), []);
   const sessionSet = useMemo(() => new Set(sessions.dates), [sessions.dates]);
   const totalActiveDays = activeDays.length;
@@ -1991,8 +2000,8 @@ export default function AITracker() {
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ background: lbg, color: "#000", padding: "3px 12px", borderRadius: 3, fontSize: 12, fontWeight: 800, fontFamily: "'Exo 2',sans-serif", letterSpacing: 2, textTransform: "uppercase" }}>RANK {totalLevel}</span>
                 <span style={{ fontSize: 12, color: lc, fontFamily: "'Space Mono',monospace", fontWeight: 700 }}>{totalXP.toLocaleString()} XP</span>
-                {todayXP.total > 0 && (
-                  <span style={{ background: "rgba(0,255,136,0.14)", border: "1px solid rgba(0,255,136,0.45)", color: "#00ff88", fontSize: 11, fontWeight: 800, fontFamily: "'Space Mono',monospace", padding: "2px 9px", borderRadius: 12, letterSpacing: 0.3, whiteSpace: "nowrap" }}>+{todayXP.total} XP сьогодні</span>
+                {todayXpTotal > 0 && (
+                  <span style={{ background: "rgba(0,255,136,0.14)", border: "1px solid rgba(0,255,136,0.45)", color: "#00ff88", fontSize: 11, fontWeight: 800, fontFamily: "'Space Mono',monospace", padding: "2px 9px", borderRadius: 12, letterSpacing: 0.3, whiteSpace: "nowrap" }}>+{todayXpTotal} XP сьогодні</span>
                 )}
               </div>
               <div style={{ fontSize: 11, color: `${lc}99`, fontFamily: "'Space Mono',monospace" }}>
