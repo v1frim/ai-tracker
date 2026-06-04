@@ -1952,9 +1952,9 @@ export default function AITracker() {
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "stretch" }}>
               {[
                 { label: "Дохід", val: `$${totalIncome.toFixed(0)}`, color: lc },
-                { label: "Проекти", val: projects.length, color: lc },
+                { label: "Виконано", val: projects.filter(p => (p.status ?? "done") === "done").length, color: lc },
                 { label: "Клієнти", val: (skillTasksData["monetize_clients"]?.count ?? 0), color: "#fbbf24" },
-                { label: "Інструменти", val: `${totalTools}/${TOTAL_TOOLS}`, color: "#00ff88" },
+                { label: "Досягнення", val: `${unlockedAchievements.length}/${ACHIEVEMENTS.length}`, color: "#00ff88" },
                 { label: "Сесій/міс", val: `${monthSessions}/${daysInCurrentMonth}`, color: lc },
               ].map(s => (
                 <div key={s.label} style={{ textAlign: "center", padding: "10px 14px", minWidth: 84, background: "rgba(8,5,2,0.55)", border: `1px solid ${lc}28`, borderTop: `2px solid ${lc}60`, borderRadius: 4, boxShadow: `0 0 12px ${lglow}` }}>
