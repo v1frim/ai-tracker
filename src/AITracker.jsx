@@ -1961,7 +1961,7 @@ export default function AITracker() {
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "stretch" }}>
               {[
                 { label: "Дохід", val: `$${totalIncome.toFixed(0)}`, color: lc },
-                { label: "Виконано", val: projects.filter(p => (p.status ?? "done") === "done").length, color: lc },
+                { label: "Проекти", val: projects.filter(p => (p.status ?? "done") === "done").length, color: lc },
                 { label: "Клієнти", val: (skillTasksData["monetize_clients"]?.count ?? 0), color: "#fbbf24" },
                 { label: "Досягнення", val: `${unlockedAchievements.length}/${ACHIEVEMENTS.length}`, color: "#00ff88" },
                 { label: "Сесій/міс", val: `${monthSessions}/${daysInCurrentMonth}`, color: lc },
