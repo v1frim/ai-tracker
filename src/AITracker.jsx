@@ -3761,6 +3761,8 @@ export default function AITracker() {
           totalBySource.activity = activityXP ?? computeCorrectActivityXP();
           const loggedSum = Object.values(totalBySource).reduce((s, v) => s + v, 0);
           const untracked = totalXP - loggedSum;
+          // Fold pre-tracking XP into the activity total so cards sum to the real total
+          if (untracked > 0) totalBySource.activity = (totalBySource.activity ?? 0) + untracked;
           const XP_GROUPS = [
             { key: "activity",    emoji: "⚡", label: "Активність",    color: "#00ff88", desc: "лічильники дій" },
             { key: "session",     emoji: "🔥", label: "AI-сесії",      color: "#f59e0b", desc: `чек-ін · ${sessions.dates.length} сесій` },
@@ -3808,19 +3810,11 @@ export default function AITracker() {
                     );
                   })}
                 </div>
-                <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: "6px 20px", fontSize: 11, fontFamily: "'Space Mono',monospace", color: "#9a8a60" }}>
-                  <span>Облічено журналом: <b style={{ color: "#c8b89a" }}>{loggedSum.toLocaleString()} XP</b></span>
-                  <span>Фактичний XP: <b style={{ color: "#c8b89a" }}>{totalXP.toLocaleString()}</b></span>
-                  {untracked !== 0 && (
-                    <span style={{ color: untracked > 0 ? "#f59e0b" : "#f43f5e" }}>
-                      {untracked > 0 ? "Поза журналом (до старту обліку): " : "Розбіжність: "}
-                      <b>{untracked > 0 ? "+" : ""}{untracked.toLocaleString()} XP</b>
-                    </span>
-                  )}
-                </div>
-                <div style={{ marginTop: 6, fontSize: 10, color: "#5a5040", fontFamily: "'Space Mono',monospace" }}>
-                  Журнал фіксує кожне нарахування з цього оновлення. «Активність» рахується точно з лічильників.
-                </div>
+                {untracked < 0 && (
+                  <div style={{ marginTop: 12, fontSize: 11, fontFamily: "'Space Mono',monospace", color: "#f43f5e" }}>
+                    Розбіжність: <b>{untracked.toLocaleString()} XP</b>
+                  </div>
+                )}
               </div>
               {/* Фінанси */}
               <div>
