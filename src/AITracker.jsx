@@ -792,6 +792,8 @@ export default function AITracker() {
   const [planUrgency, setPlanUrgency] = useState("now");
   const [planEditId, setPlanEditId] = useState(null);
   const [planEditText, setPlanEditText] = useState("");
+  const [goalsSubTab, setGoalsSubTab] = useState("tasks");
+  const [focusFilter, setFocusFilter] = useState("pinned");
 
   // AI Chat Widget state
   const [aiOpen, setAiOpen] = useState(false);
@@ -808,7 +810,7 @@ export default function AITracker() {
   const aiMsgsRef = useRef(null);
   const dragRef = useRef({});
 
-  const TAB_IDS = ["dashboard", "goals", "plan", "longgoals", "projects", "tools", "skillstasks", "achievements", "finances", "sessions", "progress", "stats"];
+  const TAB_IDS = ["dashboard", "goalsplan", "projects", "tools", "skillstasks", "achievements", "finances", "sessions", "progress", "stats"];
 
   useEffect(() => {
     const now = new Date();
@@ -1305,12 +1307,10 @@ export default function AITracker() {
 
   const tabs = [
     { id: "dashboard",    label: "🏠 Головна" },
-    { id: "goals",        label: "✅ Задачі" },
-    { id: "plan",         label: "📋 План дій" },
-    { id: "longgoals",    label: "🎯 Цілі" },
-    { id: "projects",    label: "🚀 Проекти" },
-    { id: "tools",       label: "🛠️ Інструменти" },
-    { id: "skillstasks", label: "💪 Навички" },
+    { id: "goalsplan",    label: "🎯 Цілі & план" },
+    { id: "projects",     label: "🚀 Проекти" },
+    { id: "tools",        label: "🛠️ Інструменти" },
+    { id: "skillstasks",  label: "💪 Навички" },
     { id: "achievements", label: "🏆 Досягнення" },
     { id: "finances",     label: "💸 Фінанси" },
     { id: "sessions",     label: "🔥 Сесії" },
@@ -1599,82 +1599,132 @@ export default function AITracker() {
               )}
             </div>
 
-            {/* Two-column: Tasks mini-view + Activity */}
+            {/* Two-column: Focus block + Activity */}
             <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
-              {/* LEFT: Tasks mini-view */}
+              {/* LEFT: Focus block */}
               <div style={{ flex: "0 0 calc(50% - 8px)", minWidth: 260 }}>
                 {(() => {
-                  const activeTasks = goals.filter(g => !g.done);
-                  const urgentTasks = activeTasks.filter(g => g.priority === "urgent").slice(0, 1);
-                  const importantTasks = activeTasks.filter(g => g.priority === "important").slice(0, 2);
-                  const normalTasks = activeTasks.filter(g => g.priority === "normal").slice(0, 4);
-                  const shownTasks = [...urgentTasks, ...importantTasks, ...normalTasks];
-                  const weekCurGoals = longGoals.filter(g => !g.done && g.period === "week_cur").slice(0, 3);
-                  const monthCurGoals = longGoals.filter(g => !g.done && g.period === "month_cur").slice(0, 3);
+                  const FILTERS = [
+                    { id: "pinned", label: "📌 Закріплені" },
+                    { id: "week",   label: "📅 Тиждень" },
+                    { id: "month",  label: "📅 Місяць" },
+                  ];
+                  // What to show per filter
+                  const focusLongGoals = focusFilter === "pinned"
+                    ? longGoals.filter(g => !g.done && g.pinned)
+                    : focusFilter === "week"
+                      ? longGoals.filter(g => !g.done && g.period === "week_cur")
+                      : longGoals.filter(g => !g.done && g.period === "month_cur");
+                  const focusPlanItems = focusFilter === "pinned"
+                    ? plan.filter(p => !p.done && p.pinned)
+                    : focusFilter === "week"
+                      ? plan.filter(p => !p.done && (p.urgency === "now" || p.urgency === "soon")).slice(0, 5)
+                      : plan.filter(p => !p.done).slice(0, 5);
+                  const focusTasks = focusFilter === "pinned"
+                    ? goals.filter(g => !g.done && g.pinned)
+                    : focusFilter === "week"
+                      ? goals.filter(g => !g.done && (g.priority === "urgent" || g.priority === "important")).slice(0, 5)
+                      : goals.filter(g => !g.done && g.priority === "urgent").slice(0, 5);
+                  const isEmpty = !focusLongGoals.length && !focusPlanItems.length && !focusTasks.length;
+                  const completeTask = (id) => setGoals(prev => prev.map(x => {
+                    if (x.id !== id) return x;
+                    if (!x.done && !x.xpAwarded) { gainXP(x.xp ?? 100, "(задачу виконано)", "goal"); return { ...x, done: true, xpAwarded: true }; }
+                    return { ...x, done: !x.done };
+                  }));
                   return (
                     <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18, display: "flex", flexDirection: "column", gap: 14 }}>
-                      {/* Tasks section */}
-                      <div>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                          <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2 }}>✅ Задачі</div>
-                          <button onClick={() => setActiveTab("goals")} style={{ background: "none", border: "none", color: "#6a5f40", fontSize: 11, cursor: "pointer", fontFamily: "'Space Mono',monospace" }}>Всі →</button>
+                      {/* Header + filter */}
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+                        <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2 }}>🎯 Фокус</div>
+                        <div style={{ display: "flex", gap: 4 }}>
+                          {FILTERS.map(f => (
+                            <button key={f.id} onClick={() => setFocusFilter(f.id)}
+                              style={{ background: focusFilter === f.id ? "rgba(201,168,76,0.15)" : "rgba(8,5,2,0.5)", border: `1px solid ${focusFilter === f.id ? "rgba(201,168,76,0.5)" : "rgba(201,168,76,0.15)"}`, borderRadius: 3, padding: "3px 8px", color: focusFilter === f.id ? "#c9a84c" : "#6a5f40", fontSize: 10, cursor: "pointer", fontFamily: "'Exo 2',sans-serif", fontWeight: 600, whiteSpace: "nowrap" }}>
+                              {f.label}
+                            </button>
+                          ))}
                         </div>
-                        {shownTasks.length === 0 ? (
-                          <div style={{ fontSize: 12, color: "#6a5f40", textAlign: "center", padding: "8px 0" }}>
-                            <span onClick={() => setActiveTab("goals")} style={{ color: "#c9a84c", cursor: "pointer" }}>Додати задачі →</span>
-                          </div>
-                        ) : (
-                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                            {shownTasks.map(g => {
-                              const pr = TASK_PRIORITIES.find(p => p.id === g.priority) ?? TASK_PRIORITIES[2];
+                      </div>
+
+                      {isEmpty && (
+                        <div style={{ textAlign: "center", padding: "12px 0", fontSize: 12, color: "#5a5040" }}>
+                          {focusFilter === "pinned"
+                            ? <>Натисни 📌 на цілі, план або задачу, щоб вони з'явились тут<br/><span onClick={() => { setActiveTab("goalsplan"); }} style={{ color: "#c9a84c", cursor: "pointer", marginTop: 6, display: "inline-block" }}>Відкрити Цілі & план →</span></>
+                            : "Нічого на цей період"}
+                        </div>
+                      )}
+
+                      {/* Long-term goals */}
+                      {focusLongGoals.length > 0 && (
+                        <div>
+                          <div style={{ fontSize: 10, color: "#06b6d4", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 7 }}>🎯 Цілі</div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                            {focusLongGoals.map(g => {
+                              const pMeta = (() => { const p = GOAL_PERIODS?.find?.(x => x.id === g.period); return p ?? { color: "#06b6d4", label: g.period }; })();
                               return (
-                                <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, background: pr.bg, border: `1px solid ${pr.border}`, borderRadius: 4, padding: "8px 10px" }}>
-                                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: pr.color, flexShrink: 0 }} />
-                                  <span style={{ flex: 1, fontSize: 12, color: "#e0d8c0", fontWeight: pr.fontWeight, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.text}</span>
-                                  <span style={{ fontSize: 9, color: pr.color, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, flexShrink: 0 }}>{pr.label}</span>
+                                <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(6,182,212,0.07)", border: "1px solid rgba(6,182,212,0.22)", borderRadius: 4, padding: "8px 11px" }}>
+                                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#06b6d4", flexShrink: 0 }} />
+                                  <span style={{ flex: 1, fontSize: 12, color: "#cbd5e1", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.text}</span>
+                                  <button onClick={() => setLongGoals(prev => prev.map(x => x.id === g.id ? { ...x, pinned: !x.pinned } : x))}
+                                    title="Закріплено на головній"
+                                    style={{ background: "none", border: "none", color: g.pinned ? "#c9a84c" : "#4a4030", cursor: "pointer", fontSize: 13, padding: "0 2px", flexShrink: 0 }}>📌</button>
                                 </div>
                               );
                             })}
-                            {activeTasks.length > shownTasks.length && (
-                              <div onClick={() => setActiveTab("goals")} style={{ fontSize: 11, color: "#6a5f40", textAlign: "center", cursor: "pointer", paddingTop: 2 }}>
-                                + ще {activeTasks.length - shownTasks.length} →
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      {/* Week goals section */}
-                      {weekCurGoals.length > 0 && (
-                        <div>
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: "#06b6d4", textTransform: "uppercase", letterSpacing: 1.5 }}>📅 Цей тиждень</div>
-                            <button onClick={() => setActiveTab("longgoals")} style={{ background: "none", border: "none", color: "#6a5f40", fontSize: 11, cursor: "pointer", fontFamily: "'Space Mono',monospace" }}>Всі →</button>
-                          </div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                            {weekCurGoals.map(g => (
-                              <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(6,182,212,0.07)", border: "1px solid rgba(6,182,212,0.20)", borderRadius: 4, padding: "7px 10px" }}>
-                                <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#06b6d4", flexShrink: 0 }} />
-                                <span style={{ flex: 1, fontSize: 12, color: "#cbd5e1", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.text}</span>
-                              </div>
-                            ))}
                           </div>
                         </div>
                       )}
-                      {/* Month goals section */}
-                      {monthCurGoals.length > 0 && (
+
+                      {/* Plan items */}
+                      {focusPlanItems.length > 0 && (
                         <div>
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: "#00ff88", textTransform: "uppercase", letterSpacing: 1.5 }}>📅 Цей місяць</div>
-                            <button onClick={() => setActiveTab("longgoals")} style={{ background: "none", border: "none", color: "#6a5f40", fontSize: 11, cursor: "pointer", fontFamily: "'Space Mono',monospace" }}>Всі →</button>
-                          </div>
+                          <div style={{ fontSize: 10, color: "#a855f7", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 7 }}>📋 План дій</div>
                           <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                            {monthCurGoals.map(g => (
-                              <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(0,255,136,0.05)", border: "1px solid rgba(0,255,136,0.15)", borderRadius: 4, padding: "7px 10px" }}>
-                                <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#00ff88", flexShrink: 0 }} />
-                                <span style={{ flex: 1, fontSize: 12, color: "#cbd5e1", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.text}</span>
-                              </div>
-                            ))}
+                            {focusPlanItems.map(item => {
+                              const pt = PLAN_TYPES.find(t => t.id === (item.type ?? "other")) ?? PLAN_TYPES[PLAN_TYPES.length - 1];
+                              return (
+                                <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 8, background: pt.bg, border: `1px solid ${pt.color}22`, borderRadius: 4, padding: "8px 11px" }}>
+                                  <button onClick={() => setPlan(prev => prev.map(x => {
+                                    if (x.id !== item.id) return x;
+                                    if (!x.done && !x.xpAwarded) { gainXP(75, "(план дій)", "plan"); return { ...x, done: true, xpAwarded: true }; }
+                                    return { ...x, done: !x.done };
+                                  }))}
+                                    style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${pt.color}`, background: "transparent", cursor: "pointer", flexShrink: 0, fontSize: 9, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }} />
+                                  <span style={{ flex: 1, fontSize: 12, color: "#cbd5e1", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.text}</span>
+                                  <span style={{ fontSize: 9, color: pt.color, background: pt.bg, border: `1px solid ${pt.color}33`, padding: "2px 6px", borderRadius: 3, flexShrink: 0 }}>{pt.label}</span>
+                                  <button onClick={() => setPlan(prev => prev.map(x => x.id === item.id ? { ...x, pinned: !x.pinned } : x))}
+                                    title="Закріплено на головній"
+                                    style={{ background: "none", border: "none", color: item.pinned ? "#c9a84c" : "#4a4030", cursor: "pointer", fontSize: 13, padding: "0 2px", flexShrink: 0 }}>📌</button>
+                                </div>
+                              );
+                            })}
                           </div>
+                        </div>
+                      )}
+
+                      {/* Tasks */}
+                      {focusTasks.length > 0 && (
+                        <div>
+                          <div style={{ fontSize: 10, color: "#00ff88", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 7 }}>✅ Задачі</div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                            {focusTasks.map(g => {
+                              const pr = TASK_PRIORITIES.find(p => p.id === g.priority) ?? TASK_PRIORITIES[2];
+                              return (
+                                <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, background: pr.bg, border: `1px solid ${pr.border}`, borderRadius: 4, padding: "7px 10px" }}>
+                                  <button onClick={() => completeTask(g.id)}
+                                    style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${pr.color}66`, background: "transparent", cursor: "pointer", flexShrink: 0 }} />
+                                  <span style={{ flex: 1, fontSize: 12, color: "#e0d8c0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.text}</span>
+                                  <span style={{ fontSize: 9, color: pr.color, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, flexShrink: 0 }}>{pr.label}</span>
+                                  <button onClick={() => setGoals(prev => prev.map(x => x.id === g.id ? { ...x, pinned: !x.pinned } : x))}
+                                    title="Закріплено на головній"
+                                    style={{ background: "none", border: "none", color: g.pinned ? "#c9a84c" : "#4a4030", cursor: "pointer", fontSize: 13, padding: "0 2px", flexShrink: 0 }}>📌</button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <button onClick={() => { setActiveTab("goalsplan"); setGoalsSubTab("tasks"); }} style={{ marginTop: 8, background: "none", border: "none", color: "#6a5f40", fontSize: 11, cursor: "pointer", fontFamily: "'Space Mono',monospace", padding: 0 }}>
+                            Всі задачі ({goals.filter(g => !g.done).length}) →
+                          </button>
                         </div>
                       )}
                     </div>
@@ -2207,9 +2257,25 @@ export default function AITracker() {
           );
         })()}
 
-        {/* Goals */}
-        {/* Goals = Задачі */}
-        {activeTab === "goals" && (
+        {/* Combined Goals & Plan tab */}
+        {activeTab === "goalsplan" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {/* Sub-tab navigation */}
+            <div style={{ display: "flex", gap: 4, borderBottom: "1px solid rgba(201,168,76,0.15)", paddingBottom: 12 }}>
+              {[
+                { id: "tasks",   label: "✅ Задачі" },
+                { id: "goals",   label: "🎯 Цілі" },
+                { id: "plan",    label: "📋 План дій" },
+              ].map(st => (
+                <button key={st.id} onClick={() => setGoalsSubTab(st.id)}
+                  style={{ background: goalsSubTab === st.id ? "rgba(201,168,76,0.12)" : "rgba(8,5,2,0.4)", border: `1px solid ${goalsSubTab === st.id ? "rgba(201,168,76,0.5)" : "rgba(201,168,76,0.15)"}`, borderRadius: 4, padding: "7px 16px", color: goalsSubTab === st.id ? "#c9a84c" : "#6a5f40", fontSize: 12, cursor: "pointer", fontFamily: "'Exo 2',sans-serif", fontWeight: goalsSubTab === st.id ? 700 : 400 }}>
+                  {st.label}
+                </button>
+              ))}
+            </div>
+
+        {/* Задачі */}
+        {goalsSubTab === "tasks" && true && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
             {/* Add task */}
@@ -2323,6 +2389,9 @@ export default function AITracker() {
                         </select>
                         <button onClick={() => { setGoalEditId(g.id); setGoalEditText(g.text); setGoalEditXP(g.xp ?? 100); }}
                           style={{ background: "none", border: "none", color: "#6a5f40", cursor: "pointer", fontSize: 13, padding: "0 3px" }} title="Редагувати">✎</button>
+                        <button onClick={() => setGoals(prev => prev.map(x => x.id === g.id ? { ...x, pinned: !x.pinned } : x))}
+                          title={g.pinned ? "Прибрати з Головної" : "Закріпити на Головній"}
+                          style={{ background: "none", border: "none", color: g.pinned ? "#c9a84c" : "#4a4030", cursor: "pointer", fontSize: 13, padding: "0 3px" }}>📌</button>
                         <button onClick={() => setGoals(prev => prev.filter(x => x.id !== g.id))}
                           style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 16, padding: "0 3px" }}>×</button>
                       </div>
@@ -2360,8 +2429,8 @@ export default function AITracker() {
           </div>
         )}
 
-        {/* Long-term Goals = Цілі */}
-        {activeTab === "longgoals" && (
+        {/* Цілі sub-tab */}
+        {goalsSubTab === "goals" && true && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
             {/* Add goal */}
@@ -2474,6 +2543,9 @@ export default function AITracker() {
                         </select>
                         <button onClick={() => { setLongGoalEditId(g.id); setLongGoalEditText(g.text); setLongGoalEditXP(g.customXP ?? 200); }}
                           style={{ background: "none", border: "none", color: "#6a5f40", cursor: "pointer", fontSize: 13, padding: "0 3px" }} title="Редагувати">✎</button>
+                        <button onClick={() => setLongGoals(prev => prev.map(x => x.id === g.id ? { ...x, pinned: !x.pinned } : x))}
+                          title={g.pinned ? "Прибрати з Головної" : "Закріпити на Головній"}
+                          style={{ background: "none", border: "none", color: g.pinned ? "#c9a84c" : "#4a4030", cursor: "pointer", fontSize: 13, padding: "0 3px" }}>📌</button>
                         <button onClick={() => setLongGoals(prev => prev.filter(x => x.id !== g.id))}
                           style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 16, padding: "0 3px" }}>×</button>
                       </div>
@@ -2511,8 +2583,8 @@ export default function AITracker() {
           </div>
         )}
 
-        {/* Plan */}
-        {activeTab === "plan" && (
+        {/* План дій sub-tab */}
+        {goalsSubTab === "plan" && true && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {/* Add task */}
             <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 16 }}>
@@ -2648,6 +2720,11 @@ export default function AITracker() {
                             </select>
                           </>
                         )}
+                        {planEditId !== item.id && !item.done && (
+                          <button onClick={() => setPlan(prev => prev.map(x => x.id === item.id ? { ...x, pinned: !x.pinned } : x))}
+                            title={item.pinned ? "Прибрати з Головної" : "Закріпити на Головній"}
+                            style={{ background: "none", border: "none", color: item.pinned ? "#c9a84c" : "#4a4030", cursor: "pointer", fontSize: 13, padding: "0 3px" }}>📌</button>
+                        )}
                         {planEditId !== item.id && (
                           <button onClick={() => setPlan(prev => prev.filter(x => x.id !== item.id))}
                             style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 16, padding: "0 4px" }}>×</button>
@@ -2658,6 +2735,9 @@ export default function AITracker() {
                 </div>
               );
             })}
+          </div>
+        )}
+
           </div>
         )}
 
