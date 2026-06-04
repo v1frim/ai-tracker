@@ -1011,6 +1011,8 @@ export default function AITracker() {
   const [ghPanelOpen, setGhPanelOpen] = useState(false);
   const [ghSyncing, setGhSyncing] = useState(false);
   const [ghSyncMsg, setGhSyncMsg] = useState("");
+  const ghAutoRetryRef = useRef(0);
+  const syncGithubLinesRef = useRef(null);
   const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
   const [aiAttachments, setAiAttachments] = useState([]);
   const [aiModelOpen, setAiModelOpen] = useState(false);
@@ -1607,12 +1609,33 @@ export default function AITracker() {
         setGhSyncing(false);
         return;
       }
-      if (perRepo.length === 0 && pending > 0) {
-        setGhSyncMsg(`⏳ GitHub ще рахує статистику (${pending} репо). Зачекай ~хвилину і натисни «Синхронізувати» ще раз.`);
+      if (pending > 0 && ghAutoRetryRef.current < 4) {
+        ghAutoRetryRef.current += 1;
+        const secs = 60;
+        setGhSyncMsg(`⏳ GitHub рахує статистику (${pending} репо). Автоповтор через ${secs}с… (спроба ${ghAutoRetryRef.current}/4)`);
         setGhSyncing(false);
+        let remaining = secs;
+        const ivId = setInterval(() => {
+          remaining--;
+          if (remaining <= 0) {
+            clearInterval(ivId);
+            setGhSyncMsg(`⏳ Повторна синхронізація…`);
+            syncGithubLinesRef.current?.();
+          } else {
+            setGhSyncMsg(`⏳ GitHub рахує статистику (${pending} репо). Автоповтор через ${remaining}с… (спроба ${ghAutoRetryRef.current}/4)`);
+          }
+        }, 1000);
         return;
       }
-      const pendNote = pending > 0 ? ` · ${pending} ще рахуються — синхронізуй ще раз` : "";
+      if (pending > 0) {
+        const pendMsg = `⚠ GitHub ще не порахував ${pending} репо після 4 спроб. Натисни ще раз пізніше.`;
+        setGhSyncMsg(haveData ? `${totalNet.toLocaleString()} рядків з ${perRepo.length} репо · ${pendMsg}` : pendMsg);
+        setGhSyncing(false);
+        ghAutoRetryRef.current = 0;
+        return;
+      }
+      ghAutoRetryRef.current = 0;
+      const pendNote = "";
       const cacheNote = cachedCount > 0 ? ` · ${cachedCount} з кешу` : "";
       setGhSyncMsg(`✓ ${totalNet.toLocaleString()} рядків з ${perRepo.length} репо${cacheNote}${pendNote}`);
     } catch (e) {
@@ -1621,6 +1644,7 @@ export default function AITracker() {
       setGhSyncing(false);
     }
   }, [githubSync.user, githubSync.token, githubSync.repos, setProgressiveCount, checkAchievements, totalTools, totalIncome, projects, skillData, streak, sessions.dates]);
+  syncGithubLinesRef.current = syncGithubLines;
 
   const updateMonthlyTarget = useCallback((val) => {
     const t = parseInt(val);
@@ -1804,7 +1828,7 @@ export default function AITracker() {
         })}
       </div>
 
-      <div style={{ position: "relative", zIndex: 1, maxWidth: "min(1340px, 91vw)", margin: "0 auto", padding: "20px 14px" }}>
+      <div style={{ position: "relative", zIndex: 1, maxWidth: "min(1300px, 91vw)", margin: "0 auto", padding: "20px 14px" }}>
 
         {/* Header */}
         {(() => {
