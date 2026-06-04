@@ -997,6 +997,8 @@ export default function AITracker() {
   const [planUrgency, setPlanUrgency] = useState("now");
   const [planEditId, setPlanEditId] = useState(null);
   const [planEditText, setPlanEditText] = useState("");
+  const [planXP, setPlanXP] = useState(75);
+  const [planEditXP, setPlanEditXP] = useState(75);
   const [goalsSubTab, setGoalsSubTab] = useState("tasks");
   const [focusFilter, setFocusFilter] = useState("pinned");
 
@@ -2052,7 +2054,7 @@ export default function AITracker() {
                                 <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 8, background: pt.bg, border: `1px solid ${pt.color}22`, borderRadius: 4, padding: "8px 11px" }}>
                                   <button onClick={() => setPlan(prev => prev.map(x => {
                                     if (x.id !== item.id) return x;
-                                    if (!x.done && !x.xpAwarded) { gainXP(75, "(план дій)", "plan"); return { ...x, done: true, xpAwarded: true }; }
+                                    if (!x.done && !x.xpAwarded) { gainXP(x.xp ?? 75, "(план дій)", "plan"); return { ...x, done: true, xpAwarded: true }; }
                                     return { ...x, done: !x.done };
                                   }))}
                                     style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${pt.color}`, background: "transparent", cursor: "pointer", flexShrink: 0, fontSize: 9, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }} />
@@ -2762,8 +2764,12 @@ export default function AITracker() {
                         <span style={{ color: "#3a3020", cursor: "grab", fontSize: 14, userSelect: "none", marginRight: 4 }}>⋮⋮</span>
                         <button onClick={() => setGoals(prev => prev.map(x => {
                           if (x.id !== g.id) return x;
-                          if (!x.done && !x.xpAwarded) { gainXP(g.xp ?? 100, "(задачу виконано)", "goal"); return { ...x, done: true, xpAwarded: true }; }
-                          return { ...x, done: !x.done };
+                          if (!x.done) {
+                            if (!x.xpAwarded) { gainXP(g.xp ?? 100, "(задачу виконано)", "goal"); return { ...x, done: true, xpAwarded: true }; }
+                            return { ...x, done: true };
+                          }
+                          if (x.xpAwarded) loseXP(x.xp ?? 100, "goal", "↩ задачу скасовано");
+                          return { ...x, done: false, xpAwarded: false };
                         }))} style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${pr.color}66`, background: "transparent", cursor: "pointer", flexShrink: 0, fontSize: 10, color: pr.color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }} />
                         {goalEditId === g.id ? (
                           (() => {
@@ -2829,7 +2835,11 @@ export default function AITracker() {
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     {doneTasks.map(g => (
                       <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px" }}>
-                        <button onClick={() => setGoals(prev => prev.map(x => x.id === g.id ? { ...x, done: false } : x))}
+                        <button onClick={() => setGoals(prev => prev.map(x => {
+                          if (x.id !== g.id) return x;
+                          if (x.xpAwarded) loseXP(x.xp ?? 100, "goal", "↩ задачу скасовано");
+                          return { ...x, done: false, xpAwarded: false };
+                        }))}
                           style={{ width: 20, height: 20, borderRadius: "50%", border: "2px solid #00ff88", background: "#00ff88", cursor: "pointer", flexShrink: 0, fontSize: 10, color: "#000", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>✓</button>
                         <span style={{ flex: 1, color: "#6a7060", fontSize: 12, textDecoration: "line-through" }}>{g.text}</span>
                         <button onClick={() => setGoals(prev => prev.filter(x => x.id !== g.id))}
@@ -2917,8 +2927,12 @@ export default function AITracker() {
                         <span style={{ color: "#3a3020", cursor: "grab", fontSize: 14, userSelect: "none", marginRight: 4 }}>⋮⋮</span>
                         <button onClick={() => setLongGoals(prev => prev.map(x => {
                           if (x.id !== g.id) return x;
-                          if (!x.done && !x.xpAwarded) { gainXP(x.customXP ?? 200, "(ціль досягнута)", "goal"); return { ...x, done: true, xpAwarded: true }; }
-                          return { ...x, done: !x.done };
+                          if (!x.done) {
+                            if (!x.xpAwarded) { gainXP(x.customXP ?? 200, "(ціль досягнута)", "goal"); return { ...x, done: true, xpAwarded: true }; }
+                            return { ...x, done: true };
+                          }
+                          if (x.xpAwarded) loseXP(x.customXP ?? 200, "goal", "↩ ціль скасовано");
+                          return { ...x, done: false, xpAwarded: false };
                         }))} style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${per.color}66`, background: "transparent", cursor: "pointer", flexShrink: 0, fontSize: 10, color: per.color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }} />
                         {longGoalEditId === g.id ? (
                           (() => {
@@ -2983,7 +2997,11 @@ export default function AITracker() {
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     {doneGoals.map(g => (
                       <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px" }}>
-                        <button onClick={() => setLongGoals(prev => prev.map(x => x.id === g.id ? { ...x, done: false } : x))}
+                        <button onClick={() => setLongGoals(prev => prev.map(x => {
+                          if (x.id !== g.id) return x;
+                          if (x.xpAwarded) loseXP(x.customXP ?? 200, "goal", "↩ ціль скасовано");
+                          return { ...x, done: false, xpAwarded: false };
+                        }))}
                           style={{ width: 20, height: 20, borderRadius: "50%", border: "2px solid #00ff88", background: "#00ff88", cursor: "pointer", flexShrink: 0, fontSize: 10, color: "#000", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>✓</button>
                         <span style={{ flex: 1, color: "#6a7060", fontSize: 12, textDecoration: "line-through" }}>{g.text}</span>
                         <button onClick={() => setLongGoals(prev => prev.filter(x => x.id !== g.id))}
@@ -3013,7 +3031,7 @@ export default function AITracker() {
                   onChange={e => setPlanInput(e.target.value)}
                   onKeyDown={e => {
                     if (e.key === "Enter" && planInput.trim()) {
-                      setPlan(prev => [...prev, { id: `p${Date.now()}`, text: planInput.trim(), type: planType, urgency: planUrgency, done: false }]);
+                      setPlan(prev => [...prev, { id: `p${Date.now()}`, text: planInput.trim(), type: planType, urgency: planUrgency, xp: planXP, done: false }]);
                       setPlanInput("");
                     }
                   }}
@@ -3034,9 +3052,15 @@ export default function AITracker() {
                 >
                   {PLAN_URGENCIES.map(u => <option key={u.id} value={u.id}>{u.label}</option>)}
                 </select>
+                <div style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "0 10px" }}>
+                  <span style={{ fontSize: 11, color: "#6a5f40" }}>XP</span>
+                  <input type="number" min="0" max="9999" value={planXP}
+                    onChange={e => setPlanXP(Math.max(0, parseInt(e.target.value) || 0))}
+                    style={{ width: 48, background: "transparent", border: "none", color: "#6366f1", fontSize: 13, fontFamily: "'Space Mono',monospace", textAlign: "center", padding: "9px 0" }} />
+                </div>
                 <button className="act-btn" onClick={() => {
                   if (!planInput.trim()) return;
-                  setPlan(prev => [...prev, { id: `p${Date.now()}`, text: planInput.trim(), type: planType, urgency: planUrgency, done: false }]);
+                  setPlan(prev => [...prev, { id: `p${Date.now()}`, text: planInput.trim(), type: planType, urgency: planUrgency, xp: planXP, done: false }]);
                   setPlanInput("");
                 }} style={{ background: "#6366f1", color: "#fff", border: "none", padding: "9px 16px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 12 }}>Додати</button>
               </div>
@@ -3056,7 +3080,7 @@ export default function AITracker() {
                     <span style={{ background: pt.bg, border: `1px solid ${pt.color}44`, color: pt.color, padding: "3px 12px", borderRadius: 3, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>{pt.label}</span>
                     <span style={{ fontSize: 11, color: "#5a4a30" }}>{items.length} активних{done.length > 0 ? ` · ${done.length} виконано` : ""}</span>
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                  <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.12)", borderRadius: 4, padding: 12, display: "flex", flexDirection: "column", gap: 7 }}>
                     {[...items, ...done].map(item => (
                       <div key={item.id}
                         draggable={true}
@@ -3079,48 +3103,55 @@ export default function AITracker() {
                         <span style={{ color: "#3a3020", cursor: "grab", fontSize: 14, userSelect: "none", marginRight: 4 }}>⋮⋮</span>
                         <button onClick={() => setPlan(prev => prev.map(x => {
                           if (x.id !== item.id) return x;
-                          if (!x.done && !x.xpAwarded) {
-                            gainXP(75, "(план дій)", "plan");
-                            return { ...x, done: true, xpAwarded: true };
+                          if (!x.done) {
+                            if (!x.xpAwarded) { gainXP(x.xp ?? 75, "(план дій)", "plan"); return { ...x, done: true, xpAwarded: true }; }
+                            return { ...x, done: true };
                           }
-                          return { ...x, done: !x.done };
+                          if (x.xpAwarded) loseXP(x.xp ?? 75, "plan", "↩ план скасовано");
+                          return { ...x, done: false, xpAwarded: false };
                         }))}
                           style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${item.done ? "#9a8a60" : pt.color}`, background: item.done ? "#9a8a60" : "transparent", cursor: "pointer", flexShrink: 0, fontSize: 12, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
                           {item.done ? "✓" : ""}
                         </button>
                         {planEditId === item.id ? (
-                          <input
-                            value={planEditText}
-                            autoFocus
-                            onChange={e => setPlanEditText(e.target.value)}
-                            onKeyDown={e => {
-                              if (e.key === "Enter") {
-                                const t = planEditText.trim();
-                                if (t) setPlan(prev => prev.map(x => x.id === item.id ? { ...x, text: t } : x));
-                                setPlanEditId(null);
-                              } else if (e.key === "Escape") {
-                                setPlanEditId(null);
-                              }
-                            }}
-                            onBlur={() => {
+                          (() => {
+                            const savePlan = () => {
                               const t = planEditText.trim();
-                              if (t) setPlan(prev => prev.map(x => x.id === item.id ? { ...x, text: t } : x));
+                              setPlan(prev => prev.map(x => x.id === item.id ? { ...x, text: t || x.text, xp: planEditXP } : x));
                               setPlanEditId(null);
-                            }}
-                            style={{ flex: 1, background: "rgba(8,5,2,0.85)", border: `1px solid ${pt.color}66`, borderRadius: 4, padding: "5px 9px", color: "#fff", fontSize: 12, fontFamily: "'Space Mono',monospace" }}
-                          />
+                            };
+                            return (
+                          <div style={{ flex: 1, display: "flex", gap: 6 }}
+                            onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) savePlan(); }}>
+                            <input
+                              value={planEditText}
+                              autoFocus
+                              onChange={e => setPlanEditText(e.target.value)}
+                              onKeyDown={e => { if (e.key === "Enter") savePlan(); if (e.key === "Escape") setPlanEditId(null); }}
+                              style={{ flex: 1, background: "rgba(8,5,2,0.85)", border: `1px solid ${pt.color}66`, borderRadius: 4, padding: "5px 9px", color: "#fff", fontSize: 12, fontFamily: "'Space Mono',monospace" }}
+                            />
+                            <div style={{ display: "flex", alignItems: "center", gap: 3, background: "rgba(8,5,2,0.9)", border: `1px solid ${pt.color}44`, borderRadius: 3, padding: "0 8px" }}>
+                              <span style={{ fontSize: 10, color: "#6a5f40" }}>XP</span>
+                              <input type="number" min="0" max="9999" value={planEditXP}
+                                onChange={e => setPlanEditXP(Math.max(0, parseInt(e.target.value) || 0))}
+                                onKeyDown={e => { if (e.key === "Enter") savePlan(); if (e.key === "Escape") setPlanEditId(null); }}
+                                style={{ width: 44, background: "transparent", border: "none", color: pt.color, fontSize: 12, fontFamily: "'Space Mono',monospace", textAlign: "center", padding: "4px 0" }} />
+                            </div>
+                          </div>
+                            );
+                          })()
                         ) : (
                           <span
-                            onDoubleClick={() => { if (!item.done) { setPlanEditId(item.id); setPlanEditText(item.text); } }}
+                            onDoubleClick={() => { if (!item.done) { setPlanEditId(item.id); setPlanEditText(item.text); setPlanEditXP(item.xp ?? 75); } }}
                             style={{ flex: 1, color: item.done ? "#5a4a30" : "#cbd5e1", fontSize: 12, textDecoration: item.done ? "line-through" : "none" }}
                           >{item.text}</span>
                         )}
                         {!item.done && !item.xpAwarded && planEditId !== item.id && (
-                          <span style={{ fontSize: 12, color: pt.color, background: pt.bg, border: `1px solid ${pt.color}33`, padding: "2px 7px", borderRadius: 3, whiteSpace: "nowrap" }}>+75 XP</span>
+                          <span style={{ fontSize: 12, color: pt.color, background: pt.bg, border: `1px solid ${pt.color}33`, padding: "2px 7px", borderRadius: 3, whiteSpace: "nowrap" }}>+{item.xp ?? 75} XP</span>
                         )}
                         {!item.done && planEditId !== item.id && (
                           <>
-                            <button onClick={() => { setPlanEditId(item.id); setPlanEditText(item.text); }}
+                            <button onClick={() => { setPlanEditId(item.id); setPlanEditText(item.text); setPlanEditXP(item.xp ?? 75); }}
                               style={{ background: "none", border: "none", color: "#6a5f40", cursor: "pointer", fontSize: 13, padding: "0 4px" }} title="Редагувати">✎</button>
                             <select
                               value={item.type ?? "other"}
@@ -3346,7 +3377,7 @@ export default function AITracker() {
               );
 
               return (
-                <div className="wf-panel" style={{ padding: 16, borderLeft: "3px solid #c9a84c", borderTop: "1px solid rgba(201,168,76,0.35)", background: "rgba(201,168,76,0.04)" }}>
+                <div className="wf-panel" style={{ padding: 16, borderLeft: "3px solid #c9a84c", borderTop: "1px solid rgba(201,168,76,0.35)", background: "linear-gradient(rgba(201,168,76,0.05), rgba(201,168,76,0.05)), rgba(5,3,1,0.92)" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "4px 8px", margin: "-4px -8px", marginBottom: journalOpen ? 10 : -4, borderRadius: 4, background: "rgba(201,168,76,0.08)", border: "1px solid rgba(201,168,76,0.30)", transition: "background 0.15s" }} onClick={() => setJournalOpen(v => !v)}>
                     <span className="wf-sec" style={{ marginBottom: 0, paddingBottom: 0, border: "none", color: "#c9a84c" }}>📋 Журнал операцій</span>
                     <span style={{ fontSize: 11, fontWeight: 700, color: "#e7d6a4", marginLeft: 6, background: "rgba(201,168,76,0.18)", border: "1px solid rgba(201,168,76,0.40)", padding: "2px 9px", borderRadius: 20, fontFamily: "'Space Mono',monospace" }}>{allTx.length} записів</span>
@@ -3447,7 +3478,7 @@ export default function AITracker() {
             })()}
 
             {/* Income table */}
-            <div className="wf-panel" style={{ padding: 16, borderLeft: "3px solid #00ff88", borderTop: "1px solid rgba(0,255,136,0.25)", background: "rgba(0,255,136,0.03)" }}>
+            <div className="wf-panel" style={{ padding: 16, borderLeft: "3px solid #00ff88", borderTop: "1px solid rgba(0,255,136,0.25)", background: "linear-gradient(rgba(0,255,136,0.04), rgba(0,255,136,0.04)), rgba(5,3,1,0.92)" }}>
               <span className="wf-sec" style={{ display: "block", marginBottom: 12, color: "#00ff88", borderBottomColor: "rgba(0,255,136,0.25)" }}>📈 Дохід</span>
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'Space Mono',monospace" }}>
@@ -3531,7 +3562,7 @@ export default function AITracker() {
             </div>
 
             {/* Expense table */}
-            <div className="wf-panel" style={{ padding: 16, borderLeft: "3px solid #f43f5e", borderTop: "1px solid rgba(244,63,94,0.25)", background: "rgba(244,63,94,0.03)" }}>
+            <div className="wf-panel" style={{ padding: 16, borderLeft: "3px solid #f43f5e", borderTop: "1px solid rgba(244,63,94,0.25)", background: "linear-gradient(rgba(244,63,94,0.04), rgba(244,63,94,0.04)), rgba(5,3,1,0.92)" }}>
               <span className="wf-sec" style={{ display: "block", marginBottom: 12, color: "#f43f5e", borderBottomColor: "rgba(244,63,94,0.25)" }}>📉 Витрати</span>
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'Space Mono',monospace" }}>
@@ -3619,7 +3650,7 @@ export default function AITracker() {
             </div>
 
             {/* Subscriptions management */}
-            <div className="wf-panel" style={{ padding: 16, borderLeft: "3px solid #a855f7", borderTop: "1px solid rgba(168,85,247,0.25)", background: "rgba(168,85,247,0.03)" }}>
+            <div className="wf-panel" style={{ padding: 16, borderLeft: "3px solid #a855f7", borderTop: "1px solid rgba(168,85,247,0.25)", background: "linear-gradient(rgba(168,85,247,0.04), rgba(168,85,247,0.04)), rgba(5,3,1,0.92)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: subscriptions.length > 0 || showSubForm ? 14 : 0 }}>
                 <span className="wf-sec" style={{ marginBottom: 0, paddingBottom: 0, border: "none", color: "#a855f7" }}>📅 Підписки</span>
                 <span style={{ fontSize: 11, color: "#9a8a60", marginLeft: 4 }}>автоматично списуються щомісяця</span>
