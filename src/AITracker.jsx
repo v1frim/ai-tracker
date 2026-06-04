@@ -3652,42 +3652,57 @@ export default function AITracker() {
             { catId: "content",    emoji: "📱", label: "Контент",        tasks: [{ id: "posts_published", label: "Постів" }, { id: "followers_gained", label: "Підписників" }, { id: "content_views", label: "Переглядів" }] },
             { catId: "monetize",   emoji: "💰", label: "Монетизація",    tasks: [{ id: "ai_income", label: "Дохід ($)" }, { id: "clients", label: "Клієнтів" }] },
           ];
-          const XP_SOURCE_META = {
-            activity:    { emoji: "⚡", label: "Активність",   color: "#00ff88" },
-            session:     { emoji: "🔥", label: "AI-сесії",     color: "#f59e0b" },
-            skill:       { emoji: "🧩", label: "Навички",      color: "#6366f1" },
-            project:     { emoji: "🚀", label: "Проекти",      color: "#a855f7" },
-            achievement: { emoji: "🏆", label: "Досягнення",   color: "#fbbf24" },
-            income:      { emoji: "💰", label: "Дохід",        color: "#10b981" },
-            goal:        { emoji: "🎯", label: "Цілі / задачі", color: "#06b6d4" },
-            plan:        { emoji: "📋", label: "План дій",     color: "#ec4899" },
-            other:       { emoji: "•",  label: "Інше",         color: "#9a8a60" },
-          };
-          const xpBySource = xpLog.reduce((acc, e) => {
-            acc[e.source] = (acc[e.source] ?? 0) + e.amount;
-            return acc;
-          }, {});
-          // Активність знаємо точно з лічильників (навіть за період до журналу).
-          xpBySource.activity = activityXP ?? computeCorrectActivityXP();
-          const loggedSum = Object.values(xpBySource).reduce((s, v) => s + v, 0);
+          // XP sources: today vs total
+          const xpToday_act = ACTIVITY_DEFS.reduce((s, d) => s + (todayActivity[d.key] ?? 0) * d.xp, 0);
+          const todayLogEntries = xpLog.filter(e => e.date === todayStr());
+          const todayBySource = todayLogEntries.reduce((acc, e) => { acc[e.source] = (acc[e.source] ?? 0) + e.amount; return acc; }, {});
+          todayBySource.activity = xpToday_act;
+          const totalBySource = xpLog.reduce((acc, e) => { acc[e.source] = (acc[e.source] ?? 0) + e.amount; return acc; }, {});
+          totalBySource.activity = activityXP ?? computeCorrectActivityXP();
+          const loggedSum = Object.values(totalBySource).reduce((s, v) => s + v, 0);
           const untracked = totalXP - loggedSum;
-          const xpSourceRows = Object.entries(xpBySource)
-            .filter(([, v]) => v !== 0)
-            .sort((a, b) => b[1] - a[1]);
+          const XP_GROUPS = [
+            { key: "activity",    emoji: "⚡", label: "Активність",    color: "#00ff88", desc: "лічильники дій" },
+            { key: "session",     emoji: "🔥", label: "AI-сесії",      color: "#f59e0b", desc: "щоденний чек-ін" },
+            { key: "skill",       emoji: "🧩", label: "Навички",       color: "#6366f1", desc: "розблоковані інструменти" },
+            { key: "goal_plan",   emoji: "🎯", label: "Цілі & задачі", color: "#06b6d4", desc: "цілі + план дій", keys: ["goal","plan"] },
+            { key: "project",     emoji: "🚀", label: "Проекти",       color: "#a855f7", desc: "нові проекти" },
+            { key: "achievement", emoji: "🏆", label: "Досягнення",    color: "#fbbf24", desc: "нагороди" },
+            { key: "income",      emoji: "💰", label: "Дохід",         color: "#10b981", desc: "заробіток" },
+          ];
+          const knownKeys = new Set(["activity","session","skill","goal","plan","project","achievement","income"]);
+          const otherToday = Object.entries(todayBySource).filter(([k]) => !knownKeys.has(k)).reduce((s,[,v])=>s+v,0);
+          const otherTotal = Object.entries(totalBySource).filter(([k]) => !knownKeys.has(k)).reduce((s,[,v])=>s+v,0);
+          const allGroups = [...XP_GROUPS, ...(otherTotal !== 0 ? [{ key:"other", emoji:"•", label:"Інше", color:"#9a8a60", desc:"" }] : [])];
+          const getGrpVal = (map, grp) => grp.keys ? grp.keys.reduce((s,k)=>s+(map[k]??0),0) : (map[grp.key]??0);
           return (
             <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
               {/* Джерела XP */}
               <div>
-                <div className="wf-sec" style={{ marginBottom: 16 }}>⭐ Джерела XP <span style={{ fontSize: 11, color: "#6a5f40", fontWeight: 400 }}>· за сьогодні</span></div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
-                  {xpSourceRows.map(([src, val]) => {
-                    const m = XP_SOURCE_META[src] ?? XP_SOURCE_META.other;
+                <div className="wf-sec" style={{ marginBottom: 16 }}>⭐ Джерела XP</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10 }}>
+                  {allGroups.map(grp => {
+                    const tval = grp.key === "other" ? otherToday : getGrpVal(todayBySource, grp);
+                    const aval = grp.key === "other" ? otherTotal : getGrpVal(totalBySource, grp);
+                    if (aval === 0 && tval === 0) return null;
                     return (
-                      <div key={src} className="wf-card" style={{ padding: "14px 14px", border: `1px solid ${m.color}33`, borderTop: `2px solid ${m.color}`, display: "flex", alignItems: "center", gap: 10 }}>
-                        <span style={{ fontSize: 20 }}>{m.emoji}</span>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 10, color: "#9a8a60", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>{m.label}</div>
-                          <div style={{ fontSize: 18, fontWeight: 800, color: m.color, fontFamily: "'Space Mono',monospace" }}>{val > 0 ? "+" : ""}{val.toLocaleString()} <span style={{ fontSize: 11, fontWeight: 400, opacity: 0.7 }}>XP</span></div>
+                      <div key={grp.key} className="wf-card" style={{ padding: "12px 14px", border: `1px solid ${grp.color}33`, borderTop: `2px solid ${grp.color}` }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 10 }}>
+                          <span style={{ fontSize: 18 }}>{grp.emoji}</span>
+                          <div>
+                            <div style={{ fontSize: 10, color: "#c9b890", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1, fontWeight: 700 }}>{grp.label}</div>
+                            {grp.desc && <div style={{ fontSize: 9, color: "#5a5040", fontFamily: "'Space Mono',monospace" }}>{grp.desc}</div>}
+                          </div>
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                          <div style={{ background: "rgba(0,0,0,0.25)", borderRadius: 6, padding: "6px 8px" }}>
+                            <div style={{ fontSize: 9, color: "#6a5a38", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 3 }}>Сьогодні</div>
+                            <div style={{ fontSize: 15, fontWeight: 800, color: tval > 0 ? grp.color : "#4a4030", fontFamily: "'Space Mono',monospace" }}>{tval > 0 ? `+${tval}` : "—"}</div>
+                          </div>
+                          <div style={{ background: "rgba(0,0,0,0.25)", borderRadius: 6, padding: "6px 8px" }}>
+                            <div style={{ fontSize: 9, color: "#6a5a38", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 3 }}>Загалом</div>
+                            <div style={{ fontSize: 15, fontWeight: 800, color: grp.color, fontFamily: "'Space Mono',monospace" }}>{aval > 0 ? `+${aval.toLocaleString()}` : "—"}</div>
+                          </div>
                         </div>
                       </div>
                     );
