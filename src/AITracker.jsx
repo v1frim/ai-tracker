@@ -575,83 +575,187 @@ function lastNDays(n) {
   return days;
 }
 
-// ── Animated deep-space background — nebula + parallax planets ──────────────
-// Planet colour variants: [highlight, mid, shadow]
-const PLANET_COLORS = {
-  a: ["#7fb0ec", "#2a4f96", "#0a1838"], // blue
-  b: ["#62dcd6", "#1f7e90", "#062633"], // teal/cyan
-  c: ["#ad94ec", "#4c3c90", "#181244"], // indigo
-  d: ["#b4c2de", "#5a6c96", "#172040"], // ice-slate
-  e: ["#dceff6", "#8aa8be", "#283643"], // pale moon
-};
-
-// From larger/farther (small depth) to smaller/closer (big depth → moves more)
-const PLANETS = [
-  { id: "p1", left: 6,  top: 58, size: 240, depth: 0.10, phase: 0.0, v: "a", ring: true },
-  { id: "p2", left: 73, top: 12, size: 150, depth: 0.18, phase: 1.6, v: "b" },
-  { id: "p3", left: 58, top: 66, size: 96,  depth: 0.30, phase: 3.1, v: "c" },
-  { id: "p4", left: 86, top: 64, size: 60,  depth: 0.44, phase: 0.8, v: "d" },
-  { id: "p5", left: 28, top: 16, size: 48,  depth: 0.52, phase: 2.3, v: "e" },
-  { id: "p6", left: 46, top: 40, size: 34,  depth: 0.62, phase: 4.0, v: "b" },
-  { id: "p7", left: 16, top: 32, size: 22,  depth: 0.74, phase: 5.1, v: "e" },
-];
-
-// Nebula clouds (own slow CSS drift, light cursor parallax)
-const NEBULA = [
-  { id: "n1", left: 70, top: 68, size: 64, color: "rgba(22,86,168,0.45)",  depth: 0.05, phase: 0.5, dur: 26 },
-  { id: "n2", left: 12, top: 40, size: 54, color: "rgba(18,128,148,0.32)", depth: 0.07, phase: 2.0, dur: 32 },
-  { id: "n3", left: 82, top: 8,  size: 46, color: "rgba(46,66,156,0.30)",  depth: 0.04, phase: 3.5, dur: 29 },
-  { id: "n4", left: 34, top: 78, size: 42, color: "rgba(12,98,128,0.26)",  depth: 0.08, phase: 1.2, dur: 35 },
-];
+// ── Animated deep-space background — lit clouds + detailed planets ───────────
 
 const STARS = Array.from({ length: 80 }, (_, i) => ({
   id: i,
   left: Math.random() * 100,
-  top: Math.random() * 100,
+  top:  Math.random() * 100,
   size: Math.random() < 0.82 ? 1.4 : 2.4,
   delay: Math.random() * 4,
-  dur: 2.6 + Math.random() * 3.4,
+  dur:  2.6 + Math.random() * 3.4,
 }));
 
-function PlanetSvg({ s, v, ring }) {
-  const [c1, c2, c3] = PLANET_COLORS[v] || PLANET_COLORS.a;
-  const S = Math.round(s * 1.9);
+// Shimmering lit cloud patches spread across the full viewport.
+// cA = base colour, cB = bright "lit" highlight (top-left light source), cC = shadow-side tint
+const CLOUDS = [
+  { id:"cl1",  left:5,   top:22, w:55,h:22, cA:"rgba(20,80,210,0.55)",  cB:"rgba(65,165,255,0.32)", cC:"rgba(55,15,145,0.2)",  blur:58, depth:0.04, phase:0.5, dur:19, anim:"A" },
+  { id:"cl2",  left:88,  top:14, w:48,h:18, cA:"rgba(80,20,180,0.50)",  cB:"rgba(205,82,255,0.30)", cC:"rgba(30,62,205,0.15)", blur:52, depth:0.06, phase:1.8, dur:24, anim:"B" },
+  { id:"cl3",  left:46,  top:6,  w:62,h:22, cA:"rgba(15,70,165,0.45)",  cB:"rgba(42,148,228,0.26)", cC:"rgba(62,26,162,0.18)", blur:64, depth:0.03, phase:3.1, dur:28, anim:"C" },
+  { id:"cl4",  left:72,  top:47, w:44,h:17, cA:"rgba(60,10,150,0.48)",  cB:"rgba(168,46,228,0.28)", cC:"rgba(22,82,202,0.16)", blur:50, depth:0.07, phase:0.9, dur:21, anim:"A" },
+  { id:"cl5",  left:16,  top:72, w:54,h:23, cA:"rgba(10,65,155,0.50)",  cB:"rgba(32,128,208,0.28)", cC:"rgba(82,20,172,0.18)", blur:60, depth:0.05, phase:2.4, dur:26, anim:"B" },
+  { id:"cl6",  left:57,  top:84, w:48,h:19, cA:"rgba(90,20,165,0.46)",  cB:"rgba(188,64,248,0.26)", cC:"rgba(16,76,188,0.16)", blur:56, depth:0.04, phase:4.2, dur:30, anim:"C" },
+  { id:"cl7",  left:32,  top:56, w:36,h:15, cA:"rgba(10,80,175,0.42)",  cB:"rgba(52,158,238,0.23)", cC:"rgba(72,16,162,0.15)", blur:46, depth:0.08, phase:1.5, dur:22, anim:"A" },
+  { id:"cl8",  left:80,  top:77, w:42,h:17, cA:"rgba(70,15,155,0.48)",  cB:"rgba(208,54,252,0.26)", cC:"rgba(22,92,202,0.17)", blur:54, depth:0.05, phase:3.6, dur:25, anim:"B" },
+  { id:"cl9",  left:93,  top:52, w:34,h:14, cA:"rgba(20,90,195,0.44)",  cB:"rgba(62,174,252,0.25)", cC:"rgba(78,20,168,0.16)", blur:45, depth:0.06, phase:0.3, dur:20, anim:"C" },
+  { id:"cl10", left:22,  top:92, w:56,h:21, cA:"rgba(15,65,158,0.48)",  cB:"rgba(40,134,218,0.27)", cC:"rgba(66,19,158,0.17)", blur:62, depth:0.04, phase:2.0, dur:27, anim:"A" },
+  { id:"cl11", left:62,  top:32, w:40,h:16, cA:"rgba(100,25,185,0.44)", cB:"rgba(228,84,252,0.23)", cC:"rgba(19,80,198,0.15)", blur:50, depth:0.07, phase:4.8, dur:23, anim:"B" },
+  { id:"cl12", left:3,   top:47, w:32,h:13, cA:"rgba(10,72,165,0.42)",  cB:"rgba(34,144,228,0.21)", cC:"rgba(74,20,160,0.14)", blur:43, depth:0.05, phase:1.1, dur:29, anim:"C" },
+  { id:"cl13", left:42,  top:97, w:58,h:20, cA:"rgba(12,75,168,0.46)",  cB:"rgba(37,150,220,0.25)", cC:"rgba(70,21,160,0.16)", blur:58, depth:0.03, phase:3.3, dur:31, anim:"A" },
+  { id:"cl14", left:83,  top:32, w:38,h:14, cA:"rgba(85,18,168,0.43)",  cB:"rgba(194,58,250,0.23)", cC:"rgba(16,76,198,0.15)", blur:47, depth:0.06, phase:5.0, dur:18, anim:"B" },
+  { id:"cl15", left:50,  top:62, w:44,h:17, cA:"rgba(18,78,178,0.44)",  cB:"rgba(47,152,230,0.24)", cC:"rgba(80,21,172,0.16)", blur:53, depth:0.05, phase:2.7, dur:24, anim:"C" },
+  { id:"cl16", left:25,  top:35, w:40,h:15, cA:"rgba(25,90,185,0.40)",  cB:"rgba(57,162,238,0.22)", cC:"rgba(57,14,148,0.14)", blur:49, depth:0.04, phase:0.7, dur:27, anim:"A" },
+  { id:"cl17", left:68,  top:18, w:34,h:13, cA:"rgba(70,12,155,0.40)",  cB:"rgba(178,50,238,0.22)", cC:"rgba(13,66,178,0.14)", blur:43, depth:0.06, phase:3.9, dur:22, anim:"B" },
+];
+
+// Detailed planet definitions inspired by reference images
+const PLANET_DEFS = {
+  // Blue gas giant (ref 1): cyan electric atmosphere, horizontal bands, intense edge glow
+  a: {
+    sphere: { cx:"34%", cy:"30%", stops:[["0%","#b8e4ff"],["35%","#2870e0"],["100%","#031540"]] },
+    shadow: { cx:"68%", cy:"70%", stops:[["35%","rgba(0,0,0,0)"],["100%","rgba(0,5,30,0.74)"]] },
+    glow:   { color:"#0a6fff", scale:1.58, op:0.60 },
+    atmo:   { color:"#30b0ff", w:0.10, op:0.52 },
+    bands:  [
+      { ry:0.18,  rh:0.10, color:"#60c8ff", op:0.23 },
+      { ry:-0.15, rh:0.07, color:"#90dcff", op:0.18 },
+      { ry:0.38,  rh:0.06, color:"#4aa8ee", op:0.15 },
+    ],
+    spec: { ox:-0.34, oy:-0.38, rx:0.32, ry:0.18, rot:-28, op:0.20 },
+  },
+  // Purple neon ringed planet (ref 2): dark body, magenta glow, neon rings
+  b: {
+    sphere: { cx:"32%", cy:"28%", stops:[["0%","#d0a0ff"],["38%","#4c10a0"],["100%","#07001a"]] },
+    shadow: { cx:"70%", cy:"72%", stops:[["30%","rgba(0,0,0,0)"],["100%","rgba(0,0,10,0.80)"]] },
+    glow:   { color:"#cc00ff", scale:1.75, op:0.68 },
+    atmo:   { color:"#ff44ff", w:0.12, op:0.56 },
+    bands:  [
+      { ry:0.10,  rh:0.09, color:"#c060ff", op:0.28 },
+      { ry:-0.20, rh:0.07, color:"#ff80ff", op:0.21 },
+    ],
+    spec: { ox:-0.36, oy:-0.40, rx:0.28, ry:0.15, rot:-30, op:0.24 },
+    rings: [
+      { rx:1.90, ry:0.58, color:"#9920cc", op:0.28, wf:0.046 },
+      { rx:1.68, ry:0.52, color:"#dd80ff", op:0.64, wf:0.033 },
+      { rx:1.40, ry:0.44, color:"#ff44ff", op:0.40, wf:0.023 },
+    ],
+    ringAngle: -20,
+  },
+  // Saturn-like (ref 3): warm teal sphere, wide golden rings, purple atmospheric haze
+  c: {
+    sphere: { cx:"35%", cy:"31%", stops:[["0%","#ffe8a0"],["42%","#9080d0"],["100%","#1c1040"]] },
+    shadow: { cx:"67%", cy:"69%", stops:[["32%","rgba(0,0,0,0)"],["100%","rgba(0,0,20,0.72)"]] },
+    glow:   { color:"#6040d8", scale:1.50, op:0.52 },
+    atmo:   { color:"#a090ff", w:0.09, op:0.46 },
+    bands:  [
+      { ry:0.20,  rh:0.10, color:"#c0b0ff", op:0.20 },
+      { ry:-0.10, rh:0.07, color:"#ffe0a0", op:0.18 },
+      { ry:0.40,  rh:0.06, color:"#8070c8", op:0.15 },
+    ],
+    spec: { ox:-0.32, oy:-0.36, rx:0.30, ry:0.17, rot:-25, op:0.21 },
+    rings: [
+      { rx:2.14, ry:0.58, color:"#a08040", op:0.30, wf:0.076 },
+      { rx:1.82, ry:0.50, color:"#d0b060", op:0.72, wf:0.060 },
+      { rx:1.46, ry:0.40, color:"#ffd080", op:0.54, wf:0.044 },
+    ],
+    ringAngle: -18,
+  },
+  // Ice-slate distant planet
+  d: {
+    sphere: { cx:"36%", cy:"32%", stops:[["0%","#c8d8f0"],["50%","#5a6c96"],["100%","#121828"]] },
+    shadow: { cx:"65%", cy:"68%", stops:[["40%","rgba(0,0,0,0)"],["100%","rgba(0,0,20,0.66)"]] },
+    glow:   { color:"#4060a0", scale:1.36, op:0.40 },
+    atmo:   { color:"#7090c0", w:0.08, op:0.35 },
+    bands:  [{ ry:0.22, rh:0.08, color:"#a0b8d8", op:0.18 }],
+    spec: { ox:-0.33, oy:-0.37, rx:0.28, ry:0.16, rot:-26, op:0.15 },
+  },
+  // Pale moon
+  e: {
+    sphere: { cx:"38%", cy:"34%", stops:[["0%","#e8eef8"],["55%","#8898b8"],["100%","#202838"]] },
+    shadow: { cx:"63%", cy:"66%", stops:[["45%","rgba(0,0,0,0)"],["100%","rgba(0,0,15,0.62)"]] },
+    glow:   { color:"#506080", scale:1.26, op:0.30 },
+    atmo:   { color:"#a0b0c8", w:0.06, op:0.25 },
+    bands:  [],
+    spec: { ox:-0.30, oy:-0.35, rx:0.26, ry:0.14, rot:-22, op:0.12 },
+  },
+};
+
+// Planets: large ones use detailed variants (a/b/c), small ones use simpler (d/e)
+const PLANETS = [
+  { id:"p1", left:6,  top:60, size:240, depth:0.10, phase:0.0, v:"c" },
+  { id:"p2", left:75, top:10, size:160, depth:0.18, phase:1.6, v:"b" },
+  { id:"p3", left:56, top:67, size:100, depth:0.30, phase:3.1, v:"a" },
+  { id:"p4", left:87, top:64, size:62,  depth:0.44, phase:0.8, v:"d" },
+  { id:"p5", left:27, top:15, size:50,  depth:0.52, phase:2.3, v:"e" },
+  { id:"p6", left:45, top:41, size:36,  depth:0.62, phase:4.0, v:"a" },
+  { id:"p7", left:15, top:31, size:24,  depth:0.74, phase:5.1, v:"e" },
+];
+
+function PlanetSvg({ s, v }) {
+  const def = PLANET_DEFS[v] || PLANET_DEFS.a;
+  const hasRings = !!def.rings;
+  const S = Math.round(s * (hasRings ? 2.4 : 2.0));
   const cx = S / 2, cy = S / 2, r = s / 2;
-  const id = `pl${v}${s}`;
+  const uid = `plx_${v}_${s}`;
+  const atmoEdge = `${Math.round((1 - def.atmo.w) * 100)}%`;
   return (
-    <svg width={S} height={S} viewBox={`0 0 ${S} ${S}`} style={{ display: "block", overflow: "visible" }}>
+    <svg width={S} height={S} viewBox={`0 0 ${S} ${S}`} style={{ display:"block", overflow:"visible" }}>
       <defs>
-        <radialGradient id={`${id}s`} cx="36%" cy="32%" r="78%">
-          <stop offset="0%" stopColor={c1} />
-          <stop offset="52%" stopColor={c2} />
-          <stop offset="100%" stopColor={c3} />
+        <radialGradient id={`${uid}s`} cx={def.sphere.cx} cy={def.sphere.cy} r="78%">
+          {def.sphere.stops.map(([off,col],i) => <stop key={i} offset={off} stopColor={col}/>)}
         </radialGradient>
-        <radialGradient id={`${id}sh`} cx="68%" cy="72%" r="72%">
-          <stop offset="38%" stopColor="rgba(0,0,0,0)" />
-          <stop offset="100%" stopColor="rgba(0,0,0,0.62)" />
+        <radialGradient id={`${uid}sh`} cx={def.shadow.cx} cy={def.shadow.cy} r="72%">
+          {def.shadow.stops.map(([off,col],i) => <stop key={i} offset={off} stopColor={col}/>)}
         </radialGradient>
-        <radialGradient id={`${id}g`} cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor={c2} stopOpacity="0.55" />
-          <stop offset="55%" stopColor={c2} stopOpacity="0.12" />
-          <stop offset="100%" stopColor={c2} stopOpacity="0" />
+        <radialGradient id={`${uid}g`} cx="50%" cy="50%" r="50%">
+          <stop offset="0%"   stopColor={def.glow.color} stopOpacity={def.glow.op}/>
+          <stop offset="48%"  stopColor={def.glow.color} stopOpacity={def.glow.op * 0.25}/>
+          <stop offset="100%" stopColor={def.glow.color} stopOpacity="0"/>
         </radialGradient>
+        <radialGradient id={`${uid}atmo`} cx="50%" cy="50%" r="50%">
+          <stop offset={atmoEdge} stopColor={def.atmo.color} stopOpacity="0"/>
+          <stop offset="93%"      stopColor={def.atmo.color} stopOpacity={def.atmo.op}/>
+          <stop offset="100%"     stopColor={def.atmo.color} stopOpacity="0"/>
+        </radialGradient>
+        <clipPath id={`${uid}clip`}><circle cx={cx} cy={cy} r={r}/></clipPath>
       </defs>
-      {/* outer glow */}
-      <circle cx={cx} cy={cy} r={s * 0.86} fill={`url(#${id}g)`} />
-      {/* ring (drawn behind → reads as a halo ring) */}
-      {ring && (
-        <g transform={`rotate(-24 ${cx} ${cy})`}>
-          <ellipse cx={cx} cy={cy} rx={r * 1.6} ry={r * 0.5} fill="none" stroke={c1} strokeOpacity="0.5" strokeWidth={Math.max(1, s * 0.028)} />
-          <ellipse cx={cx} cy={cy} rx={r * 1.34} ry={r * 0.42} fill="none" stroke={c1} strokeOpacity="0.22" strokeWidth={Math.max(1, s * 0.016)} />
+
+      {/* outer glow halo */}
+      <circle cx={cx} cy={cy} r={r * def.glow.scale} fill={`url(#${uid}g)`}/>
+
+      {/* rings drawn behind sphere */}
+      {hasRings && (
+        <g transform={`rotate(${def.ringAngle} ${cx} ${cy})`}>
+          {def.rings.map((rg, i) => (
+            <ellipse key={i} cx={cx} cy={cy} rx={r * rg.rx} ry={r * rg.ry}
+              fill="none" stroke={rg.color} strokeOpacity={rg.op} strokeWidth={Math.max(1, s * rg.wf)}/>
+          ))}
         </g>
       )}
-      {/* sphere */}
-      <circle cx={cx} cy={cy} r={r} fill={`url(#${id}s)`} />
-      {/* terminator shadow → 3D volume */}
-      <circle cx={cx} cy={cy} r={r} fill={`url(#${id}sh)`} />
+
+      {/* sphere base */}
+      <circle cx={cx} cy={cy} r={r} fill={`url(#${uid}s)`}/>
+
+      {/* atmospheric bands clipped to sphere */}
+      <g clipPath={`url(#${uid}clip)`}>
+        {def.bands && def.bands.map((b, i) => (
+          <ellipse key={i} cx={cx} cy={cy + r * b.ry} rx={r * 0.98} ry={r * b.rh}
+            fill={b.color} fillOpacity={b.op}/>
+        ))}
+      </g>
+
+      {/* terminator shadow for 3-D volume */}
+      <circle cx={cx} cy={cy} r={r} fill={`url(#${uid}sh)`}/>
+
+      {/* atmospheric rim glow */}
+      <circle cx={cx} cy={cy} r={r} fill={`url(#${uid}atmo)`}/>
+
       {/* specular highlight */}
-      <ellipse cx={cx - r * 0.34} cy={cy - r * 0.38} rx={r * 0.32} ry={r * 0.18}
-        fill="#ffffff" fillOpacity="0.14" transform={`rotate(-28 ${cx - r * 0.34} ${cy - r * 0.38})`} />
+      <ellipse
+        cx={cx + r * def.spec.ox} cy={cy + r * def.spec.oy}
+        rx={r * def.spec.rx} ry={r * def.spec.ry}
+        fill="#ffffff" fillOpacity={def.spec.op}
+        transform={`rotate(${def.spec.rot} ${cx + r * def.spec.ox} ${cy + r * def.spec.oy})`}/>
     </svg>
   );
 }
@@ -668,18 +772,16 @@ function FloatingBg() {
       tgtRef.current.y = (e.clientY / window.innerHeight - 0.5) * 2;
     };
     const tick = () => {
-      // smooth easing → slight, gentle delay following the cursor
       curRef.current.x += (tgtRef.current.x - curRef.current.x) * 0.035;
       curRef.current.y += (tgtRef.current.y - curRef.current.y) * 0.035;
       const t = Date.now() / 1000;
       wrapRef.current?.querySelectorAll("[data-bg]").forEach(el => {
-        const depth = +el.dataset.depth;
-        const phase = +el.dataset.phase;
+        const depth = +el.dataset.depth, phase = +el.dataset.phase;
         const amp = +(el.dataset.amp ?? 1);
         const tx = curRef.current.x * depth * -46;
         const ty = curRef.current.y * depth * -46;
         const fy = Math.sin(t * 0.32 + phase) * 10 * amp;
-        const fx = Math.cos(t * 0.24 + phase) * 6 * amp;
+        const fx = Math.cos(t * 0.24 + phase) *  6 * amp;
         const cen = el.dataset.center ? "translate(-50%,-50%) " : "";
         el.style.transform = `${cen}translate(${tx + fx}px,${ty + fy}px)`;
       });
@@ -691,35 +793,51 @@ function FloatingBg() {
   }, []);
 
   return (
-    <div ref={wrapRef} style={{ position: "fixed", inset: 0, overflow: "hidden", pointerEvents: "none", zIndex: 0 }}>
+    <div ref={wrapRef} style={{ position:"fixed", inset:0, overflow:"hidden", pointerEvents:"none", zIndex:0, isolation:"isolate" }}>
       <style>{`
-        @keyframes bgTwinkle { 0%,100%{opacity:0.18} 50%{opacity:1} }
-        @keyframes bgNebula  { 0%,100%{opacity:0.7;transform:translate(-50%,-50%) scale(1)} 50%{opacity:1;transform:translate(-50%,-50%) scale(1.12)} }
+        @keyframes bgTwinkle  { 0%,100%{opacity:0.15} 50%{opacity:1} }
+        @keyframes bgCloudA   { 0%,100%{opacity:0.55} 35%{opacity:0.88} 65%{opacity:0.62} }
+        @keyframes bgCloudB   { 0%,100%{opacity:0.45} 45%{opacity:0.82} 70%{opacity:0.52} }
+        @keyframes bgCloudC   { 0%,100%{opacity:0.50} 30%{opacity:0.84} 60%{opacity:0.58} 80%{opacity:0.44} }
       `}</style>
 
-      {/* deep-space base gradient */}
-      <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 72% 28%, #0c2350 0%, #061427 42%, #02060f 100%)" }} />
+      {/* deep-space base */}
+      <div style={{ position:"absolute", inset:0, background:"radial-gradient(ellipse at 72% 28%, #0c2350 0%, #061427 42%, #02060f 100%)" }}/>
 
-      {/* nebula clouds — slow CSS pulse + faint cursor parallax */}
-      {NEBULA.map(n => (
-        <div key={n.id} data-bg data-depth={n.depth} data-phase={n.phase} data-amp="0.4" data-center="1"
-          style={{ position: "absolute", left: `${n.left}%`, top: `${n.top}%`, width: `${n.size}vmax`, height: `${n.size}vmax`,
-            borderRadius: "50%", background: `radial-gradient(circle, ${n.color} 0%, transparent 70%)`, filter: "blur(46px)",
-            transform: "translate(-50%,-50%)", animation: `bgNebula ${n.dur}s ease-in-out infinite`, willChange: "transform, opacity" }} />
+      {/* lit shimmering clouds — three-layer gradient simulates directional lighting */}
+      {CLOUDS.map(c => (
+        <div key={c.id} data-bg data-depth={c.depth} data-phase={c.phase} data-amp="0.5" data-center="1"
+          style={{
+            position:"absolute", left:`${c.left}%`, top:`${c.top}%`,
+            width:`${c.w}vmax`, height:`${c.h}vmax`,
+            borderRadius:"50%",
+            background:`
+              radial-gradient(ellipse at 28% 25%, ${c.cB} 0%, transparent 50%),
+              radial-gradient(ellipse at 62% 62%, ${c.cA} 0%, transparent 66%),
+              radial-gradient(ellipse at 82% 80%, ${c.cC} 0%, transparent 54%)
+            `,
+            filter:`blur(${c.blur}px)`,
+            transform:"translate(-50%,-50%)",
+            animation:`bgCloud${c.anim} ${c.dur}s ease-in-out infinite`,
+            willChange:"transform, opacity",
+            mixBlendMode:"screen",
+          }}/>
       ))}
 
       {/* starfield */}
       {STARS.map(st => (
-        <div key={st.id} style={{ position: "absolute", left: `${st.left}%`, top: `${st.top}%`, width: st.size, height: st.size,
-          borderRadius: "50%", background: "#d4e8ff", boxShadow: "0 0 4px #9cc8ff",
-          animation: `bgTwinkle ${st.dur}s ease-in-out ${st.delay}s infinite` }} />
+        <div key={st.id} style={{
+          position:"absolute", left:`${st.left}%`, top:`${st.top}%`,
+          width:st.size, height:st.size, borderRadius:"50%",
+          background:"#d4e8ff", boxShadow:"0 0 4px #9cc8ff",
+          animation:`bgTwinkle ${st.dur}s ease-in-out ${st.delay}s infinite`}}/>
       ))}
 
       {/* parallax planets */}
       {PLANETS.map(p => (
         <div key={p.id} data-bg data-depth={p.depth} data-phase={p.phase}
-          style={{ position: "absolute", left: `${p.left}%`, top: `${p.top}%`, willChange: "transform" }}>
-          <PlanetSvg s={p.size} v={p.v} ring={p.ring} />
+          style={{ position:"absolute", left:`${p.left}%`, top:`${p.top}%`, willChange:"transform" }}>
+          <PlanetSvg s={p.size} v={p.v}/>
         </div>
       ))}
     </div>
@@ -1394,9 +1512,13 @@ export default function AITracker() {
         const repo = repos[i];
         setGhSyncMsg(`Аналізую ${i + 1}/${repos.length}: ${repo.name}…`);
         let stats = null;
-        for (let attempt = 0; attempt < 3; attempt++) {
+        // GitHub обчислює статистику ліниво — перший запит дає 202, потрібно зачекати і повторити
+        for (let attempt = 0; attempt < 7; attempt++) {
           const sr = await fetch(`https://api.github.com/repos/${repo.owner.login}/${repo.name}/stats/contributors`, { headers });
-          if (sr.status === 202) { await new Promise(res => setTimeout(res, 1500)); continue; } // GitHub ще рахує
+          if (sr.status === 202) {
+            await new Promise(res => setTimeout(res, attempt < 3 ? 2000 : 3500));
+            continue;
+          }
           if (sr.status === 204 || !sr.ok) { stats = []; break; }
           stats = await sr.json();
           break;
@@ -1405,7 +1527,8 @@ export default function AITracker() {
         let repoNet = 0;
         stats.forEach(c => {
           if (c.author?.login?.toLowerCase() === userLc) {
-            c.weeks.forEach(w => { repoNet += (w.a - w.d); });
+            // використовуємо additions (w.a) — кількість написаних рядків, а не net
+            c.weeks.forEach(w => { repoNet += w.a; });
           }
         });
         if (repoNet > 0) { perRepo.push({ name: repo.name, lines: repoNet }); totalNet += repoNet; }
