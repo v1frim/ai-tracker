@@ -275,9 +275,16 @@ const PROJECT_CATEGORIES = [
   { id: "web",      label: "Веб",       color: "#6366f1", icon: "🌐" },
   { id: "bot",      label: "Бот",       color: "#a855f7", icon: "🤖" },
   { id: "content",  label: "Контент",   color: "#ec4899", icon: "📹" },
+  { id: "work",     label: "Робота / Клієнти", color: "#ef4444", icon: "🤝" },
   { id: "business", label: "Бізнес",    color: "#f59e0b", icon: "💼" },
   { id: "learning", label: "Навчання",  color: "#06b6d4", icon: "📚" },
   { id: "other",    label: "Інше",      color: "#9a8a60", icon: "📦" },
+];
+
+const PROJECT_STATUSES = [
+  { id: "in_progress", label: "🔄 в процесі", color: "#f59e0b", bg: "rgba(245,158,11,0.10)", border: "rgba(245,158,11,0.30)" },
+  { id: "paused",      label: "⏸ на паузі",  color: "#06b6d4", bg: "rgba(6,182,212,0.10)",  border: "rgba(6,182,212,0.30)" },
+  { id: "done",        label: "✓ виконано",   color: "#00ff88", bg: "rgba(0,255,136,0.10)",  border: "rgba(0,255,136,0.30)" },
 ];
 
 const getItemPeriod = (completedAt) => {
@@ -956,7 +963,6 @@ export default function AITracker() {
   const [tasksDoneOpen, setTasksDoneOpen] = useState(false);
   const [goalsDoneOpen, setGoalsDoneOpen] = useState(false);
   const [planDoneOpen, setPlanDoneOpen] = useState(false);
-  const [projectsDoneOpen, setProjectsDoneOpen] = useState(false);
   const [donePeriodsCollapsed, setDonePeriodsCollapsed] = useState({});
   const [projectInput, setProjectInput] = useState("");
   const [projectCompletionXP, setProjectCompletionXP] = useState(200);
@@ -4097,44 +4103,44 @@ export default function AITracker() {
             {(() => {
               const activeProjects = projects.filter(p => (p.status ?? "done") !== "done");
               const doneProjects = projects.filter(p => (p.status ?? "done") === "done");
-              const projectCard = (p, i) => {
-                const status = p.status ?? "done";
-                const statusCfg = {
-                  done:        { label: "✓ завершено",   color: "#00ff88", bg: "rgba(0,255,136,0.10)", border: "rgba(0,255,136,0.30)" },
-                  in_progress: { label: "🔄 в процесі",  color: "#f59e0b", bg: "rgba(245,158,11,0.10)", border: "rgba(245,158,11,0.30)" },
-                  cancelled:   { label: "✕ скасовано",  color: "#6a5a40", bg: "rgba(106,90,64,0.10)",  border: "rgba(106,90,64,0.25)" },
-                }[status];
-                const cxp = p.completionXP ?? 0;
+              const projectCard = (p) => {
                 const realIdx = projects.indexOf(p);
-                const cycleStatus = () => {
+                const status = p.status ?? "done";
+                const cxp = p.completionXP ?? 0;
+                const isDone = status === "done";
+                const changeStatus = (next) => {
                   setProjects(prev => prev.map((x, idx) => {
                     if (idx !== realIdx) return x;
-                    const next = (x.status ?? "done") === "done" ? "in_progress" : "done";
                     const paid = x.completionXPPaid ?? false;
-                    if (next === "done" && !paid && cxp > 0) {
-                      gainXP(cxp, `🚀 ${x.name}`, "project");
+                    const xcxp = x.completionXP ?? 0;
+                    if (next === "done" && !paid && xcxp > 0) {
+                      gainXP(xcxp, `🚀 ${x.name}`, "project");
                       return { ...x, status: next, completionXPPaid: true, completedAt: new Date().toISOString() };
                     }
-                    if (next === "in_progress" && paid && cxp > 0) {
-                      loseXP(cxp, "project", "↩ проект не завершено");
+                    if (next !== "done" && paid && xcxp > 0) {
+                      loseXP(xcxp, "project", "↩ проект не завершено");
                       return { ...x, status: next, completionXPPaid: false, completedAt: null };
                     }
-                    return { ...x, status: next, completedAt: next === "done" ? new Date().toISOString() : null };
+                    return { ...x, status: next, completedAt: next === "done" ? (x.completedAt ?? new Date().toISOString()) : null };
                   }));
                 };
                 const cat = PROJECT_CATEGORIES.find(c => c.id === (p.category ?? "other")) ?? PROJECT_CATEGORIES[PROJECT_CATEGORIES.length - 1];
+                const stCfg = PROJECT_STATUSES.find(s => s.id === status) ?? PROJECT_STATUSES[0];
+                const doneDate = p.completedAt ? new Date(p.completedAt).toLocaleDateString("uk-UA", { day: "numeric", month: "short", year: "numeric" }) : p.date;
                 return (
-                  <div key={realIdx} style={{ display: "flex", alignItems: "center", gap: 12, background: "rgba(5,3,1,0.76)", border: `1px solid rgba(201,168,76,0.15)`, borderLeft: `3px solid ${cat.color}`, borderRadius: 4, padding: "12px 16px", opacity: status === "cancelled" ? 0.6 : 1 }}>
+                  <div key={realIdx} style={{ display: "flex", alignItems: "center", gap: 12, background: "rgba(5,3,1,0.76)", border: `1px solid rgba(201,168,76,0.15)`, borderLeft: `3px solid ${cat.color}`, borderRadius: 4, padding: "12px 16px", opacity: isDone ? 0.62 : 1 }}>
                     <span style={{ fontSize: 18 }}>{cat.icon}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ color: status === "cancelled" ? "#6a5a40" : "#e0d8c0", fontSize: 13, fontFamily: "'Exo 2',sans-serif", fontWeight: 600, textDecoration: status === "cancelled" ? "line-through" : "none" }}>{p.name}</div>
+                      <div style={{ color: isDone ? "#6a7060" : "#e0d8c0", fontSize: 13, fontFamily: "'Exo 2',sans-serif", fontWeight: 600, textDecoration: isDone ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
                       {cxp > 0 && (
-                        <div style={{ fontSize: 11, color: "#5a4a20", fontFamily: "'Space Mono',monospace", marginTop: 2 }}>🔒 +{cxp} XP при завершенні</div>
+                        <div style={{ fontSize: 11, color: isDone ? "#3a5030" : "#5a4a20", fontFamily: "'Space Mono',monospace", marginTop: 2 }}>{isDone ? `✓ +${cxp} XP отримано` : `🔒 +${cxp} XP при завершенні`}</div>
                       )}
                     </div>
-                    <span style={{ color: "#6a5a40", fontSize: 11, fontFamily: "'Space Mono',monospace", flexShrink: 0 }}>{p.date}</span>
-                    <button onClick={cycleStatus} title="Завершити"
-                      style={{ fontSize: 11, padding: "4px 10px", borderRadius: 3, border: `1px solid ${statusCfg.border}`, background: statusCfg.bg, color: statusCfg.color, cursor: "pointer", fontWeight: 700, whiteSpace: "nowrap", fontFamily: "'Exo 2',sans-serif" }}>{statusCfg.label}</button>
+                    <span style={{ color: "#6a5a40", fontSize: 11, fontFamily: "'Space Mono',monospace", flexShrink: 0 }}>{isDone ? `✓ ${doneDate}` : p.date}</span>
+                    <select value={status} onChange={e => changeStatus(e.target.value)} title="Статус"
+                      style={{ fontSize: 11, padding: "4px 8px", borderRadius: 3, border: `1px solid ${stCfg.border}`, background: stCfg.bg, color: stCfg.color, cursor: "pointer", fontWeight: 700, fontFamily: "'Exo 2',sans-serif" }}>
+                      {PROJECT_STATUSES.map(s => <option key={s.id} value={s.id} style={{ background: "#0c0903", color: "#e0d8c0" }}>{s.label}</option>)}
+                    </select>
                     <button onClick={() => setProjectDeleteConfirm(realIdx)} title="Видалити" style={{ background: "none", border: "none", color: "#5a3a30", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "2px 4px" }} onMouseEnter={e => e.target.style.color="#f43f5e"} onMouseLeave={e => e.target.style.color="#5a3a30"}>×</button>
                   </div>
                 );
@@ -4145,9 +4151,13 @@ export default function AITracker() {
                 items: activeProjects.filter(p => (p.category ?? "other") === cat.id),
               })).filter(g => g.items.length > 0);
 
+              // виконані: найсвіжіші зверху
+              const sortedDone = [...doneProjects].sort((a, b) =>
+                (b.completedAt ? new Date(b.completedAt).getTime() : 0) - (a.completedAt ? new Date(a.completedAt).getTime() : 0));
+
               return (
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                  {catGroups.length === 0 && activeProjects.length === 0 && !doneProjects.length && (
+                  {catGroups.length === 0 && !doneProjects.length && (
                     <div style={{ textAlign: "center", padding: 32, color: "#6a5f40", fontSize: 13 }}>Ще немає проектів. Додай перший!</div>
                   )}
                   {catGroups.map(({ cat, items }) => (
@@ -4157,27 +4167,20 @@ export default function AITracker() {
                         <span style={{ fontSize: 11, color: "#5a4a30" }}>{items.length} {items.length === 1 ? "проект" : "проекти"}</span>
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                        {items.map((p) => projectCard(p, projects.indexOf(p)))}
+                        {items.map(projectCard)}
                       </div>
                     </div>
                   ))}
 
-                  {/* Done projects */}
-                  {renderDoneSection(doneProjects, {
-                    sectionKey: "projects",
-                    open: projectsDoneOpen, setOpen: setProjectsDoneOpen,
-                    onUndo: (p) => {
-                      const realIdx = projects.indexOf(p);
-                      setProjects(prev => prev.map((x, idx) => {
-                        if (idx !== realIdx) return x;
-                        if (x.completionXPPaid && (x.completionXP ?? 0) > 0) loseXP(x.completionXP, "project", "↩ проект не завершено");
-                        return { ...x, status: "in_progress", completionXPPaid: false, completedAt: null };
-                      }));
-                    },
-                    onDelete: (p) => setProjectDeleteConfirm(projects.indexOf(p)),
-                    labelFn: p => p.name,
-                    xpFn: p => p.completionXP ?? 0,
-                  })}
+                  {/* Виконані проекти — затухлий список, найсвіжіші зверху */}
+                  {sortedDone.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 11, color: "#3a6a3a", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 8, marginTop: 4 }}>✓ Виконано · {sortedDone.length}</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {sortedDone.map(projectCard)}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })()}
