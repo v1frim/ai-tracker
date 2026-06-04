@@ -170,6 +170,7 @@ const ACH_GROUPS = [
   { id: "tools",    label: "🧠 Інструменти" },
   { id: "income",   label: "💰 Дохід" },
   { id: "projects", label: "🚀 Проекти" },
+  { id: "code",     label: "💻 Рядки коду" },
   { id: "streak",   label: "🔥 Стріки" },
   { id: "sessions", label: "⚡ Сесії" },
   { id: "learning", label: "📚 Вивчення ШІ" },
@@ -224,6 +225,14 @@ const ACHIEVEMENTS = [
   { id: "learn_1000",  group: "learning", tier: "epic",      name: "Експерт",      desc: "1,000 год вивчення ШІ (навч+бізнес)",   xp: 3000,  icon: "🎓", check: (t, i, p, sd, st, ts, h) => h >= 1000,  progress: (t, i, p, sd, st, ts, h) => ({ cur: h, max: 1000 }) },
   { id: "learn_5000",  group: "learning", tier: "legendary", name: "Майстер ШІ",   desc: "5,000 год вивчення ШІ (навч+бізнес)",   xp: 8000,  icon: "🧠", check: (t, i, p, sd, st, ts, h) => h >= 5000,  progress: (t, i, p, sd, st, ts, h) => ({ cur: h, max: 5000 }) },
   { id: "learn_10000", group: "learning", tier: "prime",     name: "10,000 годин", desc: "10,000 год — правило майстерності",      xp: 20000, icon: "🏆", check: (t, i, p, sd, st, ts, h) => h >= 10000, progress: (t, i, p, sd, st, ts, h) => ({ cur: h, max: 10000 }) },
+
+  // ── Рядки коду (синхронізація з GitHub) ──
+  { id: "code_5k",   group: "code", tier: "common",    name: "Перші рядки",  desc: "5,000 рядків коду на GitHub",   xp: 300,   icon: "⌨️", check: (t,i,p,sd,st,ts,h,cl) => cl >= 5000,   progress: (t,i,p,sd,st,ts,h,cl) => ({ cur: cl, max: 5000 }) },
+  { id: "code_25k",  group: "code", tier: "uncommon",  name: "Кодер",        desc: "25,000 рядків коду на GitHub",  xp: 800,   icon: "💻", check: (t,i,p,sd,st,ts,h,cl) => cl >= 25000,  progress: (t,i,p,sd,st,ts,h,cl) => ({ cur: cl, max: 25000 }) },
+  { id: "code_75k",  group: "code", tier: "epic",      name: "Інженер",      desc: "75,000 рядків коду на GitHub",  xp: 2000,  icon: "🖥️", check: (t,i,p,sd,st,ts,h,cl) => cl >= 75000,  progress: (t,i,p,sd,st,ts,h,cl) => ({ cur: cl, max: 75000 }) },
+  { id: "code_150k", group: "code", tier: "rare",      name: "Архітектор",   desc: "150,000 рядків коду на GitHub", xp: 4000,  icon: "🏛️", check: (t,i,p,sd,st,ts,h,cl) => cl >= 150000, progress: (t,i,p,sd,st,ts,h,cl) => ({ cur: cl, max: 150000 }) },
+  { id: "code_300k", group: "code", tier: "prime",     name: "Кодомайстер",  desc: "300,000 рядків коду на GitHub", xp: 8000,  icon: "⚙️", check: (t,i,p,sd,st,ts,h,cl) => cl >= 300000, progress: (t,i,p,sd,st,ts,h,cl) => ({ cur: cl, max: 300000 }) },
+  { id: "code_500k", group: "code", tier: "legendary", name: "Легенда коду", desc: "500,000 рядків коду на GitHub", xp: 15000, icon: "👑", check: (t,i,p,sd,st,ts,h,cl) => cl >= 500000, progress: (t,i,p,sd,st,ts,h,cl) => ({ cur: cl, max: 500000 }) },
 
   // ── Особливі ──
   { id: "oxford_dev", group: "special", tier: "epic", name: "Oxford Dev", desc: "Запущено! (Oxford_1000 вже є 🎉)", xp: 300, icon: "📚", check: () => true },
@@ -802,6 +811,10 @@ export default function AITracker() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiModel, setAiModel] = useState(saved?.aiModel ?? "gpt-4o-mini");
   const [aiApiKeys, setAiApiKeys] = useState(saved?.aiApiKeys ?? { openai: "", anthropic: "", gemini: "" });
+  const [githubSync, setGithubSync] = useState(saved?.githubSync ?? { user: "", token: "", lastSync: null, totalLines: 0, repos: [] });
+  const [ghPanelOpen, setGhPanelOpen] = useState(false);
+  const [ghSyncing, setGhSyncing] = useState(false);
+  const [ghSyncMsg, setGhSyncMsg] = useState("");
   const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
   const [aiAttachments, setAiAttachments] = useState([]);
   const [aiModelOpen, setAiModelOpen] = useState(false);
@@ -851,9 +864,9 @@ export default function AITracker() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    const state = { skillData, totalXP, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, longGoalEpoch, plan, aiMessages, aiModel, aiApiKeys, progressLog, metricLog, todayXP, skillTasksData, learnTime };
+    const state = { skillData, totalXP, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, longGoalEpoch, plan, aiMessages, aiModel, aiApiKeys, githubSync, progressLog, metricLog, todayXP, skillTasksData, learnTime };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [skillData, totalXP, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, longGoalEpoch, plan, aiMessages, aiModel, aiApiKeys, progressLog, metricLog, todayXP, skillTasksData, learnTime]);
+  }, [skillData, totalXP, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, longGoalEpoch, plan, aiMessages, aiModel, aiApiKeys, githubSync, progressLog, metricLog, todayXP, skillTasksData, learnTime]);
 
   useEffect(() => {
     localStorage.setItem("ai_tracker_today_act", JSON.stringify({ date: todayStr(), data: todayActivity }));
@@ -1023,11 +1036,12 @@ export default function AITracker() {
   const checkAchievements = useCallback((tools, inc, proj, sd, currentUnlocked, currentStreak, totalSessions) => {
     const lt = learnTimeRef.current;
     const learnHours = ((lt.education ?? 0) + (lt.business ?? 0)) * 0.5;
+    const codeLines = skillTasksRef.current["code_lines_written"]?.count ?? 0;
     const newlyUnlocked = [];
     let bonusXP = 0;
     ACHIEVEMENTS.forEach(a => {
       if (currentUnlocked.includes(a.id)) return;
-      if (a.check(tools, inc, proj, sd, currentStreak, totalSessions, learnHours)) {
+      if (a.check(tools, inc, proj, sd, currentStreak, totalSessions, learnHours, codeLines)) {
         newlyUnlocked.push(a.id);
         bonusXP += a.xp;
       }
@@ -1299,6 +1313,80 @@ export default function AITracker() {
       return ua;
     });
   }, [doneToday, sessions, gainXP, recordActiveDay, checkAchievements, totalTools, totalIncome, projects, skillData]);
+
+  // Синхронізація рядків коду з GitHub (усі репозиторії користувача).
+  // Рахуємо net-додавання (additions − deletions) у внеску користувача по git-історії.
+  const syncGithubLines = useCallback(async () => {
+    const user = githubSync.user.trim();
+    const token = githubSync.token.trim();
+    if (!user) { setGhSyncMsg("⚠ Вкажи GitHub username"); return; }
+    setGhSyncing(true);
+    setGhSyncMsg("Отримую список репозиторіїв…");
+    const headers = { Accept: "application/vnd.github+json" };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    try {
+      // 1. Список репозиторіїв (з пагінацією)
+      let repos = [];
+      for (let page = 1; page <= 10; page++) {
+        const url = token
+          ? `https://api.github.com/user/repos?per_page=100&affiliation=owner&sort=pushed&page=${page}`
+          : `https://api.github.com/users/${encodeURIComponent(user)}/repos?per_page=100&sort=pushed&page=${page}`;
+        const r = await fetch(url, { headers });
+        if (!r.ok) {
+          if (r.status === 401) throw new Error("Невірний токен (401)");
+          if (r.status === 403) throw new Error("Ліміт запитів GitHub (403) — додай токен");
+          if (r.status === 404) throw new Error("Користувача не знайдено (404)");
+          throw new Error(`GitHub помилка ${r.status}`);
+        }
+        const batch = await r.json();
+        repos = repos.concat(batch);
+        if (batch.length < 100) break;
+      }
+      repos = repos.filter(repo => !repo.fork);
+      if (!repos.length) { setGhSyncMsg("Репозиторіїв не знайдено"); setGhSyncing(false); return; }
+
+      // 2. По кожному репо — статистика внеску користувача
+      const userLc = user.toLowerCase();
+      const perRepo = [];
+      let totalNet = 0;
+      for (let i = 0; i < repos.length; i++) {
+        const repo = repos[i];
+        setGhSyncMsg(`Аналізую ${i + 1}/${repos.length}: ${repo.name}…`);
+        let stats = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const sr = await fetch(`https://api.github.com/repos/${repo.owner.login}/${repo.name}/stats/contributors`, { headers });
+          if (sr.status === 202) { await new Promise(res => setTimeout(res, 1500)); continue; } // GitHub ще рахує
+          if (sr.status === 204 || !sr.ok) { stats = []; break; }
+          stats = await sr.json();
+          break;
+        }
+        if (!Array.isArray(stats)) stats = [];
+        let repoNet = 0;
+        stats.forEach(c => {
+          if (c.author?.login?.toLowerCase() === userLc) {
+            c.weeks.forEach(w => { repoNet += (w.a - w.d); });
+          }
+        });
+        if (repoNet > 0) { perRepo.push({ name: repo.name, lines: repoNet }); totalNet += repoNet; }
+      }
+      perRepo.sort((a, b) => b.lines - a.lines);
+
+      // 3. Записуємо у лічильник «Рядків коду написано» (заміна, не додавання)
+      setProgressiveCount("code", "lines_written", totalNet);
+      setGithubSync(prev => ({ ...prev, user, token, lastSync: Date.now(), totalLines: totalNet, repos: perRepo }));
+      setGhSyncMsg(`✓ ${totalNet.toLocaleString()} рядків з ${perRepo.length} репо`);
+
+      // 4. Перевірка досягнень за рядками коду
+      setUnlockedAchievements(ua => {
+        checkAchievements(totalTools, totalIncome, projects.length, skillData, ua, streak, sessions.dates.length);
+        return ua;
+      });
+    } catch (e) {
+      setGhSyncMsg(`⚠ ${e.message}`);
+    } finally {
+      setGhSyncing(false);
+    }
+  }, [githubSync.user, githubSync.token, setProgressiveCount, checkAchievements, totalTools, totalIncome, projects, skillData, streak, sessions.dates]);
 
   const updateMonthlyTarget = useCallback((val) => {
     const t = parseInt(val);
@@ -2157,6 +2245,57 @@ export default function AITracker() {
                                       );
                                     })}
                                   </div>
+                                  {cat.id === "code" && task.id === "lines_written" && (
+                                    <div style={{ marginTop: 6, border: "1px solid rgba(99,102,241,0.3)", borderRadius: 6, background: "rgba(99,102,241,0.05)", overflow: "hidden" }}>
+                                      <div onClick={() => setGhPanelOpen(v => !v)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", cursor: "pointer" }}>
+                                        <span style={{ fontSize: 14 }}>🔄</span>
+                                        <span style={{ flex: 1, fontSize: 12, fontWeight: 700, color: "#8b8fef", fontFamily: "'Exo 2',sans-serif", letterSpacing: 0.5 }}>Синхронізувати з GitHub</span>
+                                        {githubSync.lastSync && (
+                                          <span style={{ fontSize: 10, color: "#5a5f8a", fontFamily: "'Space Mono',monospace" }}>
+                                            {githubSync.totalLines.toLocaleString()} рядків · {new Date(githubSync.lastSync).toLocaleDateString("uk-UA")}
+                                          </span>
+                                        )}
+                                        <span style={{ color: "#6366f1", fontSize: 12 }}>{ghPanelOpen ? "▲" : "▼"}</span>
+                                      </div>
+                                      {ghPanelOpen && (
+                                        <div style={{ padding: "0 12px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+                                          <div style={{ fontSize: 10, color: "#6a6a8a", lineHeight: 1.5, fontFamily: "'Space Mono',monospace" }}>
+                                            Рахує net-рядки (додано − видалено) з усіх твоїх репозиторіїв по git-історії. Токен потрібен для приватних репо та зняття ліміту запитів.
+                                          </div>
+                                          <input
+                                            value={githubSync.user}
+                                            onChange={e => setGithubSync(p => ({ ...p, user: e.target.value }))}
+                                            placeholder="GitHub username (напр. v1frim)"
+                                            style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(99,102,241,0.3)", color: "#c8c8f0", padding: "7px 10px", borderRadius: 4, fontSize: 12, fontFamily: "'Space Mono',monospace" }}
+                                          />
+                                          <input
+                                            type="password"
+                                            value={githubSync.token}
+                                            onChange={e => setGithubSync(p => ({ ...p, token: e.target.value }))}
+                                            placeholder="Personal Access Token (необов'язково)"
+                                            style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(99,102,241,0.3)", color: "#c8c8f0", padding: "7px 10px", borderRadius: 4, fontSize: 12, fontFamily: "'Space Mono',monospace" }}
+                                          />
+                                          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                                            <button onClick={syncGithubLines} disabled={ghSyncing}
+                                              style={{ padding: "7px 16px", borderRadius: 4, fontSize: 12, fontWeight: 700, cursor: ghSyncing ? "default" : "pointer", background: ghSyncing ? "rgba(99,102,241,0.2)" : "#6366f1", border: "none", color: "#fff", opacity: ghSyncing ? 0.6 : 1 }}>
+                                              {ghSyncing ? "Синхронізую…" : "Синхронізувати"}
+                                            </button>
+                                            {ghSyncMsg && <span style={{ fontSize: 11, color: ghSyncMsg.startsWith("⚠") ? "#f43f5e" : ghSyncMsg.startsWith("✓") ? "#00ff88" : "#8b8fef", fontFamily: "'Space Mono',monospace" }}>{ghSyncMsg}</span>}
+                                          </div>
+                                          {githubSync.repos?.length > 0 && (
+                                            <div style={{ marginTop: 2, display: "flex", flexDirection: "column", gap: 3, maxHeight: 160, overflowY: "auto" }}>
+                                              {githubSync.repos.map(r => (
+                                                <div key={r.name} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontFamily: "'Space Mono',monospace", color: "#9a9ac0", padding: "3px 8px", background: "rgba(0,0,0,0.25)", borderRadius: 3 }}>
+                                                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</span>
+                                                  <span style={{ color: "#8b8fef", fontWeight: 700, flexShrink: 0, marginLeft: 8 }}>{r.lines.toLocaleString()}</span>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               );
                             })}
@@ -2195,7 +2334,8 @@ export default function AITracker() {
         {activeTab === "achievements" && (() => {
           const lt = learnTime;
           const learnHours = ((lt.education ?? 0) + (lt.business ?? 0)) * 0.5;
-          const achArgs = [totalTools, totalIncome, projects.length, skillData, streak, sessions.dates.length, learnHours];
+          const codeLines = skillTasksData["code_lines_written"]?.count ?? 0;
+          const achArgs = [totalTools, totalIncome, projects.length, skillData, streak, sessions.dates.length, learnHours, codeLines];
           return (
           <div style={{ display: "flex", flexDirection: "column", gap: 26 }}>
             {ACH_GROUPS.map(g => {
