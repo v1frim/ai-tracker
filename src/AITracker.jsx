@@ -1519,11 +1519,26 @@ export default function AITracker() {
                   <div style={{ fontSize: 24, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif" }}>{s.val}</div>
                 </div>
               ))}
-              {/* Streak badge — to the right of stat blocks */}
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "10px 14px", minWidth: 84, background: `${lc}10`, border: `1px solid ${lc}40`, borderTop: `2px solid ${lc}80`, borderRadius: 4, boxShadow: `0 0 12px ${lglow}` }}>
-                <div style={{ fontSize: 11, color: `${lc}88`, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>🔥 Стрік</div>
-                <div style={{ fontSize: 24, fontWeight: 800, color: lc, fontFamily: "'Exo 2',sans-serif" }}>{totalActiveDays} <span style={{ fontSize: 13 }}>дн.</span></div>
-              </div>
+              {/* Streak badge — tier color matches streak achievements */}
+              {(() => {
+                const STREAK_TIERS = [
+                  { min: 365, tier: "legendary" },
+                  { min: 180, tier: "prime" },
+                  { min: 90,  tier: "rare" },
+                  { min: 30,  tier: "epic" },
+                  { min: 7,   tier: "uncommon" },
+                  { min: 3,   tier: "common" },
+                ];
+                const match = STREAK_TIERS.find(t => totalActiveDays >= t.min);
+                const sc = match ? TIERS[match.tier].color : "#6a5f40";
+                const sglow = match ? TIERS[match.tier].glow : "rgba(106,95,64,0.35)";
+                return (
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "10px 14px", minWidth: 84, background: `${sc}12`, border: `1px solid ${sc}40`, borderTop: `2px solid ${sc}80`, borderRadius: 4, boxShadow: `0 0 12px ${sglow}` }}>
+                    <div style={{ fontSize: 11, color: `${sc}aa`, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>🔥 Стрік</div>
+                    <div style={{ fontSize: 24, fontWeight: 800, color: sc, fontFamily: "'Exo 2',sans-serif" }}>{totalActiveDays} <span style={{ fontSize: 13 }}>дн.</span></div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
 
