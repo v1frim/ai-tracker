@@ -1804,7 +1804,7 @@ export default function AITracker() {
         })}
       </div>
 
-      <div style={{ position: "relative", zIndex: 1, maxWidth: "min(1500px, 95vw)", margin: "0 auto", padding: "20px 14px" }}>
+      <div style={{ position: "relative", zIndex: 1, maxWidth: "min(1340px, 91vw)", margin: "0 auto", padding: "20px 14px" }}>
 
         {/* Header */}
         {(() => {
@@ -4458,7 +4458,7 @@ export default function AITracker() {
       return (
         <div data-ai-chat style={{ position: "fixed", bottom: 20, right: 20, zIndex: 9999, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 10 }}>
           {aiOpen && (
-            <div style={{ width: 310, maxWidth: "calc(100vw - 40px)", maxHeight: "min(520px, calc(100vh - 110px))", background: "linear-gradient(180deg,rgba(12,8,3,0.97),rgba(7,5,1,0.98))", border: "1px solid rgba(201,168,76,0.3)", borderTop: "2px solid rgba(201,168,76,0.55)", borderRadius: 8, boxShadow: "0 12px 48px rgba(0,0,0,0.8)", display: "flex", flexDirection: "column", fontFamily: "'Exo 2',sans-serif" }}>
+            <div style={{ width: 290, maxWidth: "calc(100vw - 40px)", maxHeight: "min(520px, calc(100vh - 110px))", background: "linear-gradient(180deg,rgba(12,8,3,0.97),rgba(7,5,1,0.98))", border: "1px solid rgba(201,168,76,0.3)", borderTop: "2px solid rgba(201,168,76,0.55)", borderRadius: 8, boxShadow: "0 12px 48px rgba(0,0,0,0.8)", display: "flex", flexDirection: "column", fontFamily: "'Exo 2',sans-serif" }}>
 
               {/* Header */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderBottom: "1px solid rgba(201,168,76,0.15)", background: "rgba(201,168,76,0.04)" }}>
