@@ -1784,7 +1784,7 @@ export default function AITracker() {
         })}
       </div>
 
-      <div style={{ position: "relative", zIndex: 1, maxWidth: "min(1200px, 92vw)", margin: "0 auto", padding: "20px 14px" }}>
+      <div style={{ position: "relative", zIndex: 1, maxWidth: "min(1500px, 95vw)", margin: "0 auto", padding: "20px 14px" }}>
 
         {/* Header */}
         {(() => {
@@ -1895,10 +1895,10 @@ export default function AITracker() {
           );
         })()}
 
-        {/* Tabs — Warframe underline style */}
-        <div style={{ display: "flex", gap: 0, marginBottom: 24, borderBottom: "1px solid rgba(201,168,76,0.28)", flexWrap: "wrap", flexShrink: 0 }}>
+        {/* Tabs — Warframe underline style (on its own panel) */}
+        <div style={{ display: "flex", gap: 0, marginBottom: 24, flexWrap: "wrap", flexShrink: 0, background: "linear-gradient(180deg, rgba(10,12,22,0.82), rgba(6,8,16,0.86))", border: "1px solid rgba(201,168,76,0.20)", borderBottom: "2px solid rgba(201,168,76,0.30)", borderRadius: 8, padding: "3px 8px", backdropFilter: "blur(7px)", WebkitBackdropFilter: "blur(7px)" }}>
           {tabs.map(t => (
-            <button key={t.id} className="tab-btn" onClick={() => setActiveTab(t.id)} style={{ padding: "11px 13px", borderRadius: 0, fontSize: 12, cursor: "pointer", background: "transparent", color: activeTab === t.id ? "#d4b040" : "#6a5f40", border: "none", borderBottom: activeTab === t.id ? "2px solid #d4b040" : "2px solid transparent", marginBottom: -1, fontWeight: activeTab === t.id ? 800 : 600, fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: "1.5px", whiteSpace: "nowrap", outline: "none" }}>{t.label}</button>
+            <button key={t.id} className="tab-btn" onClick={() => setActiveTab(t.id)} style={{ padding: "11px 13px", borderRadius: 0, fontSize: 12, cursor: "pointer", background: "transparent", color: activeTab === t.id ? "#d4b040" : "#6a5f40", border: "none", borderBottom: activeTab === t.id ? "2px solid #d4b040" : "2px solid transparent", marginBottom: -4, fontWeight: activeTab === t.id ? 800 : 600, fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: "1.5px", whiteSpace: "nowrap", outline: "none" }}>{t.label}</button>
           ))}
         </div>
 
