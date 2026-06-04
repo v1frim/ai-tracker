@@ -1013,8 +1013,6 @@ export default function AITracker() {
   const [ghPanelOpen, setGhPanelOpen] = useState(false);
   const [ghSyncing, setGhSyncing] = useState(false);
   const [ghSyncMsg, setGhSyncMsg] = useState("");
-  const ghAutoRetryRef = useRef(0);
-  const syncGithubLinesRef = useRef(null);
   const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
   const [aiAttachments, setAiAttachments] = useState([]);
   const [aiModelOpen, setAiModelOpen] = useState(false);
@@ -1487,9 +1485,8 @@ export default function AITracker() {
   const addProject = useCallback(() => {
     if (!projectInput.trim()) return;
     const cxp = Math.max(0, parseInt(projectCompletionXP) || 0);
-    const newProjects = [...projects, { name: projectInput.trim(), date: new Date().toLocaleDateString("uk-UA"), status: "in_progress", creationXP: 100, completionXP: cxp, completionXPPaid: false }];
+    const newProjects = [...projects, { name: projectInput.trim(), date: new Date().toLocaleDateString("uk-UA"), status: "in_progress", creationXP: 0, completionXP: cxp, completionXPPaid: false }];
     setProjects(newProjects);
-    gainXP(100, `(${projectInput.trim()})`, "project");
     recordActiveDay();
     setProjectCompletionXP(200);
     setProjectInput("");
@@ -1515,7 +1512,7 @@ export default function AITracker() {
   }, [doneToday, sessions, gainXP, recordActiveDay, checkAchievements, totalTools, totalIncome, projects, skillData]);
 
   // Синхронізація рядків коду з GitHub (усі репозиторії користувача).
-  // Рахуємо сумарно додані рядки (additions) по всіх репо через code_frequency.
+  // Рахуємо фактичні рядки у файлах кожного репо (дерево гілки + raw-вміст).
   const syncGithubLines = useCallback(async () => {
     const user = githubSync.user.trim();
     const token = githubSync.token.trim();
@@ -1545,9 +1542,23 @@ export default function AITracker() {
       repos = repos.filter(repo => !repo.fork);
       if (!repos.length) { setGhSyncMsg("Репозиторіїв не знайдено"); setGhSyncing(false); return; }
 
-      // 2. По кожному репо — сумарні додані рядки (code_frequency = additions усього репо).
-      //    Кешуємо результат: повторні синки рахують лише репо, що змінились (pushed_at),
-      //    решту беремо з кешу → майже не витрачаємо ліміт запитів.
+      // 2. По кожному репо — рахуємо фактичні рядки у файлах (як показує GitHub),
+      //    через дерево гілки + raw-вміст. Це швидко й детерміновано (без лінивої статистики).
+      //    Кешуємо результат: повторні синки чіпають лише репо, що змінились (pushed_at).
+      const TEXT_EXT = new Set(["js","jsx","ts","tsx","mjs","cjs","html","htm","css","scss","sass","less","py","java","c","cc","cpp","cxx","h","hpp","cs","go","rs","rb","php","swift","kt","kts","json","md","markdown","yml","yaml","xml","toml","ini","cfg","conf","sh","bash","zsh","sql","vue","svelte","astro","txt","r","lua","dart","ex","exs","pl","pm","scala","clj","hs","elm","gradle","properties","gitignore","dockerfile","makefile"]);
+      const SKIP_FILE = new Set(["package-lock.json","yarn.lock","pnpm-lock.yaml","composer.lock","poetry.lock","gemfile.lock","cargo.lock"]);
+      const isTextFile = (path) => {
+        const base = path.split("/").pop().toLowerCase();
+        if (SKIP_FILE.has(base)) return false;
+        if (base.includes(".min.")) return false;
+        const ext = base.includes(".") ? base.split(".").pop() : base;
+        return TEXT_EXT.has(ext);
+      };
+      const countLines = (content) => {
+        const nl = (content.match(/\n/g) || []).length;
+        return content.endsWith("\n") ? nl : nl + (content.length ? 1 : 0);
+      };
+
       const cache = {};
       (githubSync.repos || []).forEach(r => { if (r.name) cache[r.name] = { lines: r.lines, pushedAt: r.pushedAt }; });
       const keepCached = (repo) => {
@@ -1557,10 +1568,22 @@ export default function AITracker() {
 
       const perRepo = [];
       let totalNet = 0;
-      let pending = 0;          // репо, де GitHub ще рахує (202)
-      let fetched = 0;          // реально завантажено цього разу
       let cachedCount = 0;      // взято з кешу без запиту
       let rateLimited = false;  // натрапили на 403
+
+      const fetchRaw = async (repo, path) => {
+        const enc = path.split("/").map(encodeURIComponent).join("/");
+        if (repo.private && token) {
+          const r = await fetch(`https://api.github.com/repos/${repo.owner.login}/${repo.name}/contents/${enc}?ref=${encodeURIComponent(repo.default_branch)}`, { headers: { ...headers, Accept: "application/vnd.github.raw" } });
+          if (r.status === 403) { rateLimited = true; return null; }
+          if (!r.ok) return null;
+          return await r.text();
+        }
+        const r = await fetch(`https://raw.githubusercontent.com/${repo.owner.login}/${repo.name}/${encodeURIComponent(repo.default_branch)}/${enc}`);
+        if (!r.ok) return null;
+        return await r.text();
+      };
+
       for (let i = 0; i < repos.length; i++) {
         const repo = repos[i];
         const c = cache[repo.name];
@@ -1570,25 +1593,29 @@ export default function AITracker() {
           cachedCount++;
           continue;
         }
-        if (rateLimited) { keepCached(repo); continue; } // ліміт вичерпано — лишаємо старе значення
-        setGhSyncMsg(`Аналізую ${i + 1}/${repos.length}: ${repo.name}…`);
-        let data = "pending";
-        // GitHub обчислює статистику ліниво — перший запит часто дає 202; чекаємо й повторюємо
-        for (let attempt = 0; attempt < 8; attempt++) {
-          const sr = await fetch(`https://api.github.com/repos/${repo.owner.login}/${repo.name}/stats/code_frequency`, { headers });
-          if (sr.status === 202) { await new Promise(res => setTimeout(res, attempt < 3 ? 1800 : 3200)); continue; }
-          if (sr.status === 403) { rateLimited = true; break; }
-          if (sr.status === 204 || sr.status === 404 || !sr.ok) { data = []; break; }
-          data = await sr.json();
-          break;
-        }
         if (rateLimited) { keepCached(repo); continue; }
-        if (data === "pending") { pending++; keepCached(repo); continue; } // лишаємо старе, поки рахується
-        if (!Array.isArray(data)) data = [];
-        // code_frequency: масив [тиждень, додано, видалено]; беремо суму доданих рядків
+        setGhSyncMsg(`Аналізую ${i + 1}/${repos.length}: ${repo.name}…`);
+
+        // дерево гілки за замовчуванням (1 запит) → список файлів
+        const tr = await fetch(`https://api.github.com/repos/${repo.owner.login}/${repo.name}/git/trees/${encodeURIComponent(repo.default_branch || "main")}?recursive=1`, { headers });
+        if (tr.status === 403) { rateLimited = true; keepCached(repo); continue; }
+        if (!tr.ok) { keepCached(repo); continue; }
+        const tree = await tr.json();
+        const blobs = (tree.tree || []).filter(t => t.type === "blob" && isTextFile(t.path) && (t.size ?? 0) < 1_500_000);
+
+        // рахуємо рядки у файлах з обмеженою паралельністю
         let repoLines = 0;
-        data.forEach(w => { if (Array.isArray(w) && w[1] > 0) repoLines += w[1]; });
-        fetched++;
+        const queue = [...blobs];
+        const worker = async () => {
+          while (queue.length && !rateLimited) {
+            const b = queue.shift();
+            const content = await fetchRaw(repo, b.path);
+            if (content != null) repoLines += countLines(content);
+          }
+        };
+        await Promise.all(Array.from({ length: Math.min(8, blobs.length) || 1 }, worker));
+
+        if (rateLimited) { keepCached(repo); continue; }
         if (repoLines > 0) { perRepo.push({ name: repo.name, lines: repoLines, pushedAt: repo.pushed_at }); totalNet += repoLines; }
       }
       perRepo.sort((a, b) => b.lines - a.lines);
@@ -1611,42 +1638,19 @@ export default function AITracker() {
         setGhSyncing(false);
         return;
       }
-      if (pending > 0 && ghAutoRetryRef.current < 4) {
-        ghAutoRetryRef.current += 1;
-        const secs = 60;
-        setGhSyncMsg(`⏳ GitHub рахує статистику (${pending} репо). Автоповтор через ${secs}с… (спроба ${ghAutoRetryRef.current}/4)`);
+      if (!haveData) {
+        setGhSyncMsg(`Не знайшов файлів з кодом у ${repos.length} репо`);
         setGhSyncing(false);
-        let remaining = secs;
-        const ivId = setInterval(() => {
-          remaining--;
-          if (remaining <= 0) {
-            clearInterval(ivId);
-            setGhSyncMsg(`⏳ Повторна синхронізація…`);
-            syncGithubLinesRef.current?.();
-          } else {
-            setGhSyncMsg(`⏳ GitHub рахує статистику (${pending} репо). Автоповтор через ${remaining}с… (спроба ${ghAutoRetryRef.current}/4)`);
-          }
-        }, 1000);
         return;
       }
-      if (pending > 0) {
-        const pendMsg = `⚠ GitHub ще не порахував ${pending} репо після 4 спроб. Натисни ще раз пізніше.`;
-        setGhSyncMsg(haveData ? `${totalNet.toLocaleString()} рядків з ${perRepo.length} репо · ${pendMsg}` : pendMsg);
-        setGhSyncing(false);
-        ghAutoRetryRef.current = 0;
-        return;
-      }
-      ghAutoRetryRef.current = 0;
-      const pendNote = "";
       const cacheNote = cachedCount > 0 ? ` · ${cachedCount} з кешу` : "";
-      setGhSyncMsg(`✓ ${totalNet.toLocaleString()} рядків з ${perRepo.length} репо${cacheNote}${pendNote}`);
+      setGhSyncMsg(`✓ ${totalNet.toLocaleString()} рядків з ${perRepo.length} репо${cacheNote}`);
     } catch (e) {
       setGhSyncMsg(`⚠ ${e.message}`);
     } finally {
       setGhSyncing(false);
     }
   }, [githubSync.user, githubSync.token, githubSync.repos, setProgressiveCount, checkAchievements, totalTools, totalIncome, projects, skillData, streak, sessions.dates]);
-  syncGithubLinesRef.current = syncGithubLines;
 
   const updateMonthlyTarget = useCallback((val) => {
     const t = parseInt(val);
@@ -2520,7 +2524,7 @@ export default function AITracker() {
                                       {ghPanelOpen && (
                                         <div style={{ padding: "0 12px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
                                           <div style={{ fontSize: 10, color: "#6a6a8a", lineHeight: 1.5, fontFamily: "'Space Mono',monospace" }}>
-                                            Рахує сумарно додані рядки коду з усіх твоїх репозиторіїв (по git-історії). Без токена видно лише публічні репо та діє ліміт ~60 запитів/год — для приватних репо й зняття ліміту додай Personal Access Token. GitHub інколи кешує статистику не одразу: якщо побачиш «ще рахуються» — натисни ще раз за хвилину.
+                                            Рахує фактичну кількість рядків у файлах усіх твоїх репозиторіїв (так само, як показує GitHub). Без токена видно лише публічні репо та діє ліміт ~60 запитів/год — для приватних репо й зняття ліміту додай Personal Access Token.
                                           </div>
                                           <input
                                             value={githubSync.user}
@@ -4006,7 +4010,7 @@ export default function AITracker() {
                   style={{ width: 90, background: "none", border: "none", color: "#c9a84c", fontSize: 13, fontFamily: "'Space Mono',monospace", fontWeight: 700, outline: "none", textAlign: "center", MozAppearance: "textfield", appearance: "textfield" }}
                 />
               </div>
-              <button className="act-btn" onClick={addProject} style={{ background: "#6366f1", color: "#fff", border: "none", padding: "10px 18px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 13, whiteSpace: "nowrap" }}>+ Додати (+100 XP)</button>
+              <button className="act-btn" onClick={addProject} style={{ background: "#6366f1", color: "#fff", border: "none", padding: "10px 18px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 13, whiteSpace: "nowrap" }}>+ Додати</button>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {projects.map((p, i) => {
