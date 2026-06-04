@@ -1535,7 +1535,7 @@ export default function AITracker() {
                 return (
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "10px 14px", minWidth: 84, background: `${sc}12`, border: `1px solid ${sc}40`, borderTop: `2px solid ${sc}80`, borderRadius: 4, boxShadow: `0 0 12px ${sglow}` }}>
                     <div style={{ fontSize: 11, color: `${sc}aa`, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>🔥 Стрік</div>
-                    <div style={{ fontSize: 24, fontWeight: 800, color: sc, fontFamily: "'Exo 2',sans-serif" }}>{totalActiveDays} <span style={{ fontSize: 13 }}>дн.</span></div>
+                    <div style={{ fontSize: 24, fontWeight: 800, color: sc, fontFamily: "'Exo 2',sans-serif" }}>{streak} <span style={{ fontSize: 13 }}>дн.</span></div>
                   </div>
                 );
               })()}
@@ -3763,7 +3763,7 @@ export default function AITracker() {
           const untracked = totalXP - loggedSum;
           const XP_GROUPS = [
             { key: "activity",    emoji: "⚡", label: "Активність",    color: "#00ff88", desc: "лічильники дій" },
-            { key: "session",     emoji: "🔥", label: "AI-сесії",      color: "#f59e0b", desc: "щоденний чек-ін" },
+            { key: "session",     emoji: "🔥", label: "AI-сесії",      color: "#f59e0b", desc: `чек-ін · ${sessions.dates.length} сесій` },
             { key: "skill",       emoji: "🧩", label: "Навички",       color: "#6366f1", desc: "розблоковані інструменти" },
             { key: "goal_plan",   emoji: "🎯", label: "Цілі & задачі", color: "#06b6d4", desc: "цілі + план дій", keys: ["goal","plan"] },
             { key: "project",     emoji: "🚀", label: "Проекти",       color: "#a855f7", desc: "нові проекти" },
