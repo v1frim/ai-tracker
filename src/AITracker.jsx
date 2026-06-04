@@ -1503,14 +1503,14 @@ export default function AITracker() {
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                 <span style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 22, fontWeight: 800, color: "#e0d8c0", letterSpacing: 3, textTransform: "uppercase" }}>ViFrim</span>
                 <span style={{ background: `${lc}1a`, border: `1px solid ${lc}99`, color: lc, padding: "3px 10px", borderRadius: 3, fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>{lg.name} ліга</span>
-                <span style={{ background: `${lc}14`, border: `1px solid ${lc}80`, color: lc, padding: "3px 10px", borderRadius: 3, fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>🔥 {totalActiveDays} дн.</span>
               </div>
               <div style={{ fontSize: 11, color: `${lc}80`, marginTop: 4, textTransform: "uppercase", letterSpacing: 3 }}>AI Progress Tracker</div>
             </div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "stretch" }}>
               {[
                 { label: "Дохід", val: `$${totalIncome.toFixed(0)}`, color: lc },
                 { label: "Проекти", val: projects.length, color: lc },
+                { label: "Клієнти", val: (skillTasksData["monetize_clients"]?.count ?? 0), color: "#fbbf24" },
                 { label: "Інструменти", val: `${totalTools}/${TOTAL_TOOLS}`, color: "#00ff88" },
                 { label: "Сесій/міс", val: `${monthSessions}/${daysInCurrentMonth}`, color: lc },
               ].map(s => (
@@ -1519,6 +1519,11 @@ export default function AITracker() {
                   <div style={{ fontSize: 24, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif" }}>{s.val}</div>
                 </div>
               ))}
+              {/* Streak badge — to the right of stat blocks */}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "10px 14px", minWidth: 84, background: `${lc}10`, border: `1px solid ${lc}40`, borderTop: `2px solid ${lc}80`, borderRadius: 4, boxShadow: `0 0 12px ${lglow}` }}>
+                <div style={{ fontSize: 11, color: `${lc}88`, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>🔥 Стрік</div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: lc, fontFamily: "'Exo 2',sans-serif" }}>{totalActiveDays} <span style={{ fontSize: 13 }}>дн.</span></div>
+              </div>
             </div>
           </div>
 
