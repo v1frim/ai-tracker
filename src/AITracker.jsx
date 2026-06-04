@@ -608,122 +608,152 @@ const CLOUDS = [
   { id:"cl17", left:68,  top:18, w:34,h:13, cA:"rgba(70,12,155,0.40)",  cB:"rgba(178,50,238,0.22)", cC:"rgba(13,66,178,0.14)", blur:43, depth:0.06, phase:3.9, dur:22, anim:"B" },
 ];
 
-// Detailed planet definitions inspired by reference images
+// Detailed planet definitions inspired by reference images.
+// proc variants (palette+bands) render swirling gas-giant structure via SVG
+// turbulence displacement; simple variants (sphere) are lightweight gradient moons.
 const PLANET_DEFS = {
-  // Blue gas giant (ref 1): cyan electric atmosphere, horizontal bands, intense edge glow
+  // Blue/violet gas giant (ref): turbulent horizontal bands + intense cyan rim glow
   a: {
-    sphere: { cx:"34%", cy:"30%", stops:[["0%","#b8e4ff"],["35%","#2870e0"],["100%","#031540"]] },
-    shadow: { cx:"68%", cy:"70%", stops:[["35%","rgba(0,0,0,0)"],["100%","rgba(0,5,30,0.74)"]] },
-    glow:   { color:"#0a6fff", scale:1.58, op:0.60 },
-    atmo:   { color:"#30b0ff", w:0.10, op:0.52 },
-    bands:  [
-      { ry:0.18,  rh:0.10, color:"#60c8ff", op:0.23 },
-      { ry:-0.15, rh:0.07, color:"#90dcff", op:0.18 },
-      { ry:0.38,  rh:0.06, color:"#4aa8ee", op:0.15 },
+    glow: { color:"#2f86ff", scale:1.5, op:0.55 }, rim: { color:"#a6dbff", op:0.95 }, shade:0.58,
+    base:"#0a1340",
+    palette:["#0b1850","#26408c","#3a62b4","#6488d4","#9fb4e6","#cdb9e0","#6a4fa8"],
+    bands:[
+      { c:0, y:-0.92, h:0.60, op:0.95 }, { c:2, y:-0.60, h:0.16, op:0.72 },
+      { c:4, y:-0.46, h:0.09, op:0.58 }, { c:1, y:-0.30, h:0.22, op:0.86 },
+      { c:5, y:-0.13, h:0.07, op:0.50 }, { c:3, y: 0.00, h:0.20, op:0.80 },
+      { c:6, y: 0.16, h:0.12, op:0.60 }, { c:1, y: 0.33, h:0.22, op:0.86 },
+      { c:4, y: 0.50, h:0.08, op:0.50 }, { c:0, y: 0.90, h:0.60, op:0.95 },
     ],
-    spec: { ox:-0.34, oy:-0.38, rx:0.32, ry:0.18, rot:-28, op:0.20 },
+    warp:0.15, freq:"0.011 0.026", seed:7,
+    spec:{ ox:-0.34, oy:-0.40, rx:0.30, ry:0.16, rot:-28, op:0.22 },
   },
-  // Purple neon ringed planet (ref 2): dark body, magenta glow, neon rings
-  b: {
-    sphere: { cx:"32%", cy:"28%", stops:[["0%","#d0a0ff"],["38%","#4c10a0"],["100%","#07001a"]] },
-    shadow: { cx:"70%", cy:"72%", stops:[["30%","rgba(0,0,0,0)"],["100%","rgba(0,0,10,0.80)"]] },
-    glow:   { color:"#cc00ff", scale:1.75, op:0.68 },
-    atmo:   { color:"#ff44ff", w:0.12, op:0.56 },
-    bands:  [
-      { ry:0.10,  rh:0.09, color:"#c060ff", op:0.28 },
-      { ry:-0.20, rh:0.07, color:"#ff80ff", op:0.21 },
-    ],
-    spec: { ox:-0.36, oy:-0.40, rx:0.28, ry:0.15, rot:-30, op:0.24 },
-    rings: [
-      { rx:1.90, ry:0.58, color:"#9920cc", op:0.28, wf:0.046 },
-      { rx:1.68, ry:0.52, color:"#dd80ff", op:0.64, wf:0.033 },
-      { rx:1.40, ry:0.44, color:"#ff44ff", op:0.40, wf:0.023 },
-    ],
-    ringAngle: -20,
-  },
-  // Saturn-like (ref 3): warm teal sphere, wide golden rings, purple atmospheric haze
+  // Saturn-like: warm banded body, purple haze + wide golden rings
   c: {
-    sphere: { cx:"35%", cy:"31%", stops:[["0%","#ffe8a0"],["42%","#9080d0"],["100%","#1c1040"]] },
-    shadow: { cx:"67%", cy:"69%", stops:[["32%","rgba(0,0,0,0)"],["100%","rgba(0,0,20,0.72)"]] },
-    glow:   { color:"#6040d8", scale:1.50, op:0.52 },
-    atmo:   { color:"#a090ff", w:0.09, op:0.46 },
-    bands:  [
-      { ry:0.20,  rh:0.10, color:"#c0b0ff", op:0.20 },
-      { ry:-0.10, rh:0.07, color:"#ffe0a0", op:0.18 },
-      { ry:0.40,  rh:0.06, color:"#8070c8", op:0.15 },
+    glow: { color:"#6f54d8", scale:1.5, op:0.50 }, rim: { color:"#c3a8ff", op:0.82 }, shade:0.58,
+    base:"#160e34",
+    palette:["#19103e","#372c68","#5e4f96","#9384c4","#cbb892","#ffe1a3","#7c6cba"],
+    bands:[
+      { c:0, y:-0.92, h:0.60, op:0.95 }, { c:5, y:-0.58, h:0.14, op:0.66 },
+      { c:3, y:-0.42, h:0.10, op:0.58 }, { c:1, y:-0.26, h:0.22, op:0.84 },
+      { c:4, y:-0.10, h:0.08, op:0.55 }, { c:2, y: 0.04, h:0.20, op:0.78 },
+      { c:6, y: 0.20, h:0.12, op:0.58 }, { c:1, y: 0.36, h:0.22, op:0.84 },
+      { c:5, y: 0.54, h:0.08, op:0.52 }, { c:0, y: 0.92, h:0.60, op:0.95 },
     ],
-    spec: { ox:-0.32, oy:-0.36, rx:0.30, ry:0.17, rot:-25, op:0.21 },
-    rings: [
-      { rx:2.14, ry:0.58, color:"#a08040", op:0.30, wf:0.076 },
-      { rx:1.82, ry:0.50, color:"#d0b060", op:0.72, wf:0.060 },
-      { rx:1.46, ry:0.40, color:"#ffd080", op:0.54, wf:0.044 },
+    warp:0.13, freq:"0.010 0.024", seed:5,
+    rings:[
+      { rx:2.16, ry:0.58, color:"#a08040", op:0.32, wf:0.080 },
+      { rx:1.84, ry:0.50, color:"#d0b060", op:0.74, wf:0.062 },
+      { rx:1.48, ry:0.40, color:"#ffd080", op:0.56, wf:0.046 },
     ],
-    ringAngle: -18,
+    ringAngle:-18,
+    spec:{ ox:-0.32, oy:-0.36, rx:0.30, ry:0.16, rot:-25, op:0.22 },
   },
-  // Ice-slate distant planet
+  // Purple neon planet with magenta rings (ref)
+  b: {
+    glow: { color:"#c22dff", scale:1.7, op:0.60 }, rim: { color:"#ff8cff", op:0.90 }, shade:0.66,
+    base:"#0a0326",
+    palette:["#0c0430","#2a0c5e","#471596","#6e2bbe","#9d52dd","#d98cff","#5a1a8a"],
+    bands:[
+      { c:0, y:-0.92, h:0.60, op:0.95 }, { c:4, y:-0.58, h:0.14, op:0.66 },
+      { c:2, y:-0.42, h:0.10, op:0.58 }, { c:1, y:-0.26, h:0.22, op:0.86 },
+      { c:5, y:-0.10, h:0.07, op:0.52 }, { c:3, y: 0.04, h:0.20, op:0.80 },
+      { c:6, y: 0.20, h:0.12, op:0.60 }, { c:1, y: 0.36, h:0.22, op:0.86 },
+      { c:4, y: 0.54, h:0.08, op:0.52 }, { c:0, y: 0.92, h:0.60, op:0.95 },
+    ],
+    warp:0.14, freq:"0.012 0.030", seed:3,
+    rings:[
+      { rx:1.92, ry:0.56, color:"#9920cc", op:0.30, wf:0.050 },
+      { rx:1.70, ry:0.50, color:"#dd80ff", op:0.66, wf:0.034 },
+      { rx:1.42, ry:0.42, color:"#ff5cff", op:0.42, wf:0.024 },
+    ],
+    ringAngle:-20,
+    spec:{ ox:-0.36, oy:-0.40, rx:0.27, ry:0.14, rot:-30, op:0.24 },
+  },
+  // Ice-slate distant moon (simple gradient sphere)
   d: {
-    sphere: { cx:"36%", cy:"32%", stops:[["0%","#c8d8f0"],["50%","#5a6c96"],["100%","#121828"]] },
-    shadow: { cx:"65%", cy:"68%", stops:[["40%","rgba(0,0,0,0)"],["100%","rgba(0,0,20,0.66)"]] },
-    glow:   { color:"#4060a0", scale:1.36, op:0.40 },
-    atmo:   { color:"#7090c0", w:0.08, op:0.35 },
-    bands:  [{ ry:0.22, rh:0.08, color:"#a0b8d8", op:0.18 }],
-    spec: { ox:-0.33, oy:-0.37, rx:0.28, ry:0.16, rot:-26, op:0.15 },
+    sphere:{ cx:"36%", cy:"32%", stops:[["0%","#c8d8f0"],["50%","#5a6c96"],["100%","#121828"]] },
+    glow: { color:"#4060a0", scale:1.34, op:0.40 }, rim: { color:"#9fb6d8", op:0.60 }, shade:0.60,
+    spec:{ ox:-0.33, oy:-0.37, rx:0.28, ry:0.16, rot:-26, op:0.16 },
   },
-  // Pale moon
+  // Pale moon (simple gradient sphere)
   e: {
-    sphere: { cx:"38%", cy:"34%", stops:[["0%","#e8eef8"],["55%","#8898b8"],["100%","#202838"]] },
-    shadow: { cx:"63%", cy:"66%", stops:[["45%","rgba(0,0,0,0)"],["100%","rgba(0,0,15,0.62)"]] },
-    glow:   { color:"#506080", scale:1.26, op:0.30 },
-    atmo:   { color:"#a0b0c8", w:0.06, op:0.25 },
-    bands:  [],
-    spec: { ox:-0.30, oy:-0.35, rx:0.26, ry:0.14, rot:-22, op:0.12 },
+    sphere:{ cx:"38%", cy:"34%", stops:[["0%","#e8eef8"],["55%","#8898b8"],["100%","#202838"]] },
+    glow: { color:"#506080", scale:1.26, op:0.30 }, rim: { color:"#b0c0d8", op:0.50 }, shade:0.58,
+    spec:{ ox:-0.30, oy:-0.35, rx:0.26, ry:0.14, rot:-22, op:0.13 },
   },
 };
 
-// Planets: large ones use detailed variants (a/b/c), small ones use simpler (d/e)
+// Planets: 3 large procedural gas giants (a/c/b) + small gradient moons (d/e)
 const PLANETS = [
-  { id:"p1", left:6,  top:60, size:240, depth:0.10, phase:0.0, v:"c" },
-  { id:"p2", left:75, top:10, size:160, depth:0.18, phase:1.6, v:"b" },
-  { id:"p3", left:56, top:67, size:100, depth:0.30, phase:3.1, v:"a" },
+  { id:"p1", left:6,  top:60, size:240, depth:0.10, phase:0.0, v:"a" },
+  { id:"p2", left:75, top:10, size:160, depth:0.18, phase:1.6, v:"c" },
+  { id:"p3", left:56, top:67, size:100, depth:0.30, phase:3.1, v:"b" },
   { id:"p4", left:87, top:64, size:62,  depth:0.44, phase:0.8, v:"d" },
   { id:"p5", left:27, top:15, size:50,  depth:0.52, phase:2.3, v:"e" },
-  { id:"p6", left:45, top:41, size:36,  depth:0.62, phase:4.0, v:"a" },
+  { id:"p6", left:45, top:41, size:36,  depth:0.62, phase:4.0, v:"d" },
   { id:"p7", left:15, top:31, size:24,  depth:0.74, phase:5.1, v:"e" },
 ];
 
 function PlanetSvg({ s, v }) {
-  const def = PLANET_DEFS[v] || PLANET_DEFS.a;
+  const def = PLANET_DEFS[v] || PLANET_DEFS.e;
   const hasRings = !!def.rings;
-  const S = Math.round(s * (hasRings ? 2.4 : 2.0));
+  const proc = !!def.palette;
+  const S = Math.round(s * (hasRings ? 2.5 : 2.05));
   const cx = S / 2, cy = S / 2, r = s / 2;
   const uid = `plx_${v}_${s}`;
-  const atmoEdge = `${Math.round((1 - def.atmo.w) * 100)}%`;
   return (
     <svg width={S} height={S} viewBox={`0 0 ${S} ${S}`} style={{ display:"block", overflow:"visible" }}>
       <defs>
-        <radialGradient id={`${uid}s`} cx={def.sphere.cx} cy={def.sphere.cy} r="78%">
-          {def.sphere.stops.map(([off,col],i) => <stop key={i} offset={off} stopColor={col}/>)}
-        </radialGradient>
-        <radialGradient id={`${uid}sh`} cx={def.shadow.cx} cy={def.shadow.cy} r="72%">
-          {def.shadow.stops.map(([off,col],i) => <stop key={i} offset={off} stopColor={col}/>)}
-        </radialGradient>
+        {/* outer glow halo */}
         <radialGradient id={`${uid}g`} cx="50%" cy="50%" r="50%">
           <stop offset="0%"   stopColor={def.glow.color} stopOpacity={def.glow.op}/>
-          <stop offset="48%"  stopColor={def.glow.color} stopOpacity={def.glow.op * 0.25}/>
+          <stop offset="46%"  stopColor={def.glow.color} stopOpacity={def.glow.op * 0.22}/>
           <stop offset="100%" stopColor={def.glow.color} stopOpacity="0"/>
         </radialGradient>
-        <radialGradient id={`${uid}atmo`} cx="50%" cy="50%" r="50%">
-          <stop offset={atmoEdge} stopColor={def.atmo.color} stopOpacity="0"/>
-          <stop offset="93%"      stopColor={def.atmo.color} stopOpacity={def.atmo.op}/>
-          <stop offset="100%"     stopColor={def.atmo.color} stopOpacity="0"/>
+        {/* bright atmospheric rim near the limb */}
+        <radialGradient id={`${uid}rim`} cx="50%" cy="50%" r="50%">
+          <stop offset="0%"    stopColor={def.rim.color} stopOpacity="0"/>
+          <stop offset="84%"   stopColor={def.rim.color} stopOpacity="0"/>
+          <stop offset="93%"   stopColor={def.rim.color} stopOpacity={def.rim.op * 0.55}/>
+          <stop offset="98.5%" stopColor={def.rim.color} stopOpacity={def.rim.op}/>
+          <stop offset="100%"  stopColor={def.rim.color} stopOpacity="0"/>
         </radialGradient>
+        {/* top-left directional light */}
+        <radialGradient id={`${uid}lt`} cx="30%" cy="26%" r="58%">
+          <stop offset="0%"  stopColor="#ffffff" stopOpacity="0.42"/>
+          <stop offset="34%" stopColor="#ffffff" stopOpacity="0.12"/>
+          <stop offset="62%" stopColor="#ffffff" stopOpacity="0"/>
+        </radialGradient>
+        {/* terminator shade bottom-right */}
+        <radialGradient id={`${uid}sh`} cx="72%" cy="76%" r="78%">
+          <stop offset="30%"  stopColor="rgba(0,0,0,0)"/>
+          <stop offset="100%" stopColor={`rgba(2,2,14,${def.shade})`}/>
+        </radialGradient>
+        {proc && (
+          <filter id={`${uid}w`} x="-25%" y="-25%" width="150%" height="150%">
+            <feTurbulence type="fractalNoise" baseFrequency={def.freq} numOctaves="3" seed={def.seed} stitchTiles="stitch" result="n"/>
+            <feDisplacementMap in="SourceGraphic" in2="n" scale={Math.max(6, s * def.warp)} xChannelSelector="R" yChannelSelector="G"/>
+          </filter>
+        )}
+        {proc && (
+          <radialGradient id={`${uid}sb`} cx="34%" cy="30%" r="80%">
+            <stop offset="0%"   stopColor={def.palette[def.palette.length - 3]}/>
+            <stop offset="58%"  stopColor={def.base}/>
+            <stop offset="100%" stopColor={def.base}/>
+          </radialGradient>
+        )}
+        {!proc && (
+          <radialGradient id={`${uid}sp`} cx={def.sphere.cx} cy={def.sphere.cy} r="78%">
+            {def.sphere.stops.map(([off,col],i) => <stop key={i} offset={off} stopColor={col}/>)}
+          </radialGradient>
+        )}
         <clipPath id={`${uid}clip`}><circle cx={cx} cy={cy} r={r}/></clipPath>
       </defs>
 
       {/* outer glow halo */}
       <circle cx={cx} cy={cy} r={r * def.glow.scale} fill={`url(#${uid}g)`}/>
 
-      {/* rings drawn behind sphere */}
+      {/* rings drawn behind the sphere */}
       {hasRings && (
         <g transform={`rotate(${def.ringAngle} ${cx} ${cy})`}>
           {def.rings.map((rg, i) => (
@@ -733,22 +763,29 @@ function PlanetSvg({ s, v }) {
         </g>
       )}
 
-      {/* sphere base */}
-      <circle cx={cx} cy={cy} r={r} fill={`url(#${uid}s)`}/>
-
-      {/* atmospheric bands clipped to sphere */}
+      {/* sphere body */}
       <g clipPath={`url(#${uid}clip)`}>
-        {def.bands && def.bands.map((b, i) => (
-          <ellipse key={i} cx={cx} cy={cy + r * b.ry} rx={r * 0.98} ry={r * b.rh}
-            fill={b.color} fillOpacity={b.op}/>
-        ))}
+        {proc ? (
+          <>
+            <circle cx={cx} cy={cy} r={r} fill={`url(#${uid}sb)`}/>
+            {/* horizontal colour bands warped into swirls by turbulence displacement */}
+            <g filter={`url(#${uid}w)`}>
+              {def.bands.map((b, i) => (
+                <rect key={i} x={cx - r * 1.25} y={cy + b.y * r - (b.h * r) / 2}
+                  width={r * 2.5} height={b.h * r} fill={def.palette[b.c]} fillOpacity={b.op}/>
+              ))}
+            </g>
+          </>
+        ) : (
+          <circle cx={cx} cy={cy} r={r} fill={`url(#${uid}sp)`}/>
+        )}
+        {/* spherical shading */}
+        <circle cx={cx} cy={cy} r={r} fill={`url(#${uid}lt)`}/>
+        <circle cx={cx} cy={cy} r={r} fill={`url(#${uid}sh)`}/>
       </g>
 
-      {/* terminator shadow for 3-D volume */}
-      <circle cx={cx} cy={cy} r={r} fill={`url(#${uid}sh)`}/>
-
-      {/* atmospheric rim glow */}
-      <circle cx={cx} cy={cy} r={r} fill={`url(#${uid}atmo)`}/>
+      {/* bright atmospheric rim */}
+      <circle cx={cx} cy={cy} r={r} fill={`url(#${uid}rim)`}/>
 
       {/* specular highlight */}
       <ellipse
@@ -1474,7 +1511,7 @@ export default function AITracker() {
   }, [doneToday, sessions, gainXP, recordActiveDay, checkAchievements, totalTools, totalIncome, projects, skillData]);
 
   // Синхронізація рядків коду з GitHub (усі репозиторії користувача).
-  // Рахуємо net-додавання (additions − deletions) у внеску користувача по git-історії.
+  // Рахуємо сумарно додані рядки (additions) по всіх репо через code_frequency.
   const syncGithubLines = useCallback(async () => {
     const user = githubSync.user.trim();
     const token = githubSync.token.trim();
@@ -1504,43 +1541,56 @@ export default function AITracker() {
       repos = repos.filter(repo => !repo.fork);
       if (!repos.length) { setGhSyncMsg("Репозиторіїв не знайдено"); setGhSyncing(false); return; }
 
-      // 2. По кожному репо — статистика внеску користувача
-      const userLc = user.toLowerCase();
+      // 2. По кожному репо — сумарні додані рядки (code_frequency = additions усього репо).
+      //    Це надійніше за contributors: не треба зіставляти автора, відповідь менша.
       const perRepo = [];
       let totalNet = 0;
+      let pending = 0;        // репо, де GitHub ще рахує (202)
+      let rateLimited = false; // натрапили на 403
       for (let i = 0; i < repos.length; i++) {
+        if (rateLimited) break;
         const repo = repos[i];
         setGhSyncMsg(`Аналізую ${i + 1}/${repos.length}: ${repo.name}…`);
-        let stats = null;
-        // GitHub обчислює статистику ліниво — перший запит дає 202, потрібно зачекати і повторити
-        for (let attempt = 0; attempt < 7; attempt++) {
-          const sr = await fetch(`https://api.github.com/repos/${repo.owner.login}/${repo.name}/stats/contributors`, { headers });
-          if (sr.status === 202) {
-            await new Promise(res => setTimeout(res, attempt < 3 ? 2000 : 3500));
-            continue;
-          }
-          if (sr.status === 204 || !sr.ok) { stats = []; break; }
-          stats = await sr.json();
+        let data = "pending";
+        // GitHub обчислює статистику ліниво — перший запит часто дає 202; чекаємо й повторюємо
+        for (let attempt = 0; attempt < 8; attempt++) {
+          const sr = await fetch(`https://api.github.com/repos/${repo.owner.login}/${repo.name}/stats/code_frequency`, { headers });
+          if (sr.status === 202) { await new Promise(res => setTimeout(res, attempt < 3 ? 1800 : 3200)); continue; }
+          if (sr.status === 403) { rateLimited = true; break; }
+          if (sr.status === 204 || sr.status === 404 || !sr.ok) { data = []; break; }
+          data = await sr.json();
           break;
         }
-        if (!Array.isArray(stats)) stats = [];
-        let repoNet = 0;
-        stats.forEach(c => {
-          if (c.author?.login?.toLowerCase() === userLc) {
-            // використовуємо additions (w.a) — кількість написаних рядків, а не net
-            c.weeks.forEach(w => { repoNet += w.a; });
-          }
-        });
-        if (repoNet > 0) { perRepo.push({ name: repo.name, lines: repoNet }); totalNet += repoNet; }
+        if (rateLimited) break;
+        if (data === "pending") { pending++; continue; }   // не дочекались — спробуємо наступного разу
+        if (!Array.isArray(data)) data = [];
+        // code_frequency: масив [тиждень, додано, видалено]; беремо суму доданих рядків
+        let repoLines = 0;
+        data.forEach(w => { if (Array.isArray(w) && w[1] > 0) repoLines += w[1]; });
+        if (repoLines > 0) { perRepo.push({ name: repo.name, lines: repoLines }); totalNet += repoLines; }
       }
       perRepo.sort((a, b) => b.lines - a.lines);
 
-      // 3. Записуємо у лічильник «Рядків коду написано» (заміна, не додавання)
+      // 3. Діагностика проблемних випадків замість мовчазного «0»
+      if (rateLimited) {
+        const hint = token ? "" : " Додай Personal Access Token, щоб зняти ліміт.";
+        setGhSyncMsg(`⚠ Ліміт запитів GitHub (403).${hint} Спробуй за кілька хвилин.`);
+        setGhSyncing(false);
+        return;
+      }
+      if (perRepo.length === 0 && pending > 0) {
+        setGhSyncMsg(`⏳ GitHub ще рахує статистику (${pending} репо). Зачекай ~хвилину і натисни «Синхронізувати» ще раз.`);
+        setGhSyncing(false);
+        return;
+      }
+
+      // 4. Записуємо у лічильник «Рядків коду написано» (заміна, не додавання)
       setProgressiveCount("code", "lines_written", totalNet);
       setGithubSync(prev => ({ ...prev, user, token, lastSync: Date.now(), totalLines: totalNet, repos: perRepo }));
-      setGhSyncMsg(`✓ ${totalNet.toLocaleString()} рядків з ${perRepo.length} репо`);
+      const pendNote = pending > 0 ? ` · ${pending} ще рахуються — синхронізуй ще раз` : "";
+      setGhSyncMsg(`✓ ${totalNet.toLocaleString()} рядків з ${perRepo.length} репо${pendNote}`);
 
-      // 4. Перевірка досягнень за рядками коду
+      // 5. Перевірка досягнень за рядками коду
       setUnlockedAchievements(ua => {
         checkAchievements(totalTools, totalIncome, projects.length, skillData, ua, streak, sessions.dates.length);
         return ua;
@@ -2424,7 +2474,7 @@ export default function AITracker() {
                                       {ghPanelOpen && (
                                         <div style={{ padding: "0 12px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
                                           <div style={{ fontSize: 10, color: "#6a6a8a", lineHeight: 1.5, fontFamily: "'Space Mono',monospace" }}>
-                                            Рахує net-рядки (додано − видалено) з усіх твоїх репозиторіїв по git-історії. Токен потрібен для приватних репо та зняття ліміту запитів.
+                                            Рахує сумарно додані рядки коду з усіх твоїх репозиторіїв (по git-історії). Без токена видно лише публічні репо та діє ліміт ~60 запитів/год — для приватних репо й зняття ліміту додай Personal Access Token. GitHub інколи кешує статистику не одразу: якщо побачиш «ще рахуються» — натисни ще раз за хвилину.
                                           </div>
                                           <input
                                             value={githubSync.user}
@@ -3210,7 +3260,10 @@ export default function AITracker() {
                 if (ds === todayStr2) return "Сьогодні";
                 if (ds === yesterday2) return "Вчора";
                 const d = new Date(ds + "T00:00:00");
-                return d.toLocaleDateString("uk-UA", { day: "numeric", month: "long", year: "numeric" });
+                const sameYear = d.getFullYear() === now2.getFullYear();
+                const opts = sameYear ? { day: "numeric", month: "long" } : { day: "numeric", month: "long", year: "numeric" };
+                // прибираємо хвостове «р.» від toLocaleDateString
+                return d.toLocaleDateString("uk-UA", opts).replace(/\s*р\.?$/i, "");
               };
 
               // sort by date desc, then by numeric timestamp embedded in id
@@ -3250,9 +3303,9 @@ export default function AITracker() {
 
               return (
                 <div className="wf-panel" style={{ padding: 16, borderLeft: "3px solid #c9a84c", borderTop: "1px solid rgba(201,168,76,0.35)", background: "rgba(201,168,76,0.04)" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: journalOpen ? 14 : 0, cursor: "pointer", padding: "4px 8px", margin: "-4px -8px", marginBottom: journalOpen ? 10 : -4, borderRadius: 4, background: "rgba(201,168,76,0.08)", border: "1px solid rgba(201,168,76,0.30)", transition: "background 0.15s" }} onClick={() => setJournalOpen(v => !v)}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "4px 8px", margin: "-4px -8px", marginBottom: journalOpen ? 10 : -4, borderRadius: 4, background: "rgba(201,168,76,0.08)", border: "1px solid rgba(201,168,76,0.30)", transition: "background 0.15s" }} onClick={() => setJournalOpen(v => !v)}>
                     <span className="wf-sec" style={{ marginBottom: 0, paddingBottom: 0, border: "none", color: "#c9a84c" }}>📋 Журнал операцій</span>
-                    <span style={{ fontSize: 12, color: "#5a4a30", marginLeft: 6 }}>{allTx.length} записів</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "#e7d6a4", marginLeft: 6, background: "rgba(201,168,76,0.18)", border: "1px solid rgba(201,168,76,0.40)", padding: "2px 9px", borderRadius: 20, fontFamily: "'Space Mono',monospace" }}>{allTx.length} записів</span>
                     <span style={{ marginLeft: "auto", color: "#c9a84c", fontSize: 16, fontWeight: 700, width: 24, textAlign: "center" }}>{journalOpen ? "▲" : "▼"}</span>
                   </div>
 
@@ -3281,7 +3334,7 @@ export default function AITracker() {
                                   <div style={{ color: "#f43f5e", fontFamily: "'Space Mono',monospace", fontWeight: 700, fontSize: 16 }}>
                                     −{sub.currency === "UAH" ? `${sub.amount} грн` : `$${sub.amount}`}
                                   </div>
-                                  {sub.currency === "UAH" && <div style={{ fontSize: 13, color: "#a07040", marginTop: 2 }}>≈ ${amtUSD.toFixed(2)}</div>}
+                                  {sub.currency === "UAH" && <div style={{ display: "inline-block", marginTop: 3, fontSize: 11, fontWeight: 700, color: "#d8c89a", background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.28)", borderRadius: 4, padding: "1px 6px", fontFamily: "'Space Mono',monospace" }}>≈ ${amtUSD.toFixed(2)}</div>}
                                 </div>
                               </div>
                             );
@@ -3295,10 +3348,20 @@ export default function AITracker() {
                         <div style={{ fontSize: 13, color: "#5a4a30", textAlign: "center", padding: "24px 0" }}>Ще немає записів</div>
                       )}
                       <div style={{ maxHeight: 580, overflowY: "auto", paddingRight: 4 }}>
-                        {dateGroups.map(group => (
+                        {dateGroups.map(group => {
+                          const isToday = group.date === todayStr2;
+                          return (
                           <div key={group.date}>
-                            <div style={{ fontSize: 12, color: "#9a8a60", textTransform: "uppercase", letterSpacing: 2, padding: "12px 0 6px", fontFamily: "'Space Mono',monospace", position: "sticky", top: 0, background: "rgba(8,5,2,0.95)", zIndex: 1 }}>
-                              {txDateLabel(group.date)}
+                            <div style={{ padding: "12px 0 7px", position: "sticky", top: 0, background: "rgba(8,5,2,0.96)", zIndex: 1, display: "flex", alignItems: "center", gap: 8 }}>
+                              <span style={{
+                                fontSize: 11.5, fontWeight: 700, fontFamily: "'Exo 2',sans-serif", letterSpacing: 0.6,
+                                color: isToday ? "#0a0a0a" : "#d8c89a",
+                                background: isToday ? "#c9a84c" : "rgba(201,168,76,0.14)",
+                                border: `1px solid ${isToday ? "#c9a84c" : "rgba(201,168,76,0.30)"}`,
+                                padding: "2px 10px", borderRadius: 20, whiteSpace: "nowrap",
+                              }}>{txDateLabel(group.date)}</span>
+                              <span style={{ flex: 1, height: 1, background: "linear-gradient(90deg, rgba(201,168,76,0.22), transparent)" }} />
+                              <span style={{ fontSize: 11, color: "#6a5a40", fontFamily: "'Space Mono',monospace", flexShrink: 0 }}>{group.items.length}</span>
                             </div>
                             {group.items.map(tx => {
                               const catList = tx.txType === "income" ? incomeCats : expenseCats;
@@ -3322,7 +3385,7 @@ export default function AITracker() {
                                       {isInc ? "+" : "−"}{tx.currency === "UAH" ? `${tx.amount} грн` : `$${tx.amount}`}
                                     </div>
                                     {tx.currency === "UAH" && (
-                                      <div style={{ fontSize: 13, color: "#a07040", marginTop: 2 }}>≈ ${amtUSD.toFixed(2)}</div>
+                                      <div style={{ display: "inline-block", marginTop: 3, fontSize: 11, fontWeight: 700, color: "#d8c89a", background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.28)", borderRadius: 4, padding: "1px 6px", fontFamily: "'Space Mono',monospace" }}>≈ ${amtUSD.toFixed(2)}</div>
                                     )}
                                   </div>
                                   <button onClick={() => isInc ? refundIncomeEntry(tx.id) : startDelete(tx.id, "expense")} style={{ background: "none", border: "none", color: "#5a3a30", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "4px 6px", flexShrink: 0, transition: "color 0.15s" }} onMouseEnter={e => e.target.style.color="#f43f5e"} onMouseLeave={e => e.target.style.color="#5a3a30"}>×</button>
@@ -3330,7 +3393,8 @@ export default function AITracker() {
                               );
                             })}
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -3391,10 +3455,10 @@ export default function AITracker() {
                       <tr><td colSpan={months.length + 3} style={{ color: "#5a4a30", padding: "12px 8px", textAlign: "center", fontStyle: "italic" }}>Ще немає записів</td></tr>
                     )}
                     {totalIncome > 0 && (
-                      <tr style={{ borderTop: "1px solid rgba(201,168,76,0.20)" }}>
-                        <td style={{ padding: "8px 8px", color: "#c9a84c", fontWeight: 700, fontSize: 11, textTransform: "uppercase" }}>Всього</td>
-                        {months.map(m => { const v = incomeEntries.filter(e => e.date.startsWith(m)).reduce((s, e) => s + toUSD(e.amount, e.currency), 0); return <td key={m} style={{ textAlign: "right", padding: "8px 8px", color: v > 0 ? "#c9a84c" : "#3a3028", fontWeight: 700 }}>{v > 0 ? `$${v.toFixed(0)}` : "—"}</td>; })}
-                        <td style={{ textAlign: "right", padding: "8px 8px", color: "#c9a84c", fontWeight: 800 }}>${totalIncome.toFixed(0)}</td>
+                      <tr style={{ borderTop: "2px solid rgba(16,185,129,0.55)", background: "rgba(16,185,129,0.10)" }}>
+                        <td style={{ padding: "10px 8px", color: "#10b981", fontWeight: 800, fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>Σ Всього</td>
+                        {months.map(m => { const v = incomeEntries.filter(e => e.date.startsWith(m)).reduce((s, e) => s + toUSD(e.amount, e.currency), 0); return <td key={m} style={{ textAlign: "right", padding: "10px 8px", color: v > 0 ? "#10b981" : "#3a3028", fontWeight: 700 }}>{v > 0 ? `$${v.toFixed(0)}` : "—"}</td>; })}
+                        <td style={{ textAlign: "right", padding: "10px 8px", color: "#10b981", fontWeight: 800, fontSize: 14 }}>${totalIncome.toFixed(0)}</td>
                         <td></td>
                       </tr>
                     )}
@@ -3479,10 +3543,10 @@ export default function AITracker() {
                       <tr><td colSpan={months.length + 3} style={{ color: "#5a4a30", padding: "12px 8px", textAlign: "center", fontStyle: "italic" }}>Ще немає записів</td></tr>
                     )}
                     {totalExpenses > 0 && (
-                      <tr style={{ borderTop: "1px solid rgba(201,168,76,0.20)" }}>
-                        <td style={{ padding: "8px 8px", color: "#c9a84c", fontWeight: 700, fontSize: 11, textTransform: "uppercase" }}>Всього</td>
-                        {months.map(m => { const v = expenseEntries.filter(e => e.date.startsWith(m)).reduce((s, e) => s + toUSD(e.amount, e.currency), 0); return <td key={m} style={{ textAlign: "right", padding: "8px 8px", color: v > 0 ? "#f43f5e" : "#3a3028", fontWeight: 700 }}>{v > 0 ? `$${v.toFixed(0)}` : "—"}</td>; })}
-                        <td style={{ textAlign: "right", padding: "8px 8px", color: "#f43f5e", fontWeight: 800 }}>${totalExpenses.toFixed(0)}</td>
+                      <tr style={{ borderTop: "2px solid rgba(244,63,94,0.55)", background: "rgba(244,63,94,0.10)" }}>
+                        <td style={{ padding: "10px 8px", color: "#f43f5e", fontWeight: 800, fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>Σ Всього</td>
+                        {months.map(m => { const v = expenseEntries.filter(e => e.date.startsWith(m)).reduce((s, e) => s + toUSD(e.amount, e.currency), 0); return <td key={m} style={{ textAlign: "right", padding: "10px 8px", color: v > 0 ? "#f43f5e" : "#3a3028", fontWeight: 700 }}>{v > 0 ? `$${v.toFixed(0)}` : "—"}</td>; })}
+                        <td style={{ textAlign: "right", padding: "10px 8px", color: "#f43f5e", fontWeight: 800, fontSize: 14 }}>${totalExpenses.toFixed(0)}</td>
                         <td></td>
                       </tr>
                     )}
@@ -4056,31 +4120,48 @@ export default function AITracker() {
             { catId: "content",    emoji: "📱", label: "Контент",        tasks: [{ id: "posts_published", label: "Постів" }, { id: "followers_gained", label: "Підписників" }, { id: "content_views", label: "Переглядів" }] },
             { catId: "monetize",   emoji: "💰", label: "Монетизація",    tasks: [{ id: "ai_income", label: "Дохід ($)" }, { id: "clients", label: "Клієнтів" }] },
           ];
-          // XP sources: today vs total
+          // XP sources — "Сьогодні" береться з журналу XP, а "Загалом" рахується
+          // напряму з поточного стану (точне джерело правди), щоб усі вкладки, з яких
+          // приходить XP, мали правильні суми незалежно від моменту старту обліку.
           const xpToday_act = ACTIVITY_DEFS.reduce((s, d) => s + (todayActivity[d.key] ?? 0) * d.xp, 0);
           const todayLogEntries = xpLog.filter(e => e.date === todayStr());
           const todayBySource = todayLogEntries.reduce((acc, e) => { acc[e.source] = (acc[e.source] ?? 0) + e.amount; return acc; }, {});
           todayBySource.activity = xpToday_act;
+
+          // Точні «Загалом» з поточного стану:
+          const derivedAch = ACHIEVEMENTS.filter(a => unlockedAchievements.includes(a.id)).reduce((s, a) => s + a.xp, 0);
+          const derivedIncome = incomeEntries.reduce((s, e) => s + (e.xpPaid ?? 0), 0);
+          const derivedSession = sessions.dates.length * 5;
+          let skillTaskXP = 0;
+          SKILL_TASKS.forEach(cat => {
+            cat.progressive.forEach(t => {
+              const claimed = skillTasksData[`${cat.id}_${t.id}`]?.claimed ?? [];
+              t.milestones.forEach((m, i) => { if (claimed.includes(i)) skillTaskXP += m.xp; });
+            });
+            cat.oneTime.forEach(t => { if (skillTasksData[`${cat.id}_${t.id}`] === true) skillTaskXP += t.xp; });
+          });
+          const derivedSkill = totalTools * 100 + skillTaskXP;
+          // Цілі/план/проекти ведуться журналом (нові, відстежувані)
           const totalBySource = xpLog.reduce((acc, e) => { acc[e.source] = (acc[e.source] ?? 0) + e.amount; return acc; }, {});
-          totalBySource.activity = activityXP ?? computeCorrectActivityXP();
-          const loggedSum = Object.values(totalBySource).reduce((s, v) => s + v, 0);
-          const untracked = totalXP - loggedSum;
-          // Fold pre-tracking XP into the activity total so cards sum to the real total
-          if (untracked > 0) totalBySource.activity = (totalBySource.activity ?? 0) + untracked;
+          const logGoalPlan = (totalBySource.goal ?? 0) + (totalBySource.plan ?? 0);
+          const logProject = totalBySource.project ?? 0;
+          // Активність = решта (поглинає стартові 300 XP та все, що поза іншими джерелами).
+          // AI-сесії формально теж активність → зливаємо у «Активність».
+          const accountedNonActivity = derivedSkill + derivedAch + derivedIncome + derivedSession + logGoalPlan + logProject;
+          const derivedActivity = Math.max(0, totalXP - accountedNonActivity);
+          const activityTotal = derivedActivity + derivedSession;
+
           const XP_GROUPS = [
-            { key: "activity",    emoji: "⚡", label: "Активність",    color: "#00ff88", desc: "лічильники дій" },
-            { key: "session",     emoji: "🔥", label: "AI-сесії",      color: "#f59e0b", desc: `чек-ін · ${sessions.dates.length} сесій` },
-            { key: "skill",       emoji: "🧩", label: "Навички",       color: "#6366f1", desc: "розблоковані інструменти" },
-            { key: "goal_plan",   emoji: "🎯", label: "Цілі & задачі", color: "#06b6d4", desc: "цілі + план дій", keys: ["goal","plan"] },
-            { key: "project",     emoji: "🚀", label: "Проекти",       color: "#a855f7", desc: "нові проекти" },
-            { key: "achievement", emoji: "🏆", label: "Досягнення",    color: "#fbbf24", desc: "нагороди" },
-            { key: "income",      emoji: "💰", label: "Дохід",         color: "#10b981", desc: "заробіток" },
+            { key: "activity",    emoji: "⚡", label: "Активність",            color: "#00ff88", desc: "дії + AI-сесії",                total: activityTotal, todayKeys: ["activity", "session"] },
+            { key: "goal_plan",   emoji: "🎯", label: "Цілі & задачі",         color: "#06b6d4", desc: "цілі + план дій",               total: logGoalPlan,   todayKeys: ["goal", "plan"] },
+            { key: "skill",       emoji: "🧩", label: "Навички + інструменти", color: "#6366f1", desc: `${totalTools} інструментів`,     total: derivedSkill,  todayKeys: ["skill"] },
+            { key: "project",     emoji: "🚀", label: "Проекти",               color: "#a855f7", desc: `${projects.length} проектів`,    total: logProject,    todayKeys: ["project"] },
+            { key: "achievement", emoji: "🏆", label: "Досягнення",            color: "#fbbf24", desc: `${unlockedAchievements.length} нагород`, total: derivedAch, todayKeys: ["achievement"] },
+            { key: "income",      emoji: "💰", label: "Фінанси",               color: "#10b981", desc: "дохід з AI",                    total: derivedIncome, todayKeys: ["income"] },
           ];
-          const knownKeys = new Set(["activity","session","skill","goal","plan","project","achievement","income"]);
-          const otherToday = Object.entries(todayBySource).filter(([k]) => !knownKeys.has(k)).reduce((s,[,v])=>s+v,0);
-          const otherTotal = Object.entries(totalBySource).filter(([k]) => !knownKeys.has(k)).reduce((s,[,v])=>s+v,0);
-          const allGroups = [...XP_GROUPS, ...(otherTotal !== 0 ? [{ key:"other", emoji:"•", label:"Інше", color:"#9a8a60", desc:"" }] : [])];
-          const getGrpVal = (map, grp) => grp.keys ? grp.keys.reduce((s,k)=>s+(map[k]??0),0) : (map[grp.key]??0);
+          const allGroups = XP_GROUPS;
+          const grpTodayVal = (grp) => grp.todayKeys.reduce((s, k) => s + (todayBySource[k] ?? 0), 0);
+          const sourcesTotal = XP_GROUPS.reduce((s, g) => s + g.total, 0);
           return (
             <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
               {/* Джерела XP */}
@@ -4088,8 +4169,8 @@ export default function AITracker() {
                 <div className="wf-sec" style={{ marginBottom: 16 }}>⭐ Джерела XP</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10 }}>
                   {allGroups.map(grp => {
-                    const tval = grp.key === "other" ? otherToday : getGrpVal(todayBySource, grp);
-                    const aval = grp.key === "other" ? otherTotal : getGrpVal(totalBySource, grp);
+                    const tval = grpTodayVal(grp);
+                    const aval = grp.total;
                     if (aval === 0 && tval === 0) return null;
                     return (
                       <div key={grp.key} className="wf-card" style={{ padding: "12px 14px", border: `1px solid ${grp.color}33`, borderTop: `2px solid ${grp.color}` }}>
@@ -4116,14 +4197,9 @@ export default function AITracker() {
                 </div>
                 <div style={{ marginTop: 12, display: "flex", alignItems: "baseline", gap: 8, fontSize: 12, fontFamily: "'Space Mono',monospace", color: "#9a8a60" }}>
                   <span>Разом по джерелах:</span>
-                  <b style={{ color: "#c9a84c", fontSize: 14 }}>{(loggedSum + Math.max(0, untracked)).toLocaleString()} XP</b>
+                  <b style={{ color: "#c9a84c", fontSize: 14 }}>{sourcesTotal.toLocaleString()} XP</b>
                   <span style={{ color: "#5a5040" }}>= рівень ({totalXP.toLocaleString()} XP)</span>
                 </div>
-                {untracked < 0 && (
-                  <div style={{ marginTop: 6, fontSize: 11, fontFamily: "'Space Mono',monospace", color: "#f43f5e" }}>
-                    Розбіжність: <b>{untracked.toLocaleString()} XP</b>
-                  </div>
-                )}
               </div>
               {/* Фінанси */}
               <div>
