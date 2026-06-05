@@ -246,9 +246,9 @@ const STORAGE_KEY = "ai_tracker_v1";
 // Єдине джерело правди для блоку «Активність».
 // kind: "learn" → лічильник у learnTime; "skill" → у skillTasksData (ключ catId_taskId).
 const ACTIVITY_DEFS = [
-  { kind: "learn", key: "education",            emoji: "📚", label: "Навчання",    color: "#06b6d4", note: "30хв/раз", xp: 4 },
-  { kind: "learn", key: "business",             emoji: "💼", label: "Бізнес",      color: "#f59e0b", note: "30хв/раз", xp: 4 },
-  { kind: "learn", key: "edu_videos",           emoji: "📺", label: "Навч. відео", color: "#a855f7", note: "1 відео",  xp: 3 },
+  { kind: "learn", key: "education",            emoji: "📚", label: "Навчання",    color: "#06b6d4", note: "30хв/раз", unit: "30 хв", xp: 4 },
+  { kind: "learn", key: "business",             emoji: "💼", label: "Бізнес",      color: "#f59e0b", note: "30хв/раз", unit: "30 хв", xp: 4 },
+  { kind: "learn", key: "edu_videos",           emoji: "📺", label: "Навч. відео", color: "#a855f7", note: "1 відео",  unit: "відео",  xp: 3 },
   { kind: "skill", key: "image_images_gen",     emoji: "🎨", label: "Зображення",  color: "#ff6b35",                  xp: 2 },
   { kind: "skill", key: "video_videos_created", emoji: "🎬", label: "Відео",       color: "#a855f7",                  xp: 8 },
   { kind: "skill", key: "music_tracks_created", emoji: "🎵", label: "Музика",      color: "#ec4899",                  xp: 6 },
@@ -2217,7 +2217,7 @@ export default function AITracker() {
                             addFloat(tr.key, delta > 0 ? `+${delta}` : `${delta}`, delta > 0 ? tr.color : "#f43f5e");
                           };
                           const cardFloats = floats.filter(f => f.key === tr.key);
-                          const xpLabel = tr.note ? `${tr.note} · +${tr.xp} XP` : `+${tr.xp} XP/шт`;
+                          const xpLabel = `+${tr.xp} XP/${tr.unit ?? "шт"}`;
                           return (
                             <div key={tr.key} style={{ position: "relative", background: `${tr.color}0d`, border: `1px solid ${tr.color}35`, borderRadius: 8, padding: "12px 10px 10px", display: "flex", flexDirection: "column", gap: 8, overflow: "visible" }}>
                               {cardFloats.map(f => (
