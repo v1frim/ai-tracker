@@ -2056,21 +2056,6 @@ export default function AITracker() {
         {activeTab === "dashboard" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-            {/* Session check-in */}
-            <div style={{ background: doneToday ? "rgba(201,168,76,0.06)" : "rgba(244,63,94,0.05)", border: `1px solid ${doneToday ? "rgba(201,168,76,0.30)" : "rgba(244,63,94,0.2)"}`, borderTop: doneToday ? "2px solid rgba(201,168,76,0.6)" : "2px solid rgba(244,63,94,0.5)", borderRadius: 4, padding: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: doneToday ? "#c9a84c" : "#f43f5e", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>
-                  {doneToday ? "✓ AI-сесія сьогодні виконана" : "⚡ Чи працював сьогодні з AI?"}
-                </div>
-                <div style={{ fontSize: 11, color: "#9a8a60", marginTop: 3 }}>
-                  Стрік: {streak} дн. · {monthSessions}/{daysInCurrentMonth} цього місяця
-                </div>
-              </div>
-              {!doneToday && (
-                <button className="checkin-btn" onClick={logSession} style={{ background: "linear-gradient(135deg,#00ff88,#00cc6a)", color: "#000", border: "none", padding: "10px 20px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'Space Mono',monospace", boxShadow: "0 0 20px rgba(0,255,136,0.3)", whiteSpace: "nowrap" }}>+ Так (+5 XP)</button>
-              )}
-            </div>
-
             {/* Two-column: Focus block + Activity */}
             <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
               {/* LEFT: Focus block */}
@@ -2244,13 +2229,11 @@ export default function AITracker() {
                                 <span style={{ fontSize: 15, lineHeight: 1, flexShrink: 0 }}>{tr.emoji}</span>
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                   <div style={{ fontSize: 11, fontWeight: 800, color: "#c8b89a", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 0.8, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tr.label}</div>
-                                  <div style={{ fontSize: 9, color: "#4a4030", fontFamily: "'Space Mono',monospace", lineHeight: 1.3 }}>{xpLabel}</div>
+                                  <div style={{ fontSize: 11, fontWeight: 700, color: `${tr.color}cc`, fontFamily: "'Space Mono',monospace", lineHeight: 1.3 }}>{xpLabel}</div>
                                 </div>
-                                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0, minHeight: 42, justifyContent: "flex-start" }}>
                                   <div style={{ fontSize: 20, fontWeight: 900, color: tr.color, fontFamily: "'Space Mono',monospace", textShadow: `0 0 8px ${tr.color}55`, lineHeight: 1 }}>{count}</div>
-                                  {todayCount > 0 && (
-                                    <span style={{ display: "inline-block", background: `${tr.color}18`, border: `1px solid ${tr.color}66`, color: tr.color, fontSize: 10, fontWeight: 800, fontFamily: "'Space Mono',monospace", padding: "1px 6px", borderRadius: 10, marginTop: 2, whiteSpace: "nowrap" }}>+{todayCount}</span>
-                                  )}
+                                  <span style={{ display: "inline-block", visibility: todayCount > 0 ? "visible" : "hidden", background: `${tr.color}18`, border: `1px solid ${tr.color}66`, color: tr.color, fontSize: 10, fontWeight: 800, fontFamily: "'Space Mono',monospace", padding: "1px 6px", borderRadius: 10, marginTop: 3, whiteSpace: "nowrap" }}>+{todayCount || 0}</span>
                                 </div>
                               </div>
 
