@@ -2249,7 +2249,7 @@ export default function AITracker() {
                                 <div style={{ textAlign: "right", flexShrink: 0 }}>
                                   <div style={{ fontSize: 20, fontWeight: 900, color: tr.color, fontFamily: "'Space Mono',monospace", textShadow: `0 0 8px ${tr.color}55`, lineHeight: 1 }}>{count}</div>
                                   {todayCount > 0 && (
-                                    <div style={{ fontSize: 9, color: `${tr.color}88`, fontFamily: "'Space Mono',monospace", marginTop: 1 }}>+{todayCount}</div>
+                                    <span style={{ display: "inline-block", background: `${tr.color}18`, border: `1px solid ${tr.color}66`, color: tr.color, fontSize: 10, fontWeight: 800, fontFamily: "'Space Mono',monospace", padding: "1px 6px", borderRadius: 10, marginTop: 2, whiteSpace: "nowrap" }}>+{todayCount}</span>
                                   )}
                                 </div>
                               </div>
