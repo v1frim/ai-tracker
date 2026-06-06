@@ -921,6 +921,7 @@ export default function AITracker() {
 
   const [skillData, setSkillData] = useState(saved?.skillData ?? DEFAULT_SKILL_DATA);
   const [totalXP, setTotalXP] = useState(saved?.totalXP ?? 300);
+  const [levelUpAt, setLevelUpAt] = useState(saved?.levelUpAt ?? 0);
   const [activityXP, setActivityXP] = useState(saved?.activityXP);
   const [xpLog, setXpLog] = useState(saved?.xpLog ?? []);
   // Finance v2 — entries + categories
@@ -1101,9 +1102,9 @@ export default function AITracker() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    const state = { skillData, totalXP, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, longGoalEpoch, plan, aiMessages, aiModel, aiApiKeys, githubSync, progressLog, metricLog, todayXP, skillTasksData, learnTime };
+    const state = { skillData, totalXP, levelUpAt, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, longGoalEpoch, plan, aiMessages, aiModel, aiApiKeys, githubSync, progressLog, metricLog, todayXP, skillTasksData, learnTime };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [skillData, totalXP, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, longGoalEpoch, plan, aiMessages, aiModel, aiApiKeys, githubSync, progressLog, metricLog, todayXP, skillTasksData, learnTime]);
+  }, [skillData, totalXP, levelUpAt, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, longGoalEpoch, plan, aiMessages, aiModel, aiApiKeys, githubSync, progressLog, metricLog, todayXP, skillTasksData, learnTime]);
 
   useEffect(() => {
     localStorage.setItem("ai_tracker_today_act", JSON.stringify({ date: todayStr(), data: todayActivity }));
@@ -1202,6 +1203,25 @@ export default function AITracker() {
   }, []);
 
   const totalLevel = calcLevel(totalXP);
+  const LEVELUP_GLOW_MS = 3600000; // рамка світиться 1 годину після підвищення рівня
+  const prevLevelRef = useRef(null);
+  const [levelGlow, setLevelGlow] = useState(false);
+  useEffect(() => {
+    if (prevLevelRef.current === null) { prevLevelRef.current = totalLevel; return; }
+    if (totalLevel > prevLevelRef.current) {
+      setLevelUpAt(Date.now());
+      showNotif(`🎉 Новий рівень — ${totalLevel}!`, "xp");
+    }
+    prevLevelRef.current = totalLevel;
+  }, [totalLevel]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!levelUpAt) { setLevelGlow(false); return; }
+    const remaining = LEVELUP_GLOW_MS - (Date.now() - levelUpAt);
+    if (remaining <= 0) { setLevelGlow(false); return; }
+    setLevelGlow(true);
+    const t = setTimeout(() => setLevelGlow(false), remaining);
+    return () => clearTimeout(t);
+  }, [levelUpAt]);
   const curLevelXP = xpForLevel(totalLevel);
   const nextLevelXP = xpForLevel(totalLevel + 1);
   const xpProgress = ((totalXP - curLevelXP) / (nextLevelXP - curLevelXP)) * 100;
@@ -1938,7 +1958,7 @@ export default function AITracker() {
           const lglow = lg.glow;
           const lbg = lg.bg.replace("135deg", "90deg");
           return (
-        <div style={{ marginBottom: 24, paddingBottom: 20, borderBottom: `1px solid ${lc}44` }}>
+        <div className={levelGlow ? "level-up-glow" : undefined} style={{ marginBottom: 24, padding: levelGlow ? 14 : 0, paddingBottom: 20, border: levelGlow ? `1px solid ${lc}44` : "none", borderBottom: `1px solid ${lc}44`, borderRadius: 6, transition: "padding 0.4s ease", "--lu-color": lc, "--lu-border": `${lc}80`, "--lu-bright": lc }}>
 
           {/* Top row: avatar + name + stats */}
           <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>
@@ -1990,7 +2010,7 @@ export default function AITracker() {
           </div>
 
           {/* XP Bar */}
-          <div style={{ padding: "12px 16px", background: "rgba(8,5,2,0.55)", border: `1px solid ${lc}28`, borderTop: `2px solid ${lc}60`, borderRadius: 4, boxShadow: `0 0 12px ${lglow}` }}>
+          <div className={levelGlow ? "level-up-glow" : undefined} style={{ padding: "12px 16px", background: "rgba(8,5,2,0.55)", border: `1px solid ${lc}28`, borderTop: `2px solid ${lc}60`, borderRadius: 4, boxShadow: `0 0 12px ${lglow}`, "--lu-color": lc, "--lu-border": `${lc}90`, "--lu-bright": lc }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ background: lbg, color: "#000", padding: "3px 12px", borderRadius: 3, fontSize: 12, fontWeight: 800, fontFamily: "'Exo 2',sans-serif", letterSpacing: 2, textTransform: "uppercase" }}>RANK {totalLevel}</span>
@@ -2023,15 +2043,10 @@ export default function AITracker() {
               {(() => {
                 const cur = getLeague(totalLevel);
                 const nextLg = LEAGUES[LEAGUES.indexOf(cur) + 1];
-                if (!nextLg) return <span style={{ fontSize: 11, color: lc, fontFamily: "'Exo 2',sans-serif", fontWeight: 800, letterSpacing: 1, textTransform: "uppercase" }}>★ {cur.name} ліга — МАКС</span>;
-                const levelsLeft = nextLg.minLevel - totalLevel;
                 return (
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontSize: 11, color: cur.color, fontFamily: "'Exo 2',sans-serif", fontWeight: 700, textTransform: "uppercase" }}>{cur.name}</span>
-                    <span style={{ fontSize: 11, color: "#5a4a30" }}>→</span>
-                    <span style={{ fontSize: 11, color: nextLg.color, fontFamily: "'Exo 2',sans-serif", fontWeight: 700, textTransform: "uppercase" }}>{nextLg.name}</span>
-                    <span style={{ fontSize: 11, color: `${lc}88`, fontFamily: "'Space Mono',monospace" }}>ще {levelsLeft} рів.</span>
-                  </div>
+                  <span style={{ fontSize: 11, color: cur.color, fontFamily: "'Exo 2',sans-serif", fontWeight: 800, letterSpacing: 1, textTransform: "uppercase" }}>
+                    {!nextLg ? "★ " : ""}{cur.name} ліга{!nextLg ? " — МАКС" : ""}
+                  </span>
                 );
               })()}
             </div>

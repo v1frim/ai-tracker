@@ -25,3 +25,12 @@ input[type=number] { -moz-appearance: textfield; }
 
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-thumb { background: #c9a84c; border-radius: 4px; }
+
+@keyframes levelUpGlow {
+  0%   { box-shadow: 0 0 14px var(--lu-color), inset 0 0 10px var(--lu-color); border-color: var(--lu-border); }
+  50%  { box-shadow: 0 0 36px var(--lu-color), 0 0 60px var(--lu-color), inset 0 0 22px var(--lu-color); border-color: var(--lu-bright); }
+  100% { box-shadow: 0 0 14px var(--lu-color), inset 0 0 10px var(--lu-color); border-color: var(--lu-border); }
+}
+.level-up-glow {
+  animation: levelUpGlow 2.2s ease-in-out infinite;
+}
