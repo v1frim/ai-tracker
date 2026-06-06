@@ -1109,6 +1109,16 @@ export default function AITracker() {
     localStorage.setItem("ai_tracker_today_act", JSON.stringify({ date: todayStr(), data: todayActivity }));
   }, [todayActivity]);
 
+  // Авто-сесія: будь-яка змістовна дія (XP, фінанси, задачі, цілі, план, проекти,
+  // навички, активність) автоматично зараховує сьогоднішній день у стрік.
+  // Стартовий гард пропускає нормалізацію даних при завантаженні застосунку.
+  const sessionAutoRef = useRef(Date.now());
+  useEffect(() => {
+    if (Date.now() - sessionAutoRef.current < 2500) return;
+    const today = todayStr();
+    setSessions(prev => prev.dates.includes(today) ? prev : { ...prev, dates: [...prev.dates, today] });
+  }, [incomeEntries, expenseEntries, subscriptions, projects, goals, longGoals, plan, skillData, skillTasksData, learnTime, todayActivity]);
+
   // Computed totals in USD
   const toUSD = useCallback((amount, currency) => currency === "UAH" ? amount / uahRate : amount, [uahRate]);
   const totalIncome = useMemo(() => incomeEntries.reduce((s, e) => s + toUSD(e.amount, e.currency), 0), [incomeEntries, toUSD]);
@@ -1595,21 +1605,6 @@ export default function AITracker() {
       return ua;
     });
   }, [projectInput, projects, gainXP, recordActiveDay, checkAchievements, totalTools, totalIncome, skillData, streak, sessions.dates.length]);
-
-  const logSession = useCallback(() => {
-    if (doneToday) return;
-    const today = todayStr();
-    const newDates = [...sessions.dates, today];
-    const newStreak = calcStreak(newDates);
-    const newSessions = { ...sessions, dates: newDates };
-    setSessions(newSessions);
-    gainXP(5, "(AI-сесія)", "session");
-    recordActiveDay();
-    setUnlockedAchievements(ua => {
-      checkAchievements(totalTools, totalIncome, projects.length, skillData, ua, newStreak, newDates.length);
-      return ua;
-    });
-  }, [doneToday, sessions, gainXP, recordActiveDay, checkAchievements, totalTools, totalIncome, projects, skillData]);
 
   // Синхронізація рядків коду з GitHub (усі репозиторії користувача).
   // Рахуємо фактичні рядки у файлах кожного репо (дерево гілки + raw-вміст).
@@ -2366,13 +2361,14 @@ export default function AITracker() {
               {doneToday ? (
                 <div>
                   <div style={{ fontSize: 48, marginBottom: 10 }}>✅</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: "#00ff88", fontFamily: "'Exo 2',sans-serif" }}>Сесія виконана!</div>
-                  <div style={{ fontSize: 12, color: "#9a8a60", marginTop: 6 }}>Повернись завтра для нового +5 XP</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: "#00ff88", fontFamily: "'Exo 2',sans-serif" }}>День зараховано!</div>
+                  <div style={{ fontSize: 12, color: "#9a8a60", marginTop: 6 }}>Сьогодні вже була активність — стрік триває 🔥</div>
                 </div>
               ) : (
                 <div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: "#fff", fontFamily: "'Exo 2',sans-serif", marginBottom: 16 }}>Ти сьогодні працював з AI?</div>
-                  <button className="checkin-btn" onClick={logSession} style={{ background: "linear-gradient(135deg,#00ff88,#00cc6a)", color: "#000", border: "none", padding: "16px 40px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 16, fontFamily: "'Exo 2',sans-serif", boxShadow: "0 0 30px rgba(0,255,136,0.4)", letterSpacing: 0.5 }}>⚡ Так, працював! (+5 XP)</button>
+                  <div style={{ fontSize: 48, marginBottom: 10, opacity: 0.5 }}>🕓</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: "#c9a84c", fontFamily: "'Exo 2',sans-serif", marginBottom: 6 }}>Сьогодні ще немає активності</div>
+                  <div style={{ fontSize: 12, color: "#9a8a60", maxWidth: 360, margin: "0 auto" }}>Зроби будь-яку дію — додай активність, дохід/витрату, задачу чи ціль — і день зарахується у стрік автоматично.</div>
                 </div>
               )}
             </div>
