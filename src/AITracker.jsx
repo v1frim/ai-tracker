@@ -323,6 +323,31 @@ async function backupToDisk() {
   return "downloaded";
 }
 
+// Тихий авто-запис у вже прив'язаний файл. Нічого не питає у користувача:
+// якщо файлу немає або дозвіл не наданий — просто нічого не робить.
+// Повертає true, якщо запис відбувся.
+async function silentBackupToDisk() {
+  if (!window.showSaveFilePicker) return false;
+  const handle = await idbGet("backup").catch(() => null);
+  if (!handle) return false;
+  // Тільки query (без request) — request потребує жесту користувача.
+  if ((await handle.queryPermission({ mode: "readwrite" })) !== "granted") return false;
+  const writable = await handle.createWritable();
+  await writable.write(collectBackupData());
+  await writable.close();
+  return true;
+}
+
+// Чи активна авто-копія прямо зараз: файл прив'язаний І дозвіл уже наданий.
+// Після перезавантаження дозвіл може бути "prompt" — тоді авто-копія поки неактивна,
+// поки користувач знову не натисне «Зробити копію» (це поновлює дозвіл через жест).
+async function autoBackupActive() {
+  if (!window.showSaveFilePicker) return false;
+  const handle = await idbGet("backup").catch(() => null);
+  if (!handle) return false;
+  return (await handle.queryPermission({ mode: "readwrite" })) === "granted";
+}
+
 // Скинути прив'язаний файл (щоб наступна копія знову спитала, куди зберігати).
 async function clearBackupHandle() {
   await idbSet("backup", undefined).catch(() => {});
@@ -884,10 +909,12 @@ export default function AITracker() {
   useEffect(() => {
     const state = { skillData, totalXP, levelUpAt, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, longGoalEpoch, plan, aiMessages, aiModel, aiApiKeys, githubSync, progressLog, metricLog, todayXP, skillTasksData, learnTime };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    setSaveTick(t => t + 1);
   }, [skillData, totalXP, levelUpAt, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, longGoalEpoch, plan, aiMessages, aiModel, aiApiKeys, githubSync, progressLog, metricLog, todayXP, skillTasksData, learnTime]);
 
   useEffect(() => {
     localStorage.setItem("ai_tracker_today_act", JSON.stringify({ date: todayStr(), data: todayActivity }));
+    setSaveTick(t => t + 1);
   }, [todayActivity]);
 
   // Авто-сесія: будь-яка змістовна дія (XP, фінанси, задачі, цілі, план, проекти,
@@ -1070,6 +1097,11 @@ export default function AITracker() {
   // ─── Бекап даних ───────────────────────────────────────────────────────────
   const [backupAt, setBackupAt] = useState(() => localStorage.getItem(BACKUP_AT_KEY) || null);
   const [backupBusy, setBackupBusy] = useState(false);
+  const [autoBackupOn, setAutoBackupOn] = useState(false); // чи прив'язано файл для авто-копії
+  const [saveTick, setSaveTick] = useState(0);             // сигнал «дані змінились»
+
+  // На старті перевіряємо, чи авто-копія активна (файл прив'язаний + дозвіл наданий).
+  useEffect(() => { autoBackupActive().then(setAutoBackupOn).catch(() => {}); }, []);
 
   const handleBackup = useCallback(async () => {
     setBackupBusy(true);
@@ -1078,7 +1110,8 @@ export default function AITracker() {
       const now = new Date().toISOString();
       localStorage.setItem(BACKUP_AT_KEY, now);
       setBackupAt(now);
-      showNotif(res === "saved" ? "💾 Копію збережено" : "💾 Копію завантажено", "xp");
+      if (res === "saved") setAutoBackupOn(true);
+      showNotif(res === "saved" ? "💾 Копію збережено — далі оновлюється авто" : "💾 Копію завантажено", "xp");
     } catch (e) {
       if (e?.name !== "AbortError") showNotif("⚠️ " + (e?.message || "Не вдалося зберегти"), "warn");
     } finally {
@@ -1088,8 +1121,24 @@ export default function AITracker() {
 
   const handleRebindBackup = useCallback(async () => {
     await clearBackupHandle();
+    setAutoBackupOn(false);
     showNotif("📍 Обери файл при наступній копії", "xp");
   }, [showNotif]);
+
+  // Авто-копія: коли дані змінились і файл прив'язаний — тихо перезаписуємо
+  // його з невеликою затримкою (debounce), щоб не смикати диск щосекунди.
+  useEffect(() => {
+    if (!autoBackupOn) return;
+    const id = setTimeout(async () => {
+      const ok = await silentBackupToDisk().catch(() => false);
+      if (ok) {
+        const now = new Date().toISOString();
+        localStorage.setItem(BACKUP_AT_KEY, now);
+        setBackupAt(now);
+      }
+    }, 3000);
+    return () => clearTimeout(id);
+  }, [saveTick, autoBackupOn]);
 
   const handleRestore = useCallback(async () => {
     setBackupBusy(true);
@@ -2232,7 +2281,7 @@ export default function AITracker() {
             <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18 }}>
               <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 6 }}>💾 Збереження даних</div>
               <div style={{ fontSize: 11, color: "#8a7850", marginBottom: 14, fontFamily: "'Exo 2',sans-serif", lineHeight: 1.5 }}>
-                Локальна копія всього прогресу у файл на диску. Роби копію регулярно — це твій захист від втрати даних.
+                Локальна копія всього прогресу у файл на диску. Обери файл один раз — далі він оновлюється <b style={{ color: "#00ff88" }}>автоматично</b> при кожній зміні.
               </div>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 <button className="act-btn" onClick={handleBackup} disabled={backupBusy}
@@ -2255,6 +2304,11 @@ export default function AITracker() {
                   ? `Остання копія: ${new Date(backupAt).toLocaleString("uk-UA", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })} ✓`
                   : "Копій ще не було — зроби першу 👆"}
               </div>
+              {autoBackupOn && (
+                <div style={{ marginTop: 6, fontSize: 11, color: "#00ff88", fontFamily: "'Space Mono',monospace" }}>
+                  🟢 Авто-оновлення увімкнено
+                </div>
+              )}
             </div>
           </div>
         )}
