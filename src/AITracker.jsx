@@ -229,6 +229,130 @@ function loadState() {
   }
 }
 
+// ─── Локальний бекап даних (як в Oxford_1000) ────────────────────────────────
+// Усі ключі localStorage, які треба зберігати у файл копії.
+const BACKUP_KEYS = ["ai_tracker_v1", "ai_tracker_today_act"];
+const BACKUP_AT_KEY = "ai_tracker_backup_at";
+const BACKUP_FILENAME = "ai-tracker-backup.json";
+
+// Міні-сховище для FileSystemFileHandle в IndexedDB (handle не серіалізується в localStorage).
+const HANDLE_DB = "ai_tracker_fs";
+const HANDLE_STORE = "handles";
+function openHandleDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(HANDLE_DB, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(HANDLE_STORE);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function idbGet(key) {
+  const db = await openHandleDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(HANDLE_STORE, "readonly");
+    const r = tx.objectStore(HANDLE_STORE).get(key);
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+  });
+}
+async function idbSet(key, val) {
+  const db = await openHandleDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(HANDLE_STORE, "readwrite");
+    tx.objectStore(HANDLE_STORE).put(val, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+// Зібрати всі дані у JSON-рядок.
+function collectBackupData() {
+  const data = { _app: "ai-tracker", _exportedAt: new Date().toISOString(), keys: {} };
+  for (const k of BACKUP_KEYS) {
+    const v = localStorage.getItem(k);
+    if (v !== null) data.keys[k] = v;
+  }
+  return JSON.stringify(data, null, 2);
+}
+
+// Залити дані назад у localStorage.
+function applyBackupData(json) {
+  const parsed = JSON.parse(json);
+  const keys = parsed.keys ?? parsed; // підтримка простого формату
+  if (!keys || typeof keys !== "object") throw new Error("Некоректний файл копії");
+  // Мінімальна валідація: має бути хоча б головний ключ.
+  if (!(BACKUP_KEYS[0] in keys)) throw new Error("У файлі немає даних ai-tracker");
+  for (const k of BACKUP_KEYS) {
+    if (k in keys && keys[k] != null) localStorage.setItem(k, keys[k]);
+  }
+}
+
+async function verifyPermission(handle, write) {
+  const opts = { mode: write ? "readwrite" : "read" };
+  if ((await handle.queryPermission(opts)) === "granted") return true;
+  if ((await handle.requestPermission(opts)) === "granted") return true;
+  return false;
+}
+
+// Зробити копію: перший раз — діалог вибору файлу, далі — тихий перезапис того ж файлу.
+// Повертає "saved" | "downloaded".
+async function backupToDisk() {
+  const json = collectBackupData();
+  if (window.showSaveFilePicker) {
+    let handle = await idbGet("backup").catch(() => null);
+    if (!handle) {
+      handle = await window.showSaveFilePicker({
+        suggestedName: BACKUP_FILENAME,
+        types: [{ description: "JSON", accept: { "application/json": [".json"] } }],
+      });
+      await idbSet("backup", handle).catch(() => {});
+    }
+    if (!(await verifyPermission(handle, true))) throw new Error("Немає доступу до файлу");
+    const writable = await handle.createWritable();
+    await writable.write(json);
+    await writable.close();
+    return "saved";
+  }
+  // Fallback (Safari/Firefox): звичайне завантаження.
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = BACKUP_FILENAME;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  return "downloaded";
+}
+
+// Скинути прив'язаний файл (щоб наступна копія знову спитала, куди зберігати).
+async function clearBackupHandle() {
+  await idbSet("backup", undefined).catch(() => {});
+}
+
+// Відновити: вибрати файл і прочитати його вміст.
+async function readBackupFromDisk() {
+  if (window.showOpenFilePicker) {
+    const [handle] = await window.showOpenFilePicker({
+      types: [{ description: "JSON", accept: { "application/json": [".json"] } }],
+    });
+    const file = await handle.getFile();
+    return await file.text();
+  }
+  // Fallback: прихований input[type=file].
+  return new Promise((resolve, reject) => {
+    const input = document.createElement("input");
+    input.type = "file"; input.accept = ".json,application/json";
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) return reject(new Error("Файл не обрано"));
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsText(file);
+    };
+    input.click();
+  });
+}
+
 // Level model (Ulives-style): LVL 1-3 base 400+100/lvl, LVL 4-100 base 700+200/lvl
 // Cumulative XP at LVL 100 = exactly 1,000,000
 function xpForLevel(lvl) {
@@ -942,6 +1066,43 @@ export default function AITracker() {
     setNotification({ msg, type, id: Date.now() });
     setTimeout(() => setNotification(null), 2800);
   }, []);
+
+  // ─── Бекап даних ───────────────────────────────────────────────────────────
+  const [backupAt, setBackupAt] = useState(() => localStorage.getItem(BACKUP_AT_KEY) || null);
+  const [backupBusy, setBackupBusy] = useState(false);
+
+  const handleBackup = useCallback(async () => {
+    setBackupBusy(true);
+    try {
+      const res = await backupToDisk();
+      const now = new Date().toISOString();
+      localStorage.setItem(BACKUP_AT_KEY, now);
+      setBackupAt(now);
+      showNotif(res === "saved" ? "💾 Копію збережено" : "💾 Копію завантажено", "xp");
+    } catch (e) {
+      if (e?.name !== "AbortError") showNotif("⚠️ " + (e?.message || "Не вдалося зберегти"), "warn");
+    } finally {
+      setBackupBusy(false);
+    }
+  }, [showNotif]);
+
+  const handleRebindBackup = useCallback(async () => {
+    await clearBackupHandle();
+    showNotif("📍 Обери файл при наступній копії", "xp");
+  }, [showNotif]);
+
+  const handleRestore = useCallback(async () => {
+    setBackupBusy(true);
+    try {
+      const json = await readBackupFromDisk();
+      applyBackupData(json);
+      showNotif("✅ Дані відновлено — перезавантаження…", "xp");
+      setTimeout(() => window.location.reload(), 900);
+    } catch (e) {
+      if (e?.name !== "AbortError") showNotif("⚠️ " + (e?.message || "Не вдалося відновити"), "warn");
+      setBackupBusy(false);
+    }
+  }, [showNotif]);
 
   const showAchievementToast = useCallback((ach) => {
     const tid = Date.now() + Math.random();
@@ -2064,6 +2225,35 @@ export default function AITracker() {
               <div style={{ marginTop: 14, padding: "10px 14px", background: "rgba(0,255,136,0.05)", border: "1px solid rgba(0,255,136,0.15)", borderRadius: 4, display: "flex", justifyContent: "space-between" }}>
                 <span style={{ fontSize: 12, color: "#8a7850" }}>🏅 Досягнення</span>
                 <span style={{ fontSize: 13, color: "#00ff88", fontWeight: 700 }}>{unlockedAchievements.length} / {ACHIEVEMENTS.length}</span>
+              </div>
+            </div>
+
+            {/* Збереження даних */}
+            <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18 }}>
+              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 6 }}>💾 Збереження даних</div>
+              <div style={{ fontSize: 11, color: "#8a7850", marginBottom: 14, fontFamily: "'Exo 2',sans-serif", lineHeight: 1.5 }}>
+                Локальна копія всього прогресу у файл на диску. Роби копію регулярно — це твій захист від втрати даних.
+              </div>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <button className="act-btn" onClick={handleBackup} disabled={backupBusy}
+                  style={{ background: "rgba(0,255,136,0.1)", border: "1px solid #00ff88", color: "#00ff88", padding: "10px 16px", borderRadius: 4, cursor: backupBusy ? "default" : "pointer", fontSize: 12, fontFamily: "'Space Mono',monospace", fontWeight: 700, opacity: backupBusy ? 0.5 : 1 }}>
+                  💾 Зробити копію
+                </button>
+                <button className="act-btn" onClick={handleRestore} disabled={backupBusy}
+                  style={{ background: "rgba(245,158,11,0.1)", border: "1px solid #f59e0b", color: "#f59e0b", padding: "10px 16px", borderRadius: 4, cursor: backupBusy ? "default" : "pointer", fontSize: 12, fontFamily: "'Space Mono',monospace", fontWeight: 700, opacity: backupBusy ? 0.5 : 1 }}>
+                  📂 Відновити
+                </button>
+                {typeof window !== "undefined" && window.showSaveFilePicker && (
+                  <button className="act-btn" onClick={handleRebindBackup} disabled={backupBusy}
+                    style={{ background: "rgba(138,120,80,0.08)", border: "1px solid rgba(138,120,80,0.4)", color: "#9a8a60", padding: "10px 16px", borderRadius: 4, cursor: backupBusy ? "default" : "pointer", fontSize: 12, fontFamily: "'Space Mono',monospace", fontWeight: 700, opacity: backupBusy ? 0.5 : 1 }}>
+                    📍 Змінити файл
+                  </button>
+                )}
+              </div>
+              <div style={{ marginTop: 12, fontSize: 11, color: backupAt ? "#00ff88" : "#8a7850", fontFamily: "'Space Mono',monospace" }}>
+                {backupAt
+                  ? `Остання копія: ${new Date(backupAt).toLocaleString("uk-UA", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })} ✓`
+                  : "Копій ще не було — зроби першу 👆"}
               </div>
             </div>
           </div>
