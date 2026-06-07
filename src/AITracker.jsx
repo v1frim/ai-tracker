@@ -1143,17 +1143,21 @@ export default function AITracker() {
     return () => clearInterval(iv);
   }, []);
 
-  // Перевірка стрік-досягнень при кожній зміні sessions.dates
-  const prevSessionDatesLenRef = useRef(null);
+  // Перевірка стрік-досягнень при кожній зміні sessions.dates (в тому числі при завантаженні)
+  const sessionCheckDoneRef = useRef(false);
   useEffect(() => {
-    if (prevSessionDatesLenRef.current === null) { prevSessionDatesLenRef.current = sessions.dates.length; return; }
-    if (sessions.dates.length === prevSessionDatesLenRef.current) return;
-    prevSessionDatesLenRef.current = sessions.dates.length;
-    const newStreak = calcStreak(sessions.dates);
-    setUnlockedAchievements(ua => {
-      checkAchievements(totalTools, totalIncome, projects.length, skillData, ua, newStreak, sessions.dates.length);
-      return ua;
-    });
+    // При першому запуску: затримка, щоб дати час cleanup-ефекту (APP_START_DATE) відпрацювати.
+    // Потім і при кожній наступній зміні — перевіряємо одразу.
+    const delay = sessionCheckDoneRef.current ? 0 : 600;
+    const t = setTimeout(() => {
+      sessionCheckDoneRef.current = true;
+      const newStreak = calcStreak(sessions.dates);
+      setUnlockedAchievements(ua => {
+        checkAchievements(totalTools, totalIncome, projects.length, skillData, ua, newStreak, sessions.dates.length);
+        return ua;
+      });
+    }, delay);
+    return () => clearTimeout(t);
   }, [sessions.dates]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Computed totals in USD
