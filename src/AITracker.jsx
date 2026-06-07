@@ -1005,7 +1005,15 @@ export default function AITracker() {
   const [packInputs, setPackInputs] = useState({});
   const [todayActivity, setTodayActivity] = useState(() => {
     const saved_ta = (() => { try { return JSON.parse(localStorage.getItem("ai_tracker_today_act") ?? "null"); } catch { return null; } })();
-    return (saved_ta?.date === todayStr()) ? saved_ta.data : {};
+    if (saved_ta?.date !== todayStr() || !saved_ta?.data) return {};
+    // Перехресна перевірка з xpLog: збережений блок міг отримати сьогоднішню
+    // дату зі старими даними (вкладка відкрита через північ). Якщо XP, що
+    // випливає з лічильників, не збігається з реальними записами активності
+    // за сьогодні — блок застарілий, скидаємо.
+    const today = todayStr();
+    const logActXp = (saved?.xpLog ?? []).filter(e => e.date === today && e.source === "activity").reduce((s, e) => s + e.amount, 0);
+    const impliedXp = ACTIVITY_DEFS.reduce((s, d) => s + (saved_ta.data[d.key] ?? 0) * d.xp, 0);
+    return impliedXp === logActXp ? saved_ta.data : {};
   });
   const [unlockedAchievements, setUnlockedAchievements] = useState(saved?.unlockedAchievements ?? ["oxford_dev"]);
   const [achievementDates, setAchievementDates] = useState(saved?.achievementDates ?? { oxford_dev: "2026-01-01" });
@@ -1119,6 +1127,21 @@ export default function AITracker() {
     const today = todayStr();
     setSessions(prev => prev.dates.includes(today) ? prev : { ...prev, dates: [...prev.dates, today] });
   }, [incomeEntries, expenseEntries, subscriptions, projects, goals, longGoals, plan, skillData, skillTasksData, learnTime, todayActivity]);
+
+  // Зміна доби, поки вкладка відкрита: скидаємо сьогоднішні лічильники,
+  // щоб опівночі бейджі "+N сьогодні" обнулялися без перезавантаження.
+  useEffect(() => {
+    let curDay = todayStr();
+    const iv = setInterval(() => {
+      const now = todayStr();
+      if (now !== curDay) {
+        curDay = now;
+        setTodayActivity({});
+        setTodayXP({ date: now, total: 0 });
+      }
+    }, 30000);
+    return () => clearInterval(iv);
+  }, []);
 
   // Перевірка стрік-досягнень при кожній зміні sessions.dates
   const prevSessionDatesLenRef = useRef(null);
