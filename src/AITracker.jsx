@@ -1120,6 +1120,19 @@ export default function AITracker() {
     setSessions(prev => prev.dates.includes(today) ? prev : { ...prev, dates: [...prev.dates, today] });
   }, [incomeEntries, expenseEntries, subscriptions, projects, goals, longGoals, plan, skillData, skillTasksData, learnTime, todayActivity]);
 
+  // Перевірка стрік-досягнень при кожній зміні sessions.dates
+  const prevSessionDatesLenRef = useRef(null);
+  useEffect(() => {
+    if (prevSessionDatesLenRef.current === null) { prevSessionDatesLenRef.current = sessions.dates.length; return; }
+    if (sessions.dates.length === prevSessionDatesLenRef.current) return;
+    prevSessionDatesLenRef.current = sessions.dates.length;
+    const newStreak = calcStreak(sessions.dates);
+    setUnlockedAchievements(ua => {
+      checkAchievements(totalTools, totalIncome, projects.length, skillData, ua, newStreak, sessions.dates.length);
+      return ua;
+    });
+  }, [sessions.dates]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Computed totals in USD
   const toUSD = useCallback((amount, currency) => currency === "UAH" ? amount / uahRate : amount, [uahRate]);
   const totalIncome = useMemo(() => incomeEntries.reduce((s, e) => s + toUSD(e.amount, e.currency), 0), [incomeEntries, toUSD]);
@@ -1260,6 +1273,23 @@ export default function AITracker() {
     setAchieveToasts(prev => [...prev.slice(-3), { id: tid, dying: false, ...ach }]);
     setTimeout(() => setAchieveToasts(prev => prev.map(t => t.id === tid ? { ...t, dying: true } : t)), 3800);
     setTimeout(() => setAchieveToasts(prev => prev.filter(t => t.id !== tid)), 4300);
+    // Звук досягнення через Web Audio API
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const notes = [523.25, 659.25, 783.99, 1046.5];
+      notes.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.11);
+        gain.gain.setValueAtTime(0, ctx.currentTime + i * 0.11);
+        gain.gain.linearRampToValueAtTime(0.18, ctx.currentTime + i * 0.11 + 0.04);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.11 + 0.38);
+        osc.start(ctx.currentTime + i * 0.11);
+        osc.stop(ctx.currentTime + i * 0.11 + 0.38);
+      });
+    } catch (_) {}
   }, []);
 
   const addFloat = useCallback((key, text, color) => {
