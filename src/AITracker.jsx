@@ -907,7 +907,7 @@ export default function AITracker() {
   const [gpDelOpen, setGpDelOpen] = useState(false);
   const [gpAddType, setGpAddType] = useState("goal");
   const [gpAddText, setGpAddText] = useState("");
-  const [gpAddXP, setGpAddXP] = useState(200);
+  const [gpAddXP, setGpAddXP] = useState(500);
   const [gpInlineAdd, setGpInlineAdd] = useState(null);
   const [gpInlineText, setGpInlineText] = useState("");
   const [gpInlineXP, setGpInlineXP] = useState(75);
@@ -2978,7 +2978,7 @@ export default function AITracker() {
           };
 
           const renderTaskRow = (t) => (
-            <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(0,153,51,0.06)", border: "1px solid rgba(0,153,51,0.18)", borderLeft: "3px solid #009933", borderRadius: 4, padding: "8px 12px" }}>
+            <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(4,10,7,0.92)", border: "1px solid rgba(0,153,51,0.22)", borderLeft: "3px solid #009933", borderRadius: 4, padding: "8px 12px" }}>
               <button onClick={() => doCompleteTask(t)}
                 style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid rgba(0,153,51,0.5)", background: "transparent", cursor: "pointer", flexShrink: 0 }} />
               <span style={{ flex: 1, color: "#aad8bb", fontSize: 12 }}>{t.text}</span>
@@ -2996,19 +2996,19 @@ export default function AITracker() {
             const isInlining = gpInlineAdd?.parentId === p.id && gpInlineAdd?.type === "task";
             return (
               <div key={p.id}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(0,204,85,0.06)", border: "1px solid rgba(0,204,85,0.18)", borderLeft: "3px solid #00cc55", borderRadius: 4, padding: "9px 12px" }}>
-                  <button onClick={() => toggleExp(`plan_${p.id}`)}
-                    style={{ background: "none", border: "none", color: "#00cc55", cursor: "pointer", fontSize: 10, padding: "0 2px", flexShrink: 0, width: 14, opacity: planTasks.length ? 1 : 0.3 }}>
+                <div onClick={() => toggleExp(`plan_${p.id}`)}
+                  style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(4,12,8,0.92)", border: "1px solid rgba(0,204,85,0.22)", borderLeft: "3px solid #00cc55", borderRadius: 4, padding: "9px 12px", cursor: "pointer" }}>
+                  <span style={{ color: "#00cc55", fontSize: 10, flexShrink: 0, width: 14, opacity: planTasks.length ? 1 : 0.3 }}>
                     {exp ? "▼" : "▶"}
-                  </button>
-                  <button onClick={() => doCompletePlan(p)}
+                  </span>
+                  <button onClick={e => { e.stopPropagation(); doCompletePlan(p); }}
                     style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid rgba(0,204,85,0.5)", background: "transparent", cursor: "pointer", flexShrink: 0 }} />
                   <span style={{ flex: 1, color: "#c8f0d8", fontSize: 12 }}>{p.text}</span>
                   {planTasks.length > 0 && <span style={{ fontSize: 10, color: "#4a8060" }}>{planTasks.length} задач</span>}
-                  <span style={{ fontSize: 10, color: "#00cc55", background: "rgba(0,204,85,0.1)", border: "1px solid rgba(0,204,85,0.22)", padding: "2px 6px", borderRadius: 10, flexShrink: 0, whiteSpace: "nowrap" }}>+{p.xp ?? 75} XP</span>
-                  <button onClick={() => setPlan(prev => prev.map(x => x.id === p.id ? { ...x, pinned: !x.pinned } : x))}
+                  <span style={{ fontSize: 10, color: "#00cc55", background: "rgba(0,204,85,0.1)", border: "1px solid rgba(0,204,85,0.22)", padding: "2px 6px", borderRadius: 10, flexShrink: 0, whiteSpace: "nowrap" }}>+{p.xp ?? 150} XP</span>
+                  <button onClick={e => { e.stopPropagation(); setPlan(prev => prev.map(x => x.id === p.id ? { ...x, pinned: !x.pinned } : x)); }}
                     style={{ background: "none", border: "none", color: p.pinned ? "#c9a84c" : "#3a3020", cursor: "pointer", fontSize: 11, padding: "0 2px" }} title={p.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
-                  <button onClick={() => softDelete("plan", p.id)}
+                  <button onClick={e => { e.stopPropagation(); softDelete("plan", p.id); }}
                     style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 15, padding: "0 2px", lineHeight: 1 }}>×</button>
                 </div>
                 {exp && (
@@ -3027,7 +3027,7 @@ export default function AITracker() {
                         <button onClick={() => { setGpInlineAdd(null); setGpInlineText(""); }} style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 14, lineHeight: 1 }}>×</button>
                       </div>
                     ) : (
-                      <button onClick={() => { setGpInlineAdd({ parentId: p.id, type: "task" }); setGpInlineText(""); setGpInlineXP(100); }}
+                      <button onClick={() => { setGpInlineAdd({ parentId: p.id, type: "task" }); setGpInlineText(""); setGpInlineXP(50); }}
                         style={{ alignSelf: "flex-start", background: "none", border: "1px dashed rgba(0,153,51,0.22)", borderRadius: 3, padding: "3px 10px", color: "rgba(0,153,51,0.4)", fontSize: 11, cursor: "pointer" }}>
                         + задача
                       </button>
@@ -3044,19 +3044,19 @@ export default function AITracker() {
             const isInlining = gpInlineAdd?.parentId === g.id && gpInlineAdd?.type === "plan";
             return (
               <div key={g.id}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(0,255,136,0.06)", border: "1px solid rgba(0,255,136,0.18)", borderLeft: "3px solid #00ff88", borderRadius: 4, padding: "10px 12px" }}>
-                  <button onClick={() => toggleExp(`goal_${g.id}`)}
-                    style={{ background: "none", border: "none", color: "#00ff88", cursor: "pointer", fontSize: 10, padding: "0 2px", flexShrink: 0, width: 14, opacity: goalPlans.length ? 1 : 0.3 }}>
+                <div onClick={() => toggleExp(`goal_${g.id}`)}
+                  style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(5,14,10,0.92)", border: "1px solid rgba(0,255,136,0.22)", borderLeft: "3px solid #00ff88", borderRadius: 4, padding: "10px 12px", cursor: "pointer" }}>
+                  <span style={{ color: "#00ff88", fontSize: 10, flexShrink: 0, width: 14, opacity: goalPlans.length ? 1 : 0.3 }}>
                     {exp ? "▼" : "▶"}
-                  </button>
-                  <button onClick={() => doCompleteGoal(g)}
+                  </span>
+                  <button onClick={e => { e.stopPropagation(); doCompleteGoal(g); }}
                     style={{ width: 20, height: 20, borderRadius: "50%", border: "2px solid rgba(0,255,136,0.5)", background: "transparent", cursor: "pointer", flexShrink: 0 }} />
                   <span style={{ flex: 1, color: "#e0f8ec", fontSize: 13, fontWeight: 600 }}>{g.text}</span>
                   {goalPlans.length > 0 && <span style={{ fontSize: 10, color: "#4a7060" }}>{goalPlans.length} планів</span>}
-                  <span style={{ fontSize: 11, color: "#00ff88", background: "rgba(0,255,136,0.1)", border: "1px solid rgba(0,255,136,0.25)", padding: "2px 7px", borderRadius: 10, flexShrink: 0, whiteSpace: "nowrap" }}>+{g.customXP ?? 200} XP</span>
-                  <button onClick={() => setLongGoals(prev => prev.map(x => x.id === g.id ? { ...x, pinned: !x.pinned } : x))}
+                  <span style={{ fontSize: 11, color: "#00ff88", background: "rgba(0,255,136,0.1)", border: "1px solid rgba(0,255,136,0.25)", padding: "2px 7px", borderRadius: 10, flexShrink: 0, whiteSpace: "nowrap" }}>+{g.customXP ?? 500} XP</span>
+                  <button onClick={e => { e.stopPropagation(); setLongGoals(prev => prev.map(x => x.id === g.id ? { ...x, pinned: !x.pinned } : x)); }}
                     style={{ background: "none", border: "none", color: g.pinned ? "#c9a84c" : "#3a3020", cursor: "pointer", fontSize: 12, padding: "0 2px" }} title={g.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
-                  <button onClick={() => softDelete("goal", g.id)}
+                  <button onClick={e => { e.stopPropagation(); softDelete("goal", g.id); }}
                     style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 16, padding: "0 2px", lineHeight: 1 }}>×</button>
                 </div>
                 {exp && (
@@ -3075,7 +3075,7 @@ export default function AITracker() {
                         <button onClick={() => { setGpInlineAdd(null); setGpInlineText(""); }} style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 14, lineHeight: 1 }}>×</button>
                       </div>
                     ) : (
-                      <button onClick={() => { setGpInlineAdd({ parentId: g.id, type: "plan" }); setGpInlineText(""); setGpInlineXP(75); }}
+                      <button onClick={() => { setGpInlineAdd({ parentId: g.id, type: "plan" }); setGpInlineText(""); setGpInlineXP(150); }}
                         style={{ alignSelf: "flex-start", background: "none", border: "1px dashed rgba(0,204,85,0.22)", borderRadius: 3, padding: "3px 10px", color: "rgba(0,204,85,0.4)", fontSize: 11, cursor: "pointer" }}>
                         + план дій
                       </button>
@@ -3148,7 +3148,7 @@ export default function AITracker() {
                     { id: "plan", label: "📋 План дій", color: "#00cc55" },
                     { id: "task", label: "✅ Задача",   color: "#009933" },
                   ].map(tp => (
-                    <button key={tp.id} onClick={() => { setGpAddType(tp.id); setGpAddXP(tp.id === "goal" ? 200 : tp.id === "plan" ? 75 : 100); }}
+                    <button key={tp.id} onClick={() => { setGpAddType(tp.id); setGpAddXP(tp.id === "goal" ? 500 : tp.id === "plan" ? 150 : 50); }}
                       style={{ background: gpAddType === tp.id ? `${tp.color}18` : "transparent", border: `1px solid ${gpAddType === tp.id ? tp.color + "55" : "rgba(201,168,76,0.15)"}`, borderRadius: 3, padding: "5px 11px", color: gpAddType === tp.id ? tp.color : "#6a5f40", fontSize: 11, cursor: "pointer", fontWeight: gpAddType === tp.id ? 700 : 400, fontFamily: "'Exo 2',sans-serif" }}>
                       {tp.label}
                     </button>
