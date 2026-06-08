@@ -105,15 +105,15 @@ export const STORAGE_KEY        = "ai_tracker_v1";
 export const APP_START_DATE     = "2026-06-01";
 
 // YouTube-канали з AI-новинами для панелі на дашборді.
-// Channel ID (UC...) визначається автоматично в браузері й кешується.
+// channelId захардкожено де відомо — пропускає ненадійний крок resolveChannelId.
 export const YT_CHANNELS = [
-  { handle: "AIGeniy",         name: "Штучний Геній" },
-  { handle: "Web3nity",        name: "Web3nity" },
-  { handle: "s_belyak",        name: "Сергій Беляк" },
-  { handle: "traffic_system",  name: "Гришин Трафік" },
-  { handle: "mikhail.timochko", name: "Михаил Тимочко" },
-  { handle: "RusanovSasha",    name: "AlexRusanov AI" },
-  { handle: "aishny",          name: "ИИШНЫЙ" },
+  { handle: "AIGeniy",          name: "Штучний Геній" },
+  { handle: "Web3nity",         name: "Web3nity",       channelId: "UCuaYG7fdQ-4myL_CVtvwNHQ" },
+  { handle: "s_belyak",         name: "Сергій Беляк" },
+  { handle: "traffic_system",   name: "Гришин Трафік",  channelId: "UC2YAEMGLlJphyeh5qNUAL_w" },
+  { handle: "mikhail.timochko", name: "Михаил Тимочко", channelId: "UCudUZhJR8BUTiJ_njlAqr_w" },
+  { handle: "RusanovSasha",     name: "AlexRusanov AI" },
+  { handle: "aishny",           name: "ИИШНЫЙ",         channelId: "UCRArIk56Yl7ui2WUAKS3NGA" },
 ];
 
 export const ACTIVITY_DEFS = [

@@ -1217,11 +1217,11 @@ export default function AITracker() {
     setYtLoading(true);
     let ids = {};
     try { ids = JSON.parse(localStorage.getItem(YT_IDS_KEY) ?? "{}"); } catch {}
+    // Підставляємо захардкожені channelId в кеш, якщо їх ще немає
+    YT_CHANNELS.forEach(ch => { if (ch.channelId && !ids[ch.handle]) ids[ch.handle] = ch.channelId; });
     const next = { ...ytData };
     const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-    // По одному каналу за раз (а не Promise.all) — інакше проксі ріже запити
-    // через rate-limit і половина каналів падає. Повільніше, зате надійно.
     for (const ch of YT_CHANNELS) {
       const prev = ytData[ch.handle];
       const fresh = prev?.fetchedAt && (Date.now() - prev.fetchedAt < YT_TTL_MS) && prev?.video;
@@ -1230,7 +1230,7 @@ export default function AITracker() {
       let done = false;
       for (let attempt = 0; attempt < 2 && !done; attempt++) {
         try {
-          let id = ids[ch.handle];
+          let id = ids[ch.handle] ?? ch.channelId;
           if (!id) {
             id = await resolveChannelId(ch.handle);
             ids[ch.handle] = id;
@@ -1240,12 +1240,12 @@ export default function AITracker() {
           next[ch.handle] = { channelId: id, video, fetchedAt: Date.now() };
           done = true;
         } catch (e) {
-          if (attempt === 0) { await sleep(900); continue; }   // ретрай після паузи
+          if (attempt === 0) { await sleep(800); continue; }
           next[ch.handle] = prev?.video ? prev : { error: true };
         }
       }
-      setYtData({ ...next });   // прогресивно заповнюємо UI
-      await sleep(250);          // невелика пауза між каналами
+      setYtData({ ...next });
+      await sleep(200);
     }
 
     localStorage.setItem(YT_IDS_KEY, JSON.stringify(ids));
