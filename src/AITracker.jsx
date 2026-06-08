@@ -2433,8 +2433,10 @@ export default function AITracker() {
                         {v?.title ? (
                           <a href={v.link} target="_blank" rel="noopener noreferrer"
                             onClick={e => e.stopPropagation()}
-                            style={{ fontSize: 11, color: "#9a8a60", fontFamily: "'Exo 2',sans-serif", textDecoration: "none", display: "block", marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={v.title}>
-                            🎬 {v.title}{ago && <span style={{ color: "#6a5f40" }}> · {ago}</span>}
+                            style={{ display: "inline-flex", alignItems: "center", gap: 5, marginTop: 5, padding: "3px 8px", background: "rgba(255,80,0,0.13)", border: "1px solid rgba(255,80,0,0.30)", borderRadius: 3, textDecoration: "none", maxWidth: "100%", overflow: "hidden" }} title={`Відкрити відео: ${v.title}`}>
+                            <span style={{ fontSize: 9, color: "#ff6633", flexShrink: 0 }}>▶</span>
+                            <span style={{ fontSize: 11, color: "#c8a070", fontFamily: "'Exo 2',sans-serif", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.title}</span>
+                            {ago && <span style={{ fontSize: 10, color: "#7a5830", flexShrink: 0, fontFamily: "'Space Mono',monospace" }}>{ago}</span>}
                           </a>
                         ) : (
                           <div style={{ fontSize: 11, color: "#6a5f40", fontFamily: "'Exo 2',sans-serif", marginTop: 3 }}>
