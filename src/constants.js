@@ -107,7 +107,7 @@ export const APP_START_DATE     = "2026-06-01";
 // YouTube-канали з AI-новинами для панелі на дашборді.
 // channelId захардкожено де відомо — пропускає ненадійний крок resolveChannelId.
 export const YT_CHANNELS = [
-  { handle: "AIGeniy",          name: "Штучний Геній" },
+  { handle: "AIGeniy",          name: "Штучний Геній",  channelId: "UCNptVg1AvxwdXZJ6bVP2Z6Q" },
   { handle: "Web3nity",         name: "Web3nity",       channelId: "UCuaYG7fdQ-4myL_CVtvwNHQ" },
   { handle: "s_belyak",         name: "Сергій Беляк" },
   { handle: "traffic_system",   name: "Гришин Трафік",  channelId: "UC2YAEMGLlJphyeh5qNUAL_w" },
