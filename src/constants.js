@@ -104,6 +104,18 @@ export const DEFAULT_SESSIONS   = { dates: [], monthlyTarget: 50 };
 export const STORAGE_KEY        = "ai_tracker_v1";
 export const APP_START_DATE     = "2026-06-01";
 
+// YouTube-канали з AI-новинами для панелі на дашборді.
+// Channel ID (UC...) визначається автоматично в браузері й кешується.
+export const YT_CHANNELS = [
+  { handle: "AIGeniy",         name: "Штучний Геній" },
+  { handle: "Web3nity",        name: "Web3nity" },
+  { handle: "s_belyak",        name: "Сергій Беляк" },
+  { handle: "traffic_system",  name: "Гришин Трафік" },
+  { handle: "mikhail.timochko", name: "Михаил Тимочко" },
+  { handle: "RusanovSasha",    name: "AlexRusanov AI" },
+  { handle: "aishny",          name: "ИИШНЫЙ" },
+];
+
 export const ACTIVITY_DEFS = [
   { kind: "learn", key: "education",            emoji: "📚", label: "Навчання",    color: "#06b6d4", note: "30хв/раз", unit: "30 хв", xp: 4 },
   { kind: "learn", key: "business",             emoji: "💼", label: "Бізнес",      color: "#f59e0b", note: "30хв/раз", unit: "30 хв", xp: 4 },
