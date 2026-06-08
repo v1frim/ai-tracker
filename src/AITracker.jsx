@@ -1212,36 +1212,62 @@ export default function AITracker() {
     try { return JSON.parse(localStorage.getItem(YT_VIDEOS_KEY) ?? "{}"); } catch { return {}; }
   });
   const [ytLoading, setYtLoading] = useState(false);
-  const [ytShowAllLinks, setYtShowAllLinks] = useState(false);
 
   const refreshYouTube = useCallback(async (force = false) => {
     setYtLoading(true);
     let ids = {};
     try { ids = JSON.parse(localStorage.getItem(YT_IDS_KEY) ?? "{}"); } catch {}
-    const next = {};
-    await Promise.all(YT_CHANNELS.map(async (ch) => {
+    const next = { ...ytData };
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+    // По одному каналу за раз (а не Promise.all) — інакше проксі ріже запити
+    // через rate-limit і половина каналів падає. Повільніше, зате надійно.
+    for (const ch of YT_CHANNELS) {
       const prev = ytData[ch.handle];
-      try {
-        let id = ids[ch.handle];
-        if (!id) { id = await resolveChannelId(ch.handle); ids[ch.handle] = id; }
-        const fresh = prev?.fetchedAt && (Date.now() - prev.fetchedAt < YT_TTL_MS) && prev?.video;
-        if (!force && fresh) { next[ch.handle] = prev; return; }
-        const video = await fetchLatestVideo(id);
-        next[ch.handle] = { channelId: id, video, fetchedAt: Date.now() };
-      } catch (e) {
-        // якщо проксі недоступний — лишаємо попередні дані, лише позначаємо помилку
-        next[ch.handle] = prev?.video ? prev : { error: true };
+      const fresh = prev?.fetchedAt && (Date.now() - prev.fetchedAt < YT_TTL_MS) && prev?.video;
+      if (!force && fresh) { next[ch.handle] = prev; continue; }
+
+      let done = false;
+      for (let attempt = 0; attempt < 2 && !done; attempt++) {
+        try {
+          let id = ids[ch.handle];
+          if (!id) {
+            id = await resolveChannelId(ch.handle);
+            ids[ch.handle] = id;
+            localStorage.setItem(YT_IDS_KEY, JSON.stringify(ids));
+          }
+          const video = await fetchLatestVideo(id);
+          next[ch.handle] = { channelId: id, video, fetchedAt: Date.now() };
+          done = true;
+        } catch (e) {
+          if (attempt === 0) { await sleep(900); continue; }   // ретрай після паузи
+          next[ch.handle] = prev?.video ? prev : { error: true };
+        }
       }
-    }));
+      setYtData({ ...next });   // прогресивно заповнюємо UI
+      await sleep(250);          // невелика пауза між каналами
+    }
+
     localStorage.setItem(YT_IDS_KEY, JSON.stringify(ids));
     localStorage.setItem(YT_VIDEOS_KEY, JSON.stringify(next));
-    setYtData(next);
+    setYtData({ ...next });
     setYtLoading(false);
   }, [ytData]);
 
   // Підтягуємо свіжі відео при відкритті дашборду (з кешем на 30 хв).
   useEffect(() => { refreshYouTube(false); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const openAllChannels = useCallback(() => {
+    // Відкриваємо кожен канал у новій вкладці. Клік по якорю проходить
+    // popup-блокування краще за window.open у циклі. Якщо браузер усе ж
+    // блокує — підкажемо дозволити спливаючі вікна.
+    let blocked = false;
+    YT_CHANNELS.forEach(ch => {
+      const w = window.open(`https://www.youtube.com/@${ch.handle}/videos`, "_blank", "noopener");
+      if (!w) blocked = true;
+    });
+    if (blocked) showNotif("⚠️ Дозволь спливаючі вікна для сайту, щоб відкрити всі канали", "warn");
+  }, [showNotif]);
 
   const showAchievementToast = useCallback((ach) => {
     const tid = Date.now() + Math.random();
@@ -2376,22 +2402,12 @@ export default function AITracker() {
                     style={{ background: "rgba(138,120,80,0.08)", border: "1px solid rgba(138,120,80,0.4)", color: "#9a8a60", padding: "6px 12px", borderRadius: 4, cursor: ytLoading ? "default" : "pointer", fontSize: 11, fontFamily: "'Space Mono',monospace", fontWeight: 700, opacity: ytLoading ? 0.5 : 1 }}>
                     {ytLoading ? "↻ …" : "↻ Оновити"}
                   </button>
-                  <button className="act-btn" onClick={() => setYtShowAllLinks(v => !v)}
+                  <button className="act-btn" onClick={openAllChannels}
                     style={{ background: "rgba(255,0,0,0.1)", border: "1px solid #ff4444", color: "#ff6666", padding: "6px 12px", borderRadius: 4, cursor: "pointer", fontSize: 11, fontFamily: "'Space Mono',monospace", fontWeight: 700 }}>
-                    {ytShowAllLinks ? "✕ Сховати" : "▶ Відкрити всі"}
+                    ▶ Відкрити всі
                   </button>
                 </div>
               </div>
-              {ytShowAllLinks && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
-                  {YT_CHANNELS.map(ch => (
-                    <a key={ch.handle} href={`https://www.youtube.com/@${ch.handle}/videos`} target="_blank" rel="noopener noreferrer"
-                      style={{ background: "rgba(255,0,0,0.12)", border: "1px solid rgba(255,68,68,0.4)", color: "#ff9999", padding: "5px 10px", borderRadius: 4, fontSize: 11, fontFamily: "'Space Mono',monospace", fontWeight: 700, textDecoration: "none" }}>
-                      {ch.name}
-                    </a>
-                  ))}
-                </div>
-              )}
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {YT_CHANNELS.map(ch => {
                   const d = ytData[ch.handle];
