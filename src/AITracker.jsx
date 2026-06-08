@@ -339,25 +339,48 @@ async function silentBackupToDisk() {
 }
 
 // ─── YouTube-канали (останнє відео через RSS) ───────────────────────────────
-// Запити йдуть з браузера користувача через безкоштовний CORS-проксі
-// (контейнер не має доступу до YouTube, а браузер має).
-const YT_IDS_KEY = "ai_tracker_yt_ids";       // кеш handle -> channelId
-const YT_VIDEOS_KEY = "ai_tracker_yt_videos";  // кеш останніх відео
-const YT_TTL_MS = 30 * 60 * 1000;              // оновлювати не частіше ніж раз на 30 хв
-const ytProxy = (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`;
+// Запити йдуть з браузера користувача через CORS-проксі.
+// Два проксі з автоматичним fallback для надійності.
+const YT_IDS_KEY = "ai_tracker_yt_ids";
+const YT_VIDEOS_KEY = "ai_tracker_yt_videos";
+const YT_TTL_MS = 30 * 60 * 1000;
+
+const YT_PROXIES = [
+  (u) => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+  (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+];
+
+async function ytFetch(url) {
+  let lastErr;
+  for (const proxy of YT_PROXIES) {
+    try {
+      const res = await fetch(proxy(url), { signal: AbortSignal.timeout(10000) });
+      if (res.ok) return res;
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr ?? new Error("Усі проксі недоступні");
+}
 
 // @handle -> channelId (UC...). Дістаємо з HTML сторінки каналу.
 async function resolveChannelId(handle) {
-  const res = await fetch(ytProxy(`https://www.youtube.com/@${handle}/videos`));
+  const res = await ytFetch(`https://www.youtube.com/@${handle}`);
   const html = await res.text();
-  const m = html.match(/"externalId":"(UC[\w-]{22})"/) || html.match(/channel\/(UC[\w-]{22})/);
-  if (!m) throw new Error("channelId не знайдено");
-  return m[1];
+  const patterns = [
+    /"externalId":"(UC[\w-]{22})"/,
+    /"channelId":"(UC[\w-]{22})"/,
+    /"browseId":"(UC[\w-]{22})"/,
+    /\/channel\/(UC[\w-]{22})/,
+  ];
+  for (const p of patterns) {
+    const m = html.match(p);
+    if (m) return m[1];
+  }
+  throw new Error("channelId не знайдено для @" + handle);
 }
 
 // Останнє відео каналу через RSS-стрічку YouTube.
 async function fetchLatestVideo(channelId) {
-  const res = await fetch(ytProxy(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`));
+  const res = await ytFetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
   const xml = await res.text();
   const doc = new DOMParser().parseFromString(xml, "text/xml");
   const entry = doc.querySelector("entry");
@@ -1189,6 +1212,7 @@ export default function AITracker() {
     try { return JSON.parse(localStorage.getItem(YT_VIDEOS_KEY) ?? "{}"); } catch { return {}; }
   });
   const [ytLoading, setYtLoading] = useState(false);
+  const [ytShowAllLinks, setYtShowAllLinks] = useState(false);
 
   const refreshYouTube = useCallback(async (force = false) => {
     setYtLoading(true);
@@ -1218,9 +1242,6 @@ export default function AITracker() {
   // Підтягуємо свіжі відео при відкритті дашборду (з кешем на 30 хв).
   useEffect(() => { refreshYouTube(false); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const openAllChannels = useCallback(() => {
-    YT_CHANNELS.forEach(ch => window.open(`https://www.youtube.com/@${ch.handle}/videos`, "_blank", "noopener"));
-  }, []);
 
   const showAchievementToast = useCallback((ach) => {
     const tid = Date.now() + Math.random();
@@ -2355,12 +2376,22 @@ export default function AITracker() {
                     style={{ background: "rgba(138,120,80,0.08)", border: "1px solid rgba(138,120,80,0.4)", color: "#9a8a60", padding: "6px 12px", borderRadius: 4, cursor: ytLoading ? "default" : "pointer", fontSize: 11, fontFamily: "'Space Mono',monospace", fontWeight: 700, opacity: ytLoading ? 0.5 : 1 }}>
                     {ytLoading ? "↻ …" : "↻ Оновити"}
                   </button>
-                  <button className="act-btn" onClick={openAllChannels}
+                  <button className="act-btn" onClick={() => setYtShowAllLinks(v => !v)}
                     style={{ background: "rgba(255,0,0,0.1)", border: "1px solid #ff4444", color: "#ff6666", padding: "6px 12px", borderRadius: 4, cursor: "pointer", fontSize: 11, fontFamily: "'Space Mono',monospace", fontWeight: 700 }}>
-                    ▶ Відкрити всі
+                    {ytShowAllLinks ? "✕ Сховати" : "▶ Відкрити всі"}
                   </button>
                 </div>
               </div>
+              {ytShowAllLinks && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+                  {YT_CHANNELS.map(ch => (
+                    <a key={ch.handle} href={`https://www.youtube.com/@${ch.handle}/videos`} target="_blank" rel="noopener noreferrer"
+                      style={{ background: "rgba(255,0,0,0.12)", border: "1px solid rgba(255,68,68,0.4)", color: "#ff9999", padding: "5px 10px", borderRadius: 4, fontSize: 11, fontFamily: "'Space Mono',monospace", fontWeight: 700, textDecoration: "none" }}>
+                      {ch.name}
+                    </a>
+                  ))}
+                </div>
+              )}
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {YT_CHANNELS.map(ch => {
                   const d = ytData[ch.handle];
@@ -2374,17 +2405,18 @@ export default function AITracker() {
                     return `${dd} дн тому`;
                   })() : "";
                   return (
-                    <div key={ch.handle} style={{ background: isNew ? "rgba(255,0,0,0.06)" : "rgba(3,2,0,0.5)", border: `1px solid ${isNew ? "rgba(255,68,68,0.35)" : "rgba(201,168,76,0.12)"}`, borderRadius: 4, padding: "10px 12px", display: "flex", alignItems: "center", gap: 12 }}>
-                      <a href={`https://www.youtube.com/@${ch.handle}/videos`} target="_blank" rel="noopener noreferrer"
-                        style={{ flexShrink: 0, width: 34, height: 34, borderRadius: "50%", background: "linear-gradient(135deg,#ff0000,#cc0000)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, textDecoration: "none" }} title={ch.name}>▶</a>
+                    <div key={ch.handle}
+                      onClick={() => window.open(`https://www.youtube.com/@${ch.handle}/videos`, "_blank", "noopener")}
+                      style={{ background: isNew ? "rgba(255,0,0,0.06)" : "rgba(3,2,0,0.5)", border: `1px solid ${isNew ? "rgba(255,68,68,0.35)" : "rgba(201,168,76,0.12)"}`, borderRadius: 4, padding: "10px 12px", display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}>
+                      <div style={{ flexShrink: 0, width: 34, height: 34, borderRadius: "50%", background: "linear-gradient(135deg,#ff0000,#cc0000)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }} title={ch.name}>▶</div>
                       <div style={{ minWidth: 0, flex: 1 }}>
-                        <a href={`https://www.youtube.com/@${ch.handle}/videos`} target="_blank" rel="noopener noreferrer"
-                          style={{ fontSize: 12, fontWeight: 700, color: "#e0d8c0", fontFamily: "'Exo 2',sans-serif", textDecoration: "none", display: "flex", alignItems: "center", gap: 7 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: "#e0d8c0", fontFamily: "'Exo 2',sans-serif", display: "flex", alignItems: "center", gap: 7 }}>
                           {ch.name}
                           {isNew && <span style={{ background: "#ff0000", color: "#fff", fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 8, fontFamily: "'Space Mono',monospace", letterSpacing: 0.5 }}>NEW</span>}
-                        </a>
+                        </div>
                         {v?.title ? (
                           <a href={v.link} target="_blank" rel="noopener noreferrer"
+                            onClick={e => e.stopPropagation()}
                             style={{ fontSize: 11, color: "#9a8a60", fontFamily: "'Exo 2',sans-serif", textDecoration: "none", display: "block", marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={v.title}>
                             🎬 {v.title}{ago && <span style={{ color: "#6a5f40" }}> · {ago}</span>}
                           </a>
