@@ -2373,14 +2373,15 @@ export default function AITracker() {
                 {YT_CHANNELS.map(ch => {
                   const d = ytData[ch.handle];
                   const v = d?.video;
-                  const isNew = v?.published && (Date.now() - new Date(v.published).getTime() < 86400000);
-                  const ago = v?.published ? (() => {
-                    const h = Math.floor((Date.now() - new Date(v.published).getTime()) / 3600000);
-                    if (h < 1) return "щойно";
-                    if (h < 24) return `${h} год тому`;
-                    const dd = Math.floor(h / 24);
-                    return `${dd} дн тому`;
-                  })() : "";
+                  const hrs = v?.published ? Math.floor((Date.now() - new Date(v.published).getTime()) / 3600000) : null;
+                  const isNew = hrs !== null && hrs < 24;
+                  const ago = hrs === null ? "" : hrs < 1 ? "щойно" : hrs < 24 ? `${hrs} год тому` : `${Math.floor(hrs / 24)} дн тому`;
+                  // Колір бейджа за свіжістю: <24г зелений, 1–3д жовтий, 3–7д оранж, >7д червоний
+                  const agoStyle = hrs === null ? null
+                    : hrs < 24       ? { color: "#00ff88", bg: "rgba(0,255,136,0.14)",  bd: "rgba(0,255,136,0.45)" }
+                    : hrs < 24 * 3   ? { color: "#fbbf24", bg: "rgba(251,191,36,0.14)", bd: "rgba(251,191,36,0.45)" }
+                    : hrs < 24 * 7   ? { color: "#ff8c00", bg: "rgba(255,140,0,0.14)",  bd: "rgba(255,140,0,0.45)" }
+                    :                  { color: "#ff4444", bg: "rgba(255,68,68,0.14)",  bd: "rgba(255,68,68,0.45)" };
                   return (
                     <div key={ch.handle}
                       onClick={() => window.open(`https://www.youtube.com/@${ch.handle}/videos`, "_blank", "noopener")}
@@ -2392,13 +2393,19 @@ export default function AITracker() {
                           {isNew && <span style={{ background: "#ff0000", color: "#fff", fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 8, fontFamily: "'Space Mono',monospace", letterSpacing: 0.5 }}>NEW</span>}
                         </div>
                         {v?.title ? (
-                          <a href={v.link} target="_blank" rel="noopener noreferrer"
-                            onClick={e => e.stopPropagation()}
-                            style={{ display: "inline-flex", alignItems: "center", gap: 5, marginTop: 5, padding: "3px 8px", background: "rgba(255,80,0,0.13)", border: "1px solid rgba(255,80,0,0.30)", borderRadius: 3, textDecoration: "none", maxWidth: "100%", overflow: "hidden" }} title={`Відкрити відео: ${v.title}`}>
-                            <span style={{ fontSize: 9, color: "#ff6633", flexShrink: 0 }}>▶</span>
-                            <span style={{ fontSize: 11, color: "#c8a070", fontFamily: "'Exo 2',sans-serif", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.title}</span>
-                            {ago && <span style={{ fontSize: 10, color: "#7a5830", flexShrink: 0, fontFamily: "'Space Mono',monospace" }}>{ago}</span>}
-                          </a>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 5, maxWidth: "100%" }}>
+                            <a href={v.link} target="_blank" rel="noopener noreferrer"
+                              onClick={e => e.stopPropagation()}
+                              style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 8px", background: "rgba(255,80,0,0.13)", border: "1px solid rgba(255,80,0,0.30)", borderRadius: 3, textDecoration: "none", minWidth: 0, overflow: "hidden" }} title={`Відкрити відео: ${v.title}`}>
+                              <span style={{ fontSize: 9, color: "#ff6633", flexShrink: 0 }}>▶</span>
+                              <span style={{ fontSize: 11, color: "#c8a070", fontFamily: "'Exo 2',sans-serif", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.title}</span>
+                            </a>
+                            {ago && agoStyle && (
+                              <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, color: agoStyle.color, background: agoStyle.bg, border: `1px solid ${agoStyle.bd}`, padding: "2px 7px", borderRadius: 10, fontFamily: "'Space Mono',monospace", whiteSpace: "nowrap" }}>
+                                {ago}
+                              </span>
+                            )}
+                          </div>
                         ) : (
                           <div style={{ fontSize: 11, color: "#6a5f40", fontFamily: "'Exo 2',sans-serif", marginTop: 3 }}>
                             {d?.error ? "не вдалося завантажити" : ytLoading ? "завантаження…" : "—"}
