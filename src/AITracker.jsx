@@ -2354,45 +2354,6 @@ export default function AITracker() {
               </div>
             </div>
 
-            {/* Skills grid */}
-            <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18 }}>
-              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 14 }}>🧠 Навички</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))", gap: 10 }}>
-                {SKILLS.map(sk => {
-                  const unlocked = skillData[sk.id].unlockedTools;
-                  return (
-                    <div key={sk.id} onClick={() => { setSelectedSkill(sk); setActiveTab("tools"); }} className="skill-card" style={{ background: "rgba(3,2,0,0.6)", border: `1px solid ${unlocked.length > 0 ? sk.color + "33" : "rgba(201,168,76,0.10)"}`, borderRadius: 4, padding: 12, cursor: "pointer" }}>
-                      <div style={{ fontSize: 18, marginBottom: 5 }}>{sk.emoji}</div>
-                      <div style={{ fontSize: 11, color: "#9a8a60", marginBottom: 4, fontFamily: "'Exo 2',sans-serif", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.8 }}>{sk.name}</div>
-                      <div style={{ fontSize: 12, color: sk.color, marginBottom: 5, fontWeight: 700, fontFamily: "'Exo 2',sans-serif" }}>{unlocked.length}/{sk.tools.length}</div>
-                      <div style={{ height: 3, background: "rgba(201,168,76,0.18)", borderRadius: 2 }}>
-                        <div style={{ width: `${(unlocked.length / sk.tools.length) * 100}%`, height: "100%", background: sk.color, borderRadius: 2, transition: "width 0.5s" }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Quick actions */}
-            <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18 }}>
-              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 14 }}>⚡ Швидкі дії</div>
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                {[
-                  { label: "+ Вивчити інструмент", color: "#00ff88", rgb: "0,255,136", tab: "tools" },
-                  { label: "+ Записати дохід", color: "#f59e0b", rgb: "245,158,11", tab: "finances" },
-                  { label: "+ Новий проект", color: "#6366f1", rgb: "99,102,241", tab: "projects" },
-                  { label: "+ Нова задача", color: "#f43f5e", rgb: "244,63,94", tab: "goals" },
-                ].map(btn => (
-                  <button key={btn.tab} className="act-btn" onClick={() => setActiveTab(btn.tab)} style={{ background: `rgba(${btn.rgb},0.1)`, border: `1px solid ${btn.color}`, color: btn.color, padding: "10px 16px", borderRadius: 4, cursor: "pointer", fontSize: 12, fontFamily: "'Space Mono',monospace", fontWeight: 700 }}>{btn.label}</button>
-                ))}
-              </div>
-              <div style={{ marginTop: 14, padding: "10px 14px", background: "rgba(0,255,136,0.05)", border: "1px solid rgba(0,255,136,0.15)", borderRadius: 4, display: "flex", justifyContent: "space-between" }}>
-                <span style={{ fontSize: 12, color: "#8a7850" }}>🏅 Досягнення</span>
-                <span style={{ fontSize: 13, color: "#00ff88", fontWeight: 700 }}>{unlockedAchievements.length} / {ACHIEVEMENTS.length}</span>
-              </div>
-            </div>
-
             {/* AI-канали на YouTube */}
             <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, gap: 10, flexWrap: "wrap" }}>
