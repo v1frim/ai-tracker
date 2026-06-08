@@ -900,6 +900,17 @@ export default function AITracker() {
   const [planEditXP, setPlanEditXP] = useState(75);
   const [goalsSubTab, setGoalsSubTab] = useState("tasks");
   const [focusFilter, setFocusFilter] = useState("pinned");
+  const [expandGP, setExpandGP] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("ai_tracker_gp_exp") ?? "{}"); } catch { return {}; }
+  });
+  const [gpDoneGoalsOpen, setGpDoneGoalsOpen] = useState(false);
+  const [gpDelOpen, setGpDelOpen] = useState(false);
+  const [gpAddType, setGpAddType] = useState("goal");
+  const [gpAddText, setGpAddText] = useState("");
+  const [gpAddXP, setGpAddXP] = useState(200);
+  const [gpInlineAdd, setGpInlineAdd] = useState(null);
+  const [gpInlineText, setGpInlineText] = useState("");
+  const [gpInlineXP, setGpInlineXP] = useState(75);
 
   // AI Chat Widget state
   const [aiOpen, setAiOpen] = useState(false);
@@ -970,6 +981,10 @@ export default function AITracker() {
     localStorage.setItem("ai_tracker_today_act", JSON.stringify({ date: todayStr(), data: todayActivity }));
     setSaveTick(t => t + 1);
   }, [todayActivity]);
+
+  useEffect(() => {
+    localStorage.setItem("ai_tracker_gp_exp", JSON.stringify(expandGP));
+  }, [expandGP]);
 
   // Авто-сесія: будь-яка змістовна дія (XP, фінанси, задачі, цілі, план, проекти,
   // навички, активність) автоматично зараховує сьогоднішній день у стрік.
@@ -2103,9 +2118,9 @@ export default function AITracker() {
               <div style={{ flex: "0 0 calc(50% - 8px)", minWidth: 260 }}>
                 {(() => {
                   const FILTERS = [
-                    { id: "pinned", label: "📌 Закріплені" },
-                    { id: "week",   label: "📅 Тиждень" },
-                    { id: "month",  label: "📅 Місяць" },
+                    { id: "pinned", label: "📌 Закріплені", color: "#c9a84c", bg: "rgba(201,168,76,0.14)" },
+                    { id: "week",   label: "📅 Тиждень",   color: "#06b6d4", bg: "rgba(6,182,212,0.14)" },
+                    { id: "month",  label: "🗓 Місяць",    color: "#a855f7", bg: "rgba(168,85,247,0.14)" },
                   ];
                   // What to show per filter
                   const focusLongGoals = focusFilter === "pinned"
@@ -2137,7 +2152,7 @@ export default function AITracker() {
                         <div style={{ display: "flex", gap: 4 }}>
                           {FILTERS.map(f => (
                             <button key={f.id} onClick={() => setFocusFilter(f.id)}
-                              style={{ background: focusFilter === f.id ? "rgba(201,168,76,0.15)" : "rgba(8,5,2,0.5)", border: `1px solid ${focusFilter === f.id ? "rgba(201,168,76,0.5)" : "rgba(201,168,76,0.15)"}`, borderRadius: 3, padding: "3px 8px", color: focusFilter === f.id ? "#c9a84c" : "#6a5f40", fontSize: 10, cursor: "pointer", fontFamily: "'Exo 2',sans-serif", fontWeight: 600, whiteSpace: "nowrap" }}>
+                              style={{ background: focusFilter === f.id ? f.bg : "rgba(8,5,2,0.5)", border: `1px solid ${focusFilter === f.id ? f.color + "88" : "rgba(201,168,76,0.12)"}`, borderRadius: 3, padding: "3px 8px", color: focusFilter === f.id ? f.color : "#5a5040", fontSize: 10, cursor: "pointer", fontFamily: "'Exo 2',sans-serif", fontWeight: 600, whiteSpace: "nowrap" }}>
                               {f.label}
                             </button>
                           ))}
@@ -2220,7 +2235,7 @@ export default function AITracker() {
                               );
                             })}
                           </div>
-                          <button onClick={() => { setActiveTab("goalsplan"); setGoalsSubTab("tasks"); }} style={{ marginTop: 8, background: "none", border: "none", color: "#6a5f40", fontSize: 11, cursor: "pointer", fontFamily: "'Space Mono',monospace", padding: 0 }}>
+                          <button onClick={() => setActiveTab("goalsplan")} style={{ marginTop: 8, background: "none", border: "none", color: "#6a5f40", fontSize: 11, cursor: "pointer", fontFamily: "'Space Mono',monospace", padding: 0 }}>
                             Всі задачі ({goals.filter(g => !g.done).length}) →
                           </button>
                         </div>
@@ -2866,509 +2881,368 @@ export default function AITracker() {
         })()}
 
         {/* Combined Goals & Plan tab */}
-        {activeTab === "goalsplan" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {/* Sub-tab navigation */}
-            <div style={{ display: "flex", gap: 4, borderBottom: "1px solid rgba(201,168,76,0.15)", paddingBottom: 12 }}>
-              {[
-                { id: "tasks",   label: "✅ Задачі" },
-                { id: "goals",   label: "🎯 Цілі" },
-                { id: "plan",    label: "📋 План дій" },
-              ].map(st => (
-                <button key={st.id} onClick={() => setGoalsSubTab(st.id)}
-                  style={{ background: goalsSubTab === st.id ? "rgba(201,168,76,0.12)" : "rgba(8,5,2,0.4)", border: `1px solid ${goalsSubTab === st.id ? "rgba(201,168,76,0.5)" : "rgba(201,168,76,0.15)"}`, borderRadius: 4, padding: "7px 16px", color: goalsSubTab === st.id ? "#c9a84c" : "#6a5f40", fontSize: 12, cursor: "pointer", fontFamily: "'Exo 2',sans-serif", fontWeight: goalsSubTab === st.id ? 700 : 400 }}>
-                  {st.label}
+        {activeTab === "goalsplan" && (() => {
+          const toggleExp = (key) => setExpandGP(prev => ({ ...prev, [key]: !prev[key] }));
+          const isExp = (key) => !!expandGP[key];
+
+          const activeGoals = longGoals.filter(g => !g.done && !g.deletedAt);
+          const activePlans = plan.filter(p => !p.done && !p.deletedAt);
+          const activeTasks = goals.filter(g => !g.done && !g.deletedAt);
+          const standalonePlans = activePlans.filter(p => !p.goalId);
+          const standaloneTasks = activeTasks.filter(t => !t.planId);
+
+          const softDelete = (type, id) => {
+            const deletedAt = new Date().toISOString();
+            const trim10 = (arr) => {
+              const del = arr.filter(x => x.deletedAt);
+              if (del.length <= 10) return arr;
+              const oldest = del.sort((a, b) => a.deletedAt.localeCompare(b.deletedAt)).slice(0, del.length - 10).map(x => x.id);
+              return arr.filter(x => !oldest.includes(x.id));
+            };
+            if (type === "goal") setLongGoals(prev => trim10(prev.map(x => x.id === id ? { ...x, deletedAt } : x)));
+            if (type === "plan") setPlan(prev => trim10(prev.map(x => x.id === id ? { ...x, deletedAt } : x)));
+            if (type === "task") setGoals(prev => trim10(prev.map(x => x.id === id ? { ...x, deletedAt } : x)));
+            setExpandGP(prev => { const n = { ...prev }; delete n[`${type}_${id}`]; return n; });
+          };
+
+          const restoreItem = (type, id) => {
+            if (type === "goal") setLongGoals(prev => prev.map(x => x.id === id ? { ...x, deletedAt: null } : x));
+            if (type === "plan") setPlan(prev => prev.map(x => x.id === id ? { ...x, deletedAt: null } : x));
+            if (type === "task") setGoals(prev => prev.map(x => x.id === id ? { ...x, deletedAt: null } : x));
+          };
+
+          const permanentDelete = (type, id) => {
+            if (type === "goal") setLongGoals(prev => prev.filter(x => x.id !== id));
+            if (type === "plan") setPlan(prev => prev.filter(x => x.id !== id));
+            if (type === "task") setGoals(prev => prev.filter(x => x.id !== id));
+          };
+
+          const doCompleteGoal = (g) => setLongGoals(prev => prev.map(x => {
+            if (x.id !== g.id) return x;
+            if (!x.done) {
+              if (!x.xpAwarded) { gainXP(x.customXP ?? 200, "(ціль досягнута)", "goal"); return { ...x, done: true, xpAwarded: true, completedAt: new Date().toISOString() }; }
+              return { ...x, done: true, completedAt: new Date().toISOString() };
+            }
+            if (x.xpAwarded) loseXP(x.customXP ?? 200, "goal", "↩ ціль скасовано");
+            return { ...x, done: false, xpAwarded: false, completedAt: null };
+          }));
+
+          const doCompletePlan = (p) => setPlan(prev => prev.map(x => {
+            if (x.id !== p.id) return x;
+            if (!x.done) {
+              if (!x.xpAwarded) { gainXP(x.xp ?? 75, "(план дій)", "plan"); return { ...x, done: true, xpAwarded: true, completedAt: new Date().toISOString() }; }
+              return { ...x, done: true, completedAt: new Date().toISOString() };
+            }
+            if (x.xpAwarded) loseXP(x.xp ?? 75, "plan", "↩ план скасовано");
+            return { ...x, done: false, xpAwarded: false, completedAt: null };
+          }));
+
+          const doCompleteTask = (t) => setGoals(prev => prev.map(x => {
+            if (x.id !== t.id) return x;
+            if (!x.done) {
+              if (!x.xpAwarded) { gainXP(x.xp ?? 100, "(задачу виконано)", "goal"); return { ...x, done: true, xpAwarded: true, completedAt: new Date().toISOString() }; }
+              return { ...x, done: true, completedAt: new Date().toISOString() };
+            }
+            if (x.xpAwarded) loseXP(x.xp ?? 100, "goal", "↩ задачу скасовано");
+            return { ...x, done: false, xpAwarded: false, completedAt: null };
+          }));
+
+          const doAddItem = () => {
+            if (!gpAddText.trim()) return;
+            if (gpAddType === "goal") {
+              setLongGoals(prev => [...prev, { id: `lg${Date.now()}`, text: gpAddText.trim(), period: "month_cur", customXP: gpAddXP, done: false, createdAt: new Date().toISOString() }]);
+            } else if (gpAddType === "plan") {
+              setPlan(prev => [...prev, { id: `p${Date.now()}`, text: gpAddText.trim(), type: "other", urgency: "now", xp: gpAddXP, done: false, createdAt: new Date().toISOString() }]);
+            } else {
+              setGoals(prev => [...prev, { id: `g${Date.now()}`, text: gpAddText.trim(), priority: "important", xp: gpAddXP, done: false, createdAt: new Date().toISOString() }]);
+            }
+            setGpAddText("");
+          };
+
+          const doAddInlineItem = () => {
+            if (!gpInlineText.trim() || !gpInlineAdd) return;
+            const { parentId, type } = gpInlineAdd;
+            if (type === "plan") {
+              setPlan(prev => [...prev, { id: `p${Date.now()}`, text: gpInlineText.trim(), type: "other", urgency: "now", xp: gpInlineXP, done: false, goalId: parentId, createdAt: new Date().toISOString() }]);
+            } else if (type === "task") {
+              setGoals(prev => [...prev, { id: `g${Date.now()}`, text: gpInlineText.trim(), priority: "important", xp: gpInlineXP, done: false, planId: parentId, createdAt: new Date().toISOString() }]);
+            }
+            setGpInlineText("");
+            setGpInlineAdd(null);
+          };
+
+          const fmtDate = (iso) => {
+            if (!iso) return "";
+            const d = new Date(iso);
+            return `${d.getDate()}.${String(d.getMonth()+1).padStart(2,"0")}.${d.getFullYear()}`;
+          };
+
+          const renderTaskRow = (t) => (
+            <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(0,153,51,0.06)", border: "1px solid rgba(0,153,51,0.18)", borderLeft: "3px solid #009933", borderRadius: 4, padding: "8px 12px" }}>
+              <button onClick={() => doCompleteTask(t)}
+                style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid rgba(0,153,51,0.5)", background: "transparent", cursor: "pointer", flexShrink: 0 }} />
+              <span style={{ flex: 1, color: "#aad8bb", fontSize: 12 }}>{t.text}</span>
+              <span style={{ fontSize: 10, color: "#009933", background: "rgba(0,153,51,0.1)", border: "1px solid rgba(0,153,51,0.22)", padding: "2px 6px", borderRadius: 10, flexShrink: 0, whiteSpace: "nowrap" }}>+{t.xp ?? 100} XP</span>
+              <button onClick={() => setGoals(prev => prev.map(x => x.id === t.id ? { ...x, pinned: !x.pinned } : x))}
+                style={{ background: "none", border: "none", color: t.pinned ? "#c9a84c" : "#3a3020", cursor: "pointer", fontSize: 11, padding: "0 2px" }} title={t.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
+              <button onClick={() => softDelete("task", t.id)}
+                style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 15, padding: "0 2px", lineHeight: 1 }}>×</button>
+            </div>
+          );
+
+          const renderPlanRow = (p) => {
+            const exp = isExp(`plan_${p.id}`);
+            const planTasks = activeTasks.filter(t => t.planId === p.id);
+            const isInlining = gpInlineAdd?.parentId === p.id && gpInlineAdd?.type === "task";
+            return (
+              <div key={p.id}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(0,204,85,0.06)", border: "1px solid rgba(0,204,85,0.18)", borderLeft: "3px solid #00cc55", borderRadius: 4, padding: "9px 12px" }}>
+                  <button onClick={() => toggleExp(`plan_${p.id}`)}
+                    style={{ background: "none", border: "none", color: "#00cc55", cursor: "pointer", fontSize: 10, padding: "0 2px", flexShrink: 0, width: 14, opacity: planTasks.length ? 1 : 0.3 }}>
+                    {exp ? "▼" : "▶"}
+                  </button>
+                  <button onClick={() => doCompletePlan(p)}
+                    style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid rgba(0,204,85,0.5)", background: "transparent", cursor: "pointer", flexShrink: 0 }} />
+                  <span style={{ flex: 1, color: "#c8f0d8", fontSize: 12 }}>{p.text}</span>
+                  {planTasks.length > 0 && <span style={{ fontSize: 10, color: "#4a8060" }}>{planTasks.length} задач</span>}
+                  <span style={{ fontSize: 10, color: "#00cc55", background: "rgba(0,204,85,0.1)", border: "1px solid rgba(0,204,85,0.22)", padding: "2px 6px", borderRadius: 10, flexShrink: 0, whiteSpace: "nowrap" }}>+{p.xp ?? 75} XP</span>
+                  <button onClick={() => setPlan(prev => prev.map(x => x.id === p.id ? { ...x, pinned: !x.pinned } : x))}
+                    style={{ background: "none", border: "none", color: p.pinned ? "#c9a84c" : "#3a3020", cursor: "pointer", fontSize: 11, padding: "0 2px" }} title={p.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
+                  <button onClick={() => softDelete("plan", p.id)}
+                    style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 15, padding: "0 2px", lineHeight: 1 }}>×</button>
+                </div>
+                {exp && (
+                  <div style={{ marginLeft: 22, marginTop: 3, display: "flex", flexDirection: "column", gap: 3 }}>
+                    {planTasks.map(t => renderTaskRow(t))}
+                    {isInlining ? (
+                      <div style={{ display: "flex", gap: 6, padding: "6px 10px", background: "rgba(0,153,51,0.07)", border: "1px dashed rgba(0,153,51,0.35)", borderRadius: 4, alignItems: "center" }}>
+                        <input autoFocus value={gpInlineText} onChange={e => setGpInlineText(e.target.value)}
+                          onKeyDown={e => { if (e.key === "Enter") doAddInlineItem(); if (e.key === "Escape") { setGpInlineAdd(null); setGpInlineText(""); } }}
+                          placeholder="Назва задачі..."
+                          style={{ flex: 1, background: "transparent", border: "none", color: "#aad8bb", fontSize: 12, fontFamily: "'Space Mono',monospace", outline: "none" }} />
+                        <span style={{ fontSize: 10, color: "#5a6050" }}>XP</span>
+                        <input type="number" value={gpInlineXP} onChange={e => setGpInlineXP(Math.max(0, parseInt(e.target.value) || 0))}
+                          style={{ width: 40, background: "transparent", border: "none", color: "#009933", fontSize: 11, textAlign: "center", outline: "none" }} />
+                        <button onClick={doAddInlineItem} style={{ background: "rgba(0,153,51,0.2)", border: "1px solid rgba(0,153,51,0.4)", color: "#009933", borderRadius: 3, padding: "2px 9px", fontSize: 11, cursor: "pointer" }}>+</button>
+                        <button onClick={() => { setGpInlineAdd(null); setGpInlineText(""); }} style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 14, lineHeight: 1 }}>×</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => { setGpInlineAdd({ parentId: p.id, type: "task" }); setGpInlineText(""); setGpInlineXP(100); }}
+                        style={{ alignSelf: "flex-start", background: "none", border: "1px dashed rgba(0,153,51,0.22)", borderRadius: 3, padding: "3px 10px", color: "rgba(0,153,51,0.4)", fontSize: 11, cursor: "pointer" }}>
+                        + задача
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          };
+
+          const renderGoalRow = (g) => {
+            const exp = isExp(`goal_${g.id}`);
+            const goalPlans = activePlans.filter(p => p.goalId === g.id);
+            const isInlining = gpInlineAdd?.parentId === g.id && gpInlineAdd?.type === "plan";
+            return (
+              <div key={g.id}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(0,255,136,0.06)", border: "1px solid rgba(0,255,136,0.18)", borderLeft: "3px solid #00ff88", borderRadius: 4, padding: "10px 12px" }}>
+                  <button onClick={() => toggleExp(`goal_${g.id}`)}
+                    style={{ background: "none", border: "none", color: "#00ff88", cursor: "pointer", fontSize: 10, padding: "0 2px", flexShrink: 0, width: 14, opacity: goalPlans.length ? 1 : 0.3 }}>
+                    {exp ? "▼" : "▶"}
+                  </button>
+                  <button onClick={() => doCompleteGoal(g)}
+                    style={{ width: 20, height: 20, borderRadius: "50%", border: "2px solid rgba(0,255,136,0.5)", background: "transparent", cursor: "pointer", flexShrink: 0 }} />
+                  <span style={{ flex: 1, color: "#e0f8ec", fontSize: 13, fontWeight: 600 }}>{g.text}</span>
+                  {goalPlans.length > 0 && <span style={{ fontSize: 10, color: "#4a7060" }}>{goalPlans.length} планів</span>}
+                  <span style={{ fontSize: 11, color: "#00ff88", background: "rgba(0,255,136,0.1)", border: "1px solid rgba(0,255,136,0.25)", padding: "2px 7px", borderRadius: 10, flexShrink: 0, whiteSpace: "nowrap" }}>+{g.customXP ?? 200} XP</span>
+                  <button onClick={() => setLongGoals(prev => prev.map(x => x.id === g.id ? { ...x, pinned: !x.pinned } : x))}
+                    style={{ background: "none", border: "none", color: g.pinned ? "#c9a84c" : "#3a3020", cursor: "pointer", fontSize: 12, padding: "0 2px" }} title={g.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
+                  <button onClick={() => softDelete("goal", g.id)}
+                    style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 16, padding: "0 2px", lineHeight: 1 }}>×</button>
+                </div>
+                {exp && (
+                  <div style={{ marginLeft: 22, marginTop: 3, display: "flex", flexDirection: "column", gap: 3 }}>
+                    {goalPlans.map(p => renderPlanRow(p))}
+                    {isInlining ? (
+                      <div style={{ display: "flex", gap: 6, padding: "6px 10px", background: "rgba(0,204,85,0.07)", border: "1px dashed rgba(0,204,85,0.35)", borderRadius: 4, alignItems: "center" }}>
+                        <input autoFocus value={gpInlineText} onChange={e => setGpInlineText(e.target.value)}
+                          onKeyDown={e => { if (e.key === "Enter") doAddInlineItem(); if (e.key === "Escape") { setGpInlineAdd(null); setGpInlineText(""); } }}
+                          placeholder="Назва плану дій..."
+                          style={{ flex: 1, background: "transparent", border: "none", color: "#c8f0d8", fontSize: 12, fontFamily: "'Space Mono',monospace", outline: "none" }} />
+                        <span style={{ fontSize: 10, color: "#5a6050" }}>XP</span>
+                        <input type="number" value={gpInlineXP} onChange={e => setGpInlineXP(Math.max(0, parseInt(e.target.value) || 0))}
+                          style={{ width: 40, background: "transparent", border: "none", color: "#00cc55", fontSize: 11, textAlign: "center", outline: "none" }} />
+                        <button onClick={doAddInlineItem} style={{ background: "rgba(0,204,85,0.2)", border: "1px solid rgba(0,204,85,0.4)", color: "#00cc55", borderRadius: 3, padding: "2px 9px", fontSize: 11, cursor: "pointer" }}>+</button>
+                        <button onClick={() => { setGpInlineAdd(null); setGpInlineText(""); }} style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 14, lineHeight: 1 }}>×</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => { setGpInlineAdd({ parentId: g.id, type: "plan" }); setGpInlineText(""); setGpInlineXP(75); }}
+                        style={{ alignSelf: "flex-start", background: "none", border: "1px dashed rgba(0,204,85,0.22)", borderRadius: 3, padding: "3px 10px", color: "rgba(0,204,85,0.4)", fontSize: 11, cursor: "pointer" }}>
+                        + план дій
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          };
+
+          const doneGoals = longGoals.filter(g => g.done && !g.deletedAt);
+          const donePlans = plan.filter(p => p.done && !p.deletedAt);
+          const doneTasks = goals.filter(g => g.done && !g.deletedAt);
+          const deletedGoals = longGoals.filter(g => g.deletedAt);
+          const deletedPlans = plan.filter(p => p.deletedAt);
+          const deletedTasks = goals.filter(g => g.deletedAt);
+          const hasDone = doneGoals.length + donePlans.length + doneTasks.length > 0;
+          const hasDeleted = deletedGoals.length + deletedPlans.length + deletedTasks.length > 0;
+
+          const renderDoneSub = (items, color, label, onUndo, xpFn, textFn) => {
+            if (!items.length) return null;
+            const capped = items.slice(-10).reverse();
+            return (
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 10, color, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 5 }}>{label}</div>
+                <div style={{ maxHeight: 110, overflowY: "auto", display: "flex", flexDirection: "column", gap: 3 }}>
+                  {capped.map(item => (
+                    <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 8, background: `${color}08`, border: `1px solid ${color}25`, borderRadius: 4, padding: "6px 10px" }}>
+                      <span style={{ fontSize: 10, color, flexShrink: 0 }}>✓</span>
+                      <span style={{ flex: 1, color: "#7a7860", fontSize: 12, textDecoration: "line-through", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{textFn(item)}</span>
+                      <span style={{ fontSize: 10, color, background: `${color}12`, padding: "1px 6px", borderRadius: 8, flexShrink: 0, whiteSpace: "nowrap" }}>+{xpFn(item)} XP</span>
+                      {item.completedAt && <span style={{ fontSize: 9, color: "#4a4a30", flexShrink: 0 }}>{fmtDate(item.completedAt)}</span>}
+                      <button onClick={() => onUndo(item)} style={{ background: "none", border: "none", color: "#6a5f40", cursor: "pointer", fontSize: 11, padding: "0 2px" }} title="Скасувати виконання">↩</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          };
+
+          const renderDeletedSub = (items, color, label, type) => {
+            if (!items.length) return null;
+            const capped = items.slice(-10).reverse();
+            return (
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 10, color, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 5 }}>{label}</div>
+                <div style={{ maxHeight: 110, overflowY: "auto", display: "flex", flexDirection: "column", gap: 3 }}>
+                  {capped.map(item => (
+                    <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(80,40,30,0.12)", border: "1px solid rgba(120,60,40,0.18)", borderRadius: 4, padding: "6px 10px" }}>
+                      <span style={{ flex: 1, color: "#6a5a40", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.text}</span>
+                      {item.deletedAt && <span style={{ fontSize: 9, color: "#4a3a20", flexShrink: 0 }}>{fmtDate(item.deletedAt)}</span>}
+                      <button onClick={() => restoreItem(type, item.id)} style={{ background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.25)", color: "#c9a84c", borderRadius: 3, padding: "2px 7px", fontSize: 10, cursor: "pointer", whiteSpace: "nowrap" }}>↩ відновити</button>
+                      <button onClick={() => permanentDelete(type, item.id)} style={{ background: "none", border: "none", color: "#5a3020", cursor: "pointer", fontSize: 14, padding: "0 2px", lineHeight: 1 }}>×</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          };
+
+          return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+
+        {/* Add form */}
+            <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.18)", borderRadius: 4, padding: 14 }}>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                <div style={{ display: "flex", gap: 3 }}>
+                  {[
+                    { id: "goal", label: "🎯 Ціль",     color: "#00ff88" },
+                    { id: "plan", label: "📋 План дій", color: "#00cc55" },
+                    { id: "task", label: "✅ Задача",   color: "#009933" },
+                  ].map(tp => (
+                    <button key={tp.id} onClick={() => { setGpAddType(tp.id); setGpAddXP(tp.id === "goal" ? 200 : tp.id === "plan" ? 75 : 100); }}
+                      style={{ background: gpAddType === tp.id ? `${tp.color}18` : "transparent", border: `1px solid ${gpAddType === tp.id ? tp.color + "55" : "rgba(201,168,76,0.15)"}`, borderRadius: 3, padding: "5px 11px", color: gpAddType === tp.id ? tp.color : "#6a5f40", fontSize: 11, cursor: "pointer", fontWeight: gpAddType === tp.id ? 700 : 400, fontFamily: "'Exo 2',sans-serif" }}>
+                      {tp.label}
+                    </button>
+                  ))}
+                </div>
+                <input value={gpAddText} onChange={e => setGpAddText(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") doAddItem(); }}
+                  placeholder={gpAddType === "goal" ? "Опиши ціль..." : gpAddType === "plan" ? "Опиши план дій..." : "Опиши задачу..."}
+                  style={{ flex: 1, minWidth: 150, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.18)", borderRadius: 4, padding: "8px 12px", color: "#fff", fontSize: 12, fontFamily: "'Space Mono',monospace" }} />
+                <div style={{ display: "flex", alignItems: "center", gap: 3, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.15)", borderRadius: 4, padding: "0 9px" }}>
+                  <span style={{ fontSize: 10, color: "#6a5f40" }}>XP</span>
+                  <input type="number" min="0" max="99999" value={gpAddXP} onChange={e => setGpAddXP(Math.max(0, parseInt(e.target.value) || 0))}
+                    style={{ width: 50, background: "transparent", border: "none", color: "#00ff88", fontSize: 12, fontFamily: "'Space Mono',monospace", textAlign: "center", padding: "8px 0" }} />
+                </div>
+                <button onClick={doAddItem}
+                  style={{ background: gpAddType === "goal" ? "#00ff88" : gpAddType === "plan" ? "#00cc55" : "#009933", color: gpAddType === "goal" ? "#000" : "#fff", border: "none", padding: "8px 16px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'Exo 2',sans-serif" }}>
+                  + Додати
                 </button>
-              ))}
-            </div>
-
-        {/* Задачі */}
-        {goalsSubTab === "tasks" && true && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-
-            {/* Add task */}
-            <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 16 }}>
-              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 12 }}>+ Нова задача</div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <input
-                  value={goalInput}
-                  onChange={e => setGoalInput(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === "Enter" && goalInput.trim()) {
-                      setGoals(prev => [...prev, { id: `g${Date.now()}`, text: goalInput.trim(), priority: goalPriority, xp: goalXP, done: false, createdAt: new Date().toISOString() }]);
-                      setGoalInput("");
-                    }
-                  }}
-                  placeholder="Опиши задачу..."
-                  style={{ flex: 1, minWidth: 180, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "9px 14px", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace" }}
-                />
-                <select
-                  value={goalPriority}
-                  onChange={e => setGoalPriority(e.target.value)}
-                  style={{ background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "9px 12px", color: "#c0b090", fontSize: 12, cursor: "pointer" }}
-                >
-                  {TASK_PRIORITIES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
-                </select>
-                <div style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "0 10px" }}>
-                  <span style={{ fontSize: 11, color: "#6a5f40" }}>XP</span>
-                  <input type="number" min="0" max="9999" value={goalXP} onChange={e => setGoalXP(Math.max(0, parseInt(e.target.value) || 0))}
-                    style={{ width: 52, background: "transparent", border: "none", color: "#00ff88", fontSize: 13, fontFamily: "'Space Mono',monospace", textAlign: "center", padding: "9px 0" }} />
-                </div>
-                <button className="act-btn" onClick={() => {
-                  if (!goalInput.trim()) return;
-                  setGoals(prev => [...prev, { id: `g${Date.now()}`, text: goalInput.trim(), priority: goalPriority, xp: goalXP, done: false, createdAt: new Date().toISOString() }]);
-                  setGoalInput("");
-                }} style={{ background: "#00ff88", color: "#000", border: "none", padding: "9px 16px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 12 }}>Додати</button>
               </div>
             </div>
 
-            {/* Tasks by priority */}
-            {TASK_PRIORITIES.map(pr => {
-              const prTasks = goals.filter(g => !g.done && (g.priority ?? "normal") === pr.id);
-              if (!prTasks.length) return null;
-              return (
-                <div key={pr.id} style={{ background: "rgba(5,3,1,0.76)", border: `1px solid ${pr.border}`, borderLeft: `3px solid ${pr.color}`, borderRadius: 4, padding: 16 }}>
-                  <div style={{ fontSize: 12, color: pr.color, fontWeight: 800, marginBottom: 10, textTransform: "uppercase", letterSpacing: 1.5 }}>{pr.label}</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {prTasks.map(g => (
-                      <div key={g.id}
-                        draggable={true}
-                        onDragStart={() => { dragRef.current = { id: g.id, list: "goals" }; }}
-                        onDragOver={e => e.preventDefault()}
-                        onDrop={() => {
-                          if (dragRef.current?.list !== "goals") return;
-                          const fromId = dragRef.current.id;
-                          setGoals(prev => {
-                            const arr = [...prev];
-                            const fi = arr.findIndex(x => x.id === fromId);
-                            const ti = arr.findIndex(x => x.id === g.id);
-                            if (fi < 0 || ti < 0 || fi === ti) return prev;
-                            const [item] = arr.splice(fi, 1);
-                            arr.splice(ti, 0, item);
-                            return arr;
-                          });
-                        }}
-                        style={{ display: "flex", alignItems: "center", gap: 10, background: pr.bg, borderRadius: 4, padding: "10px 12px", cursor: "default" }}>
-                        <span style={{ color: "#3a3020", cursor: "grab", fontSize: 14, userSelect: "none", marginRight: 4 }}>⋮⋮</span>
-                        <button onClick={() => setGoals(prev => prev.map(x => {
-                          if (x.id !== g.id) return x;
-                          if (!x.done) {
-                            if (!x.xpAwarded) { gainXP(g.xp ?? 100, "(задачу виконано)", "goal"); return { ...x, done: true, xpAwarded: true, completedAt: new Date().toISOString() }; }
-                            return { ...x, done: true, completedAt: new Date().toISOString() };
-                          }
-                          if (x.xpAwarded) loseXP(x.xp ?? 100, "goal", "↩ задачу скасовано");
-                          return { ...x, done: false, xpAwarded: false, completedAt: null };
-                        }))} style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${pr.color}66`, background: "transparent", cursor: "pointer", flexShrink: 0, fontSize: 10, color: pr.color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }} />
-                        {goalEditId === g.id ? (
-                          (() => {
-                            const saveGoal = () => { setGoals(prev => prev.map(x => x.id === g.id ? { ...x, text: goalEditText.trim() || x.text, xp: goalEditXP } : x)); setGoalEditId(null); };
-                            return (
-                          <div style={{ flex: 1, display: "flex", gap: 6 }}
-                            onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) saveGoal(); }}>
-                            <input
-                              autoFocus
-                              value={goalEditText}
-                              onChange={e => setGoalEditText(e.target.value)}
-                              onKeyDown={e => {
-                                if (e.key === "Enter") saveGoal();
-                                if (e.key === "Escape") setGoalEditId(null);
-                              }}
-                              style={{ flex: 1, background: "rgba(8,5,2,0.9)", border: `1px solid ${pr.color}66`, borderRadius: 3, padding: "4px 10px", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace" }}
-                            />
-                            <div style={{ display: "flex", alignItems: "center", gap: 3, background: "rgba(8,5,2,0.9)", border: `1px solid ${pr.color}44`, borderRadius: 3, padding: "0 8px" }}>
-                              <span style={{ fontSize: 10, color: "#6a5f40" }}>XP</span>
-                              <input type="number" min="0" max="9999" value={goalEditXP}
-                                onChange={e => setGoalEditXP(Math.max(0, parseInt(e.target.value) || 0))}
-                                onKeyDown={e => { if (e.key === "Enter") saveGoal(); if (e.key === "Escape") setGoalEditId(null); }}
-                                style={{ width: 44, background: "transparent", border: "none", color: "#00ff88", fontSize: 12, fontFamily: "'Space Mono',monospace", textAlign: "center", padding: "4px 0" }} />
-                            </div>
-                          </div>
-                            );
-                          })()
-                        ) : (
-                          <span style={{ flex: 1, color: "#e0d8c0", fontSize: 13, fontWeight: pr.fontWeight }}>{g.text}</span>
-                        )}
-                        {goalEditId !== g.id && (
-                          <span style={{ fontSize: 11, color: "#00ff88", background: "rgba(0,255,136,0.08)", border: "1px solid rgba(0,255,136,0.2)", padding: "2px 7px", borderRadius: 3, whiteSpace: "nowrap", flexShrink: 0 }}>+{g.xp ?? 100} XP</span>
-                        )}
-                        {/* Priority change */}
-                        <select
-                          value={g.priority ?? "normal"}
-                          onChange={e => setGoals(prev => prev.map(x => x.id === g.id ? { ...x, priority: e.target.value } : x))}
-                          style={{ background: "rgba(8,5,2,0.68)", border: `1px solid ${pr.color}44`, borderRadius: 3, padding: "3px 6px", color: pr.color, fontSize: 10, cursor: "pointer", maxWidth: 90 }}
-                        >
-                          {TASK_PRIORITIES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
-                        </select>
-                        <button onClick={() => { setGoalEditId(g.id); setGoalEditText(g.text); setGoalEditXP(g.xp ?? 100); }}
-                          style={{ background: "none", border: "none", color: "#6a5f40", cursor: "pointer", fontSize: 13, padding: "0 3px" }} title="Редагувати">✎</button>
-                        <button onClick={() => setGoals(prev => prev.map(x => x.id === g.id ? { ...x, pinned: !x.pinned } : x))}
-                          title={g.pinned ? "Прибрати з Головної" : "Закріпити на Головній"}
-                          style={{ background: "none", border: "none", color: g.pinned ? "#c9a84c" : "#4a4030", cursor: "pointer", fontSize: 13, padding: "0 3px" }}>📌</button>
-                        <button onClick={() => setGoals(prev => prev.filter(x => x.id !== g.id))}
-                          style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 16, padding: "0 3px" }}>×</button>
-                      </div>
-                    ))}
-                  </div>
+            {/* Active items — hierarchical */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+              {activeGoals.length === 0 && standalonePlans.length === 0 && standaloneTasks.length === 0 && (
+                <div style={{ textAlign: "center", padding: "32px 16px", color: "#5a5040", fontSize: 13 }}>
+                  Ще нічого немає. Додай першу ціль, план або задачу!
                 </div>
-              );
-            })}
+              )}
+              {activeGoals.map(g => renderGoalRow(g))}
+              {standalonePlans.length > 0 && (
+                <>
+                  {activeGoals.length > 0 && (
+                    <div style={{ fontSize: 9, color: "#4a4030", textTransform: "uppercase", letterSpacing: 2, paddingLeft: 4, marginTop: 6, marginBottom: 2 }}>Плани без цілі</div>
+                  )}
+                  {standalonePlans.map(p => renderPlanRow(p))}
+                </>
+              )}
+              {standaloneTasks.length > 0 && (
+                <>
+                  {(activeGoals.length > 0 || standalonePlans.length > 0) && (
+                    <div style={{ fontSize: 9, color: "#4a4030", textTransform: "uppercase", letterSpacing: 2, paddingLeft: 4, marginTop: 6, marginBottom: 2 }}>Задачі без плану</div>
+                  )}
+                  {standaloneTasks.map(t => renderTaskRow(t))}
+                </>
+              )}
+            </div>
 
-            {/* Done tasks */}
-            {renderDoneSection(goals.filter(g => g.done), {
-              sectionKey: "tasks",
-              open: tasksDoneOpen, setOpen: setTasksDoneOpen,
-              onUndo: (g) => setGoals(prev => prev.map(x => {
-                if (x.id !== g.id) return x;
-                if (x.xpAwarded) loseXP(x.xp ?? 100, "goal", "↩ задачу скасовано");
-                return { ...x, done: false, xpAwarded: false, completedAt: null };
-              })),
-              onDelete: (g) => setGoals(prev => prev.filter(x => x.id !== g.id)),
-              labelFn: g => g.text,
-              xpFn: g => g.xp ?? 100,
-            })}
+            {/* Done section */}
+            {hasDone && (
+              <div style={{ background: "rgba(3,8,5,0.80)", border: "1px solid rgba(0,153,51,0.18)", borderRadius: 4, padding: 14 }}>
+                <button onClick={() => setGpDoneGoalsOpen(o => !o)}
+                  style={{ background: "none", border: "none", color: "rgba(0,153,51,0.6)", cursor: "pointer", fontSize: 12, fontWeight: 700, padding: 0, fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1.5, display: "flex", alignItems: "center", gap: 6, width: "100%" }}>
+                  <span style={{ fontSize: 10 }}>{gpDoneGoalsOpen ? "▼" : "▶"}</span>
+                  ✓ Досягнуто
+                  <span style={{ fontSize: 10, fontWeight: 400, color: "#4a6040", marginLeft: 4 }}>({doneGoals.length + donePlans.length + doneTasks.length})</span>
+                </button>
+                {gpDoneGoalsOpen && (
+                  <div style={{ marginTop: 12 }}>
+                    {renderDoneSub(doneGoals, "#00ff88", "🎯 Цілі",
+                      (g) => setLongGoals(prev => prev.map(x => { if (x.id !== g.id) return x; if (x.xpAwarded) loseXP(x.customXP ?? 200, "goal", "↩ ціль скасовано"); return { ...x, done: false, xpAwarded: false, completedAt: null }; })),
+                      g => g.customXP ?? 200, g => g.text)}
+                    {renderDoneSub(donePlans, "#00cc55", "📋 Плани дій",
+                      (p) => setPlan(prev => prev.map(x => { if (x.id !== p.id) return x; if (x.xpAwarded) loseXP(x.xp ?? 75, "plan", "↩ план скасовано"); return { ...x, done: false, xpAwarded: false, completedAt: null }; })),
+                      p => p.xp ?? 75, p => p.text)}
+                    {renderDoneSub(doneTasks, "#009933", "✅ Задачі",
+                      (t) => setGoals(prev => prev.map(x => { if (x.id !== t.id) return x; if (x.xpAwarded) loseXP(x.xp ?? 100, "goal", "↩ задачу скасовано"); return { ...x, done: false, xpAwarded: false, completedAt: null }; })),
+                      t => t.xp ?? 100, t => t.text)}
+                  </div>
+                )}
+              </div>
+            )}
 
-            {goals.length === 0 && (
-              <div style={{ textAlign: "center", padding: 32, color: "#6a5f40", fontSize: 13 }}>Ще немає задач. Додай першу!</div>
+            {/* Deleted section */}
+            {hasDeleted && (
+              <div style={{ background: "rgba(8,3,3,0.80)", border: "1px solid rgba(120,50,30,0.18)", borderRadius: 4, padding: 14 }}>
+                <button onClick={() => setGpDelOpen(o => !o)}
+                  style={{ background: "none", border: "none", color: "rgba(106,74,48,0.5)", cursor: "pointer", fontSize: 12, fontWeight: 700, padding: 0, fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1.5, display: "flex", alignItems: "center", gap: 6, width: "100%" }}>
+                  <span style={{ fontSize: 10 }}>{gpDelOpen ? "▼" : "▶"}</span>
+                  ✗ Видалені
+                  <span style={{ fontSize: 10, fontWeight: 400, color: "#4a3020", marginLeft: 4 }}>({deletedGoals.length + deletedPlans.length + deletedTasks.length})</span>
+                </button>
+                {gpDelOpen && (
+                  <div style={{ marginTop: 12 }}>
+                    {renderDeletedSub(deletedGoals, "#c96644", "🎯 Цілі", "goal")}
+                    {renderDeletedSub(deletedPlans, "#c97744", "📋 Плани дій", "plan")}
+                    {renderDeletedSub(deletedTasks, "#c98844", "✅ Задачі", "task")}
+                  </div>
+                )}
+              </div>
             )}
           </div>
-        )}
+          );
+        })()}
 
-        {/* Цілі sub-tab */}
-        {goalsSubTab === "goals" && true && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-
-            {/* Add goal */}
-            <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 16 }}>
-              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 12 }}>+ Нова ціль</div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <input
-                  value={longGoalInput}
-                  onChange={e => setLongGoalInput(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === "Enter" && longGoalInput.trim()) {
-                      setLongGoals(prev => [...prev, { id: `lg${Date.now()}`, text: longGoalInput.trim(), period: longGoalPeriod, customXP: longGoalXP, done: false, createdAt: new Date().toISOString() }]);
-                      setLongGoalInput("");
-                    }
-                  }}
-                  placeholder="Опиши ціль..."
-                  style={{ flex: 1, minWidth: 200, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "9px 14px", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace" }}
-                />
-                <select
-                  value={longGoalPeriod}
-                  onChange={e => setLongGoalPeriod(e.target.value)}
-                  style={{ background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "9px 12px", color: "#c0b090", fontSize: 12, cursor: "pointer" }}
-                >
-                  {GOAL_PERIODS.map(p => <option key={p.id} value={p.id}>{p.icon} {p.label}</option>)}
-                </select>
-                <div style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "0 10px" }}>
-                  <span style={{ fontSize: 11, color: "#6a5f40" }}>XP</span>
-                  <input type="number" min="0" max="99999" value={longGoalXP} onChange={e => setLongGoalXP(Math.max(0, parseInt(e.target.value) || 0))}
-                    style={{ width: 60, background: "transparent", border: "none", color: "#00ff88", fontSize: 13, fontFamily: "'Space Mono',monospace", textAlign: "center", padding: "9px 0" }} />
-                </div>
-                <button className="act-btn" onClick={() => {
-                  if (!longGoalInput.trim()) return;
-                  setLongGoals(prev => [...prev, { id: `lg${Date.now()}`, text: longGoalInput.trim(), period: longGoalPeriod, customXP: longGoalXP, done: false, createdAt: new Date().toISOString() }]);
-                  setLongGoalInput("");
-                }} style={{ background: "#00ff88", color: "#000", border: "none", padding: "9px 16px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 12 }}>Додати</button>
-              </div>
-            </div>
-
-            {/* Goals by period */}
-            {GOAL_PERIODS.map(per => {
-              const perGoals = longGoals.filter(g => !g.done && g.period === per.id);
-              if (!perGoals.length) return null;
-              return (
-                <div key={per.id} style={{ background: "rgba(5,3,1,0.76)", border: `1px solid ${per.color}33`, borderLeft: `3px solid ${per.color}`, borderRadius: 4, padding: 16 }}>
-                  <div style={{ fontSize: 12, color: per.color, fontWeight: 800, marginBottom: 10, textTransform: "uppercase", letterSpacing: 1.5 }}>{per.icon} {per.label}</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {perGoals.map(g => (
-                      <div key={g.id}
-                        draggable={true}
-                        onDragStart={() => { dragRef.current = { id: g.id, list: "longgoals" }; }}
-                        onDragOver={e => e.preventDefault()}
-                        onDrop={() => {
-                          if (dragRef.current?.list !== "longgoals") return;
-                          const fromId = dragRef.current.id;
-                          setLongGoals(prev => {
-                            const arr = [...prev];
-                            const fi = arr.findIndex(x => x.id === fromId);
-                            const ti = arr.findIndex(x => x.id === g.id);
-                            if (fi < 0 || ti < 0 || fi === ti) return prev;
-                            const [item] = arr.splice(fi, 1);
-                            arr.splice(ti, 0, item);
-                            return arr;
-                          });
-                        }}
-                        style={{ display: "flex", alignItems: "center", gap: 10, background: `${per.color}08`, borderRadius: 4, padding: "10px 12px", cursor: "default" }}>
-                        <span style={{ color: "#3a3020", cursor: "grab", fontSize: 14, userSelect: "none", marginRight: 4 }}>⋮⋮</span>
-                        <button onClick={() => setLongGoals(prev => prev.map(x => {
-                          if (x.id !== g.id) return x;
-                          if (!x.done) {
-                            if (!x.xpAwarded) { gainXP(x.customXP ?? 200, "(ціль досягнута)", "goal"); return { ...x, done: true, xpAwarded: true, completedAt: new Date().toISOString() }; }
-                            return { ...x, done: true, completedAt: new Date().toISOString() };
-                          }
-                          if (x.xpAwarded) loseXP(x.customXP ?? 200, "goal", "↩ ціль скасовано");
-                          return { ...x, done: false, xpAwarded: false, completedAt: null };
-                        }))} style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${per.color}66`, background: "transparent", cursor: "pointer", flexShrink: 0, fontSize: 10, color: per.color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }} />
-                        {longGoalEditId === g.id ? (
-                          (() => {
-                            const saveLong = () => { setLongGoals(prev => prev.map(x => x.id === g.id ? { ...x, text: longGoalEditText.trim() || x.text, customXP: longGoalEditXP } : x)); setLongGoalEditId(null); };
-                            return (
-                          <div style={{ flex: 1, display: "flex", gap: 6 }}
-                            onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) saveLong(); }}>
-                            <input
-                              autoFocus
-                              value={longGoalEditText}
-                              onChange={e => setLongGoalEditText(e.target.value)}
-                              onKeyDown={e => {
-                                if (e.key === "Enter") saveLong();
-                                if (e.key === "Escape") setLongGoalEditId(null);
-                              }}
-                              style={{ flex: 1, background: "rgba(8,5,2,0.9)", border: `1px solid ${per.color}66`, borderRadius: 3, padding: "4px 10px", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace" }}
-                            />
-                            <div style={{ display: "flex", alignItems: "center", gap: 3, background: "rgba(8,5,2,0.9)", border: `1px solid ${per.color}44`, borderRadius: 3, padding: "0 8px" }}>
-                              <span style={{ fontSize: 10, color: "#6a5f40" }}>XP</span>
-                              <input type="number" min="0" max="99999" value={longGoalEditXP}
-                                onChange={e => setLongGoalEditXP(Math.max(0, parseInt(e.target.value) || 0))}
-                                onKeyDown={e => { if (e.key === "Enter") saveLong(); if (e.key === "Escape") setLongGoalEditId(null); }}
-                                style={{ width: 52, background: "transparent", border: "none", color: "#00ff88", fontSize: 12, fontFamily: "'Space Mono',monospace", textAlign: "center", padding: "4px 0" }} />
-                            </div>
-                          </div>
-                            );
-                          })()
-                        ) : (
-                          <span style={{ flex: 1, color: "#e0d8c0", fontSize: 13, fontWeight: 600 }}>{g.text}</span>
-                        )}
-                        {longGoalEditId !== g.id && (
-                          <span style={{ fontSize: 11, color: per.color, background: `${per.color}14`, border: `1px solid ${per.color}33`, padding: "2px 7px", borderRadius: 3, whiteSpace: "nowrap", flexShrink: 0 }}>+{g.customXP ?? 200} XP</span>
-                        )}
-                        <select
-                          value={g.period}
-                          onChange={e => setLongGoals(prev => prev.map(x => x.id === g.id ? { ...x, period: e.target.value } : x))}
-                          style={{ background: "rgba(8,5,2,0.68)", border: `1px solid ${per.color}44`, borderRadius: 3, padding: "3px 6px", color: per.color, fontSize: 10, cursor: "pointer", maxWidth: 110 }}
-                        >
-                          {GOAL_PERIODS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
-                        </select>
-                        <button onClick={() => { setLongGoalEditId(g.id); setLongGoalEditText(g.text); setLongGoalEditXP(g.customXP ?? 200); }}
-                          style={{ background: "none", border: "none", color: "#6a5f40", cursor: "pointer", fontSize: 13, padding: "0 3px" }} title="Редагувати">✎</button>
-                        <button onClick={() => setLongGoals(prev => prev.map(x => x.id === g.id ? { ...x, pinned: !x.pinned } : x))}
-                          title={g.pinned ? "Прибрати з Головної" : "Закріпити на Головній"}
-                          style={{ background: "none", border: "none", color: g.pinned ? "#c9a84c" : "#4a4030", cursor: "pointer", fontSize: 13, padding: "0 3px" }}>📌</button>
-                        <button onClick={() => setLongGoals(prev => prev.filter(x => x.id !== g.id))}
-                          style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 16, padding: "0 3px" }}>×</button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Done goals */}
-            {renderDoneSection(longGoals.filter(g => g.done), {
-              sectionKey: "goals",
-              open: goalsDoneOpen, setOpen: setGoalsDoneOpen,
-              onUndo: (g) => setLongGoals(prev => prev.map(x => {
-                if (x.id !== g.id) return x;
-                if (x.xpAwarded) loseXP(x.customXP ?? 200, "goal", "↩ ціль скасовано");
-                return { ...x, done: false, xpAwarded: false, completedAt: null };
-              })),
-              onDelete: (g) => setLongGoals(prev => prev.filter(x => x.id !== g.id)),
-              labelFn: g => g.text,
-              xpFn: g => g.customXP ?? 200,
-            })}
-
-            {longGoals.length === 0 && (
-              <div style={{ textAlign: "center", padding: 32, color: "#6a5f40", fontSize: 13 }}>Ще немає цілей. Додай першу!</div>
-            )}
-          </div>
-        )}
-
-        {/* План дій sub-tab */}
-        {goalsSubTab === "plan" && true && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {/* Add task */}
-            <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 16 }}>
-              <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 12 }}>+ Нова задача</div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <input
-                  value={planInput}
-                  onChange={e => setPlanInput(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === "Enter" && planInput.trim()) {
-                      setPlan(prev => [...prev, { id: `p${Date.now()}`, text: planInput.trim(), type: planType, urgency: planUrgency, xp: planXP, done: false }]);
-                      setPlanInput("");
-                    }
-                  }}
-                  placeholder="Задача або стратегія..."
-                  style={{ flex: 1, minWidth: 180, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "9px 14px", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace" }}
-                />
-                <select
-                  value={planType}
-                  onChange={e => setPlanType(e.target.value)}
-                  style={{ background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "9px 12px", color: "#6a5f40", fontSize: 12, cursor: "pointer" }}
-                >
-                  {PLAN_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
-                </select>
-                <select
-                  value={planUrgency}
-                  onChange={e => setPlanUrgency(e.target.value)}
-                  style={{ background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "9px 12px", color: "#6a5f40", fontSize: 12, cursor: "pointer" }}
-                >
-                  {PLAN_URGENCIES.map(u => <option key={u.id} value={u.id}>{u.label}</option>)}
-                </select>
-                <div style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "0 10px" }}>
-                  <span style={{ fontSize: 11, color: "#6a5f40" }}>XP</span>
-                  <input type="number" min="0" max="9999" value={planXP}
-                    onChange={e => setPlanXP(Math.max(0, parseInt(e.target.value) || 0))}
-                    style={{ width: 48, background: "transparent", border: "none", color: "#6366f1", fontSize: 13, fontFamily: "'Space Mono',monospace", textAlign: "center", padding: "9px 0" }} />
-                </div>
-                <button className="act-btn" onClick={() => {
-                  if (!planInput.trim()) return;
-                  setPlan(prev => [...prev, { id: `p${Date.now()}`, text: planInput.trim(), type: planType, urgency: planUrgency, xp: planXP, done: false }]);
-                  setPlanInput("");
-                }} style={{ background: "#6366f1", color: "#fff", border: "none", padding: "9px 16px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 12 }}>Додати</button>
-              </div>
-            </div>
-
-            {/* Type groups */}
-            {PLAN_TYPES.map(pt => {
-              const urgencyOrder = Object.fromEntries(PLAN_URGENCIES.map(u => [u.id, u.order]));
-              const items = plan
-                .filter(p => (p.type ?? "other") === pt.id && !p.done)
-                .sort((a, b) => (urgencyOrder[a.urgency ?? "later"] ?? 2) - (urgencyOrder[b.urgency ?? "later"] ?? 2));
-              if (!items.length) return null;
-              return (
-                <div key={pt.id}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                    <span style={{ background: pt.bg, border: `1px solid ${pt.color}44`, color: pt.color, padding: "3px 12px", borderRadius: 3, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>{pt.label}</span>
-                    <span style={{ fontSize: 11, color: "#5a4a30" }}>{items.length} активних</span>
-                  </div>
-                  <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.12)", borderRadius: 4, padding: 12, display: "flex", flexDirection: "column", gap: 7 }}>
-                    {items.map(item => (
-                      <div key={item.id}
-                        draggable={true}
-                        onDragStart={() => { dragRef.current = { id: item.id, list: "plan" }; }}
-                        onDragOver={e => e.preventDefault()}
-                        onDrop={() => {
-                          if (dragRef.current?.list !== "plan") return;
-                          const fromId = dragRef.current.id;
-                          setPlan(prev => {
-                            const arr = [...prev];
-                            const fi = arr.findIndex(x => x.id === fromId);
-                            const ti = arr.findIndex(x => x.id === item.id);
-                            if (fi < 0 || ti < 0 || fi === ti) return prev;
-                            const [itm] = arr.splice(fi, 1);
-                            arr.splice(ti, 0, itm);
-                            return arr;
-                          });
-                        }}
-                        style={{ display: "flex", alignItems: "center", gap: 10, background: item.done ? "rgba(5,3,1,0.80)" : pt.bg, border: `1px solid ${item.done ? "rgba(8,5,2,0.68)" : pt.color + "22"}`, borderLeft: item.done ? undefined : `3px solid ${pt.color}88`, borderRadius: 4, padding: "11px 14px", cursor: "default" }}>
-                        <span style={{ color: "#3a3020", cursor: "grab", fontSize: 14, userSelect: "none", marginRight: 4 }}>⋮⋮</span>
-                        <button onClick={() => setPlan(prev => prev.map(x => {
-                          if (x.id !== item.id) return x;
-                          if (!x.done) {
-                            if (!x.xpAwarded) { gainXP(x.xp ?? 75, "(план дій)", "plan"); return { ...x, done: true, xpAwarded: true, completedAt: new Date().toISOString() }; }
-                            return { ...x, done: true, completedAt: new Date().toISOString() };
-                          }
-                          if (x.xpAwarded) loseXP(x.xp ?? 75, "plan", "↩ план скасовано");
-                          return { ...x, done: false, xpAwarded: false, completedAt: null };
-                        }))}
-                          style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${item.done ? "#9a8a60" : pt.color}`, background: item.done ? "#9a8a60" : "transparent", cursor: "pointer", flexShrink: 0, fontSize: 12, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
-                          {item.done ? "✓" : ""}
-                        </button>
-                        {planEditId === item.id ? (
-                          (() => {
-                            const savePlan = () => {
-                              const t = planEditText.trim();
-                              setPlan(prev => prev.map(x => x.id === item.id ? { ...x, text: t || x.text, xp: planEditXP } : x));
-                              setPlanEditId(null);
-                            };
-                            return (
-                          <div style={{ flex: 1, display: "flex", gap: 6 }}
-                            onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) savePlan(); }}>
-                            <input
-                              value={planEditText}
-                              autoFocus
-                              onChange={e => setPlanEditText(e.target.value)}
-                              onKeyDown={e => { if (e.key === "Enter") savePlan(); if (e.key === "Escape") setPlanEditId(null); }}
-                              style={{ flex: 1, background: "rgba(8,5,2,0.85)", border: `1px solid ${pt.color}66`, borderRadius: 4, padding: "5px 9px", color: "#fff", fontSize: 12, fontFamily: "'Space Mono',monospace" }}
-                            />
-                            <div style={{ display: "flex", alignItems: "center", gap: 3, background: "rgba(8,5,2,0.9)", border: `1px solid ${pt.color}44`, borderRadius: 3, padding: "0 8px" }}>
-                              <span style={{ fontSize: 10, color: "#6a5f40" }}>XP</span>
-                              <input type="number" min="0" max="9999" value={planEditXP}
-                                onChange={e => setPlanEditXP(Math.max(0, parseInt(e.target.value) || 0))}
-                                onKeyDown={e => { if (e.key === "Enter") savePlan(); if (e.key === "Escape") setPlanEditId(null); }}
-                                style={{ width: 44, background: "transparent", border: "none", color: pt.color, fontSize: 12, fontFamily: "'Space Mono',monospace", textAlign: "center", padding: "4px 0" }} />
-                            </div>
-                          </div>
-                            );
-                          })()
-                        ) : (
-                          <span
-                            onDoubleClick={() => { if (!item.done) { setPlanEditId(item.id); setPlanEditText(item.text); setPlanEditXP(item.xp ?? 75); } }}
-                            style={{ flex: 1, color: item.done ? "#5a4a30" : "#cbd5e1", fontSize: 12, textDecoration: item.done ? "line-through" : "none" }}
-                          >{item.text}</span>
-                        )}
-                        {!item.done && !item.xpAwarded && planEditId !== item.id && (
-                          <span style={{ fontSize: 12, color: pt.color, background: pt.bg, border: `1px solid ${pt.color}33`, padding: "2px 7px", borderRadius: 3, whiteSpace: "nowrap" }}>+{item.xp ?? 75} XP</span>
-                        )}
-                        {!item.done && planEditId !== item.id && (
-                          <>
-                            <button onClick={() => { setPlanEditId(item.id); setPlanEditText(item.text); setPlanEditXP(item.xp ?? 75); }}
-                              style={{ background: "none", border: "none", color: "#6a5f40", cursor: "pointer", fontSize: 13, padding: "0 4px" }} title="Редагувати">✎</button>
-                            <select
-                              value={item.type ?? "other"}
-                              onChange={e => setPlan(prev => prev.map(x => x.id === item.id ? { ...x, type: e.target.value } : x))}
-                              style={{ background: "rgba(0,0,0,0.3)", border: "none", borderRadius: 4, padding: "2px 6px", color: pt.color, fontSize: 11, cursor: "pointer" }}
-                            >
-                              {PLAN_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
-                            </select>
-                            <select
-                              value={item.urgency ?? "later"}
-                              onChange={e => setPlan(prev => prev.map(x => x.id === item.id ? { ...x, urgency: e.target.value } : x))}
-                              style={{ background: "rgba(0,0,0,0.3)", border: "none", borderRadius: 4, padding: "2px 6px", color: "#9a8a60", fontSize: 11, cursor: "pointer" }}
-                            >
-                              {PLAN_URGENCIES.map(u => <option key={u.id} value={u.id}>{u.label}</option>)}
-                            </select>
-                          </>
-                        )}
-                        {planEditId !== item.id && !item.done && (
-                          <button onClick={() => setPlan(prev => prev.map(x => x.id === item.id ? { ...x, pinned: !x.pinned } : x))}
-                            title={item.pinned ? "Прибрати з Головної" : "Закріпити на Головній"}
-                            style={{ background: "none", border: "none", color: item.pinned ? "#c9a84c" : "#4a4030", cursor: "pointer", fontSize: 13, padding: "0 3px" }}>📌</button>
-                        )}
-                        {planEditId !== item.id && (
-                          <button onClick={() => setPlan(prev => prev.filter(x => x.id !== item.id))}
-                            style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 16, padding: "0 4px" }}>×</button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Done plan items */}
-            {renderDoneSection(plan.filter(p => p.done), {
-              sectionKey: "plan",
-              open: planDoneOpen, setOpen: setPlanDoneOpen,
-              onUndo: (item) => setPlan(prev => prev.map(x => {
-                if (x.id !== item.id) return x;
-                if (x.xpAwarded) loseXP(x.xp ?? 75, "plan", "↩ план скасовано");
-                return { ...x, done: false, xpAwarded: false, completedAt: null };
-              })),
-              onDelete: (item) => setPlan(prev => prev.filter(x => x.id !== item.id)),
-              labelFn: item => {
-                const pt = PLAN_TYPES.find(t => t.id === (item.type ?? "other"));
-                return `${pt ? pt.label + ": " : ""}${item.text}`;
-              },
-              xpFn: item => item.xp ?? 75,
-            })}
-          </div>
-        )}
-
-          </div>
-        )}
 
         {/* Finances */}
         {activeTab === "finances" && (() => {
