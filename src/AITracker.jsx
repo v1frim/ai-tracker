@@ -2978,11 +2978,11 @@ export default function AITracker() {
           };
 
           const renderTaskRow = (t) => (
-            <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(20,10,30,0.95)", border: "1px solid rgba(168,85,247,0.35)", borderLeft: "3px solid #a855f7", borderRadius: 4, padding: "9px 12px" }}>
+            <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(5,14,10,0.95)", border: "1px solid rgba(0,255,136,0.35)", borderLeft: "3px solid #00ff88", borderRadius: 4, padding: "9px 12px" }}>
               <button onClick={() => doCompleteTask(t)}
-                style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid rgba(168,85,247,0.7)", background: "transparent", cursor: "pointer", flexShrink: 0 }} />
-              <span style={{ flex: 1, color: "#e8d8f8", fontSize: 12 }}>{t.text}</span>
-              <span style={{ fontSize: 10, color: "#c084fc", background: "rgba(168,85,247,0.14)", border: "1px solid rgba(168,85,247,0.35)", padding: "2px 6px", borderRadius: 10, flexShrink: 0, whiteSpace: "nowrap" }}>+{t.xp ?? 50} XP</span>
+                style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid rgba(0,255,136,0.7)", background: "transparent", cursor: "pointer", flexShrink: 0 }} />
+              <span style={{ flex: 1, color: "#d8f8e8", fontSize: 12 }}>{t.text}</span>
+              <span style={{ fontSize: 10, color: "#00ff88", background: "rgba(0,255,136,0.14)", border: "1px solid rgba(0,255,136,0.35)", padding: "2px 6px", borderRadius: 10, flexShrink: 0, whiteSpace: "nowrap" }}>+{t.xp ?? 50} XP</span>
               <button onClick={() => setGoals(prev => prev.map(x => x.id === t.id ? { ...x, pinned: !x.pinned } : x))}
                 style={{ background: "none", border: "none", color: t.pinned ? "#c9a84c" : "#3a3020", cursor: "pointer", fontSize: 11, padding: "0 2px" }} title={t.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
               <button onClick={() => softDelete("task", t.id)}
@@ -3015,20 +3015,20 @@ export default function AITracker() {
                   <div style={{ marginLeft: 22, marginTop: 3, display: "flex", flexDirection: "column", gap: 3 }}>
                     {planTasks.map(t => renderTaskRow(t))}
                     {isInlining ? (
-                      <div style={{ display: "flex", gap: 6, padding: "7px 10px", background: "rgba(20,10,30,0.9)", border: "1px dashed rgba(168,85,247,0.5)", borderRadius: 4, alignItems: "center" }}>
+                      <div style={{ display: "flex", gap: 6, padding: "7px 10px", background: "rgba(5,14,10,0.9)", border: "1px dashed rgba(0,255,136,0.5)", borderRadius: 4, alignItems: "center" }}>
                         <input autoFocus value={gpInlineText} onChange={e => setGpInlineText(e.target.value)}
                           onKeyDown={e => { if (e.key === "Enter") doAddInlineItem(); if (e.key === "Escape") { setGpInlineAdd(null); setGpInlineText(""); } }}
                           placeholder="Назва задачі..."
-                          style={{ flex: 1, background: "transparent", border: "none", color: "#e8d8f8", fontSize: 12, fontFamily: "'Space Mono',monospace", outline: "none" }} />
-                        <span style={{ fontSize: 10, color: "#6a5a80" }}>XP</span>
+                          style={{ flex: 1, background: "transparent", border: "none", color: "#d8f8e8", fontSize: 12, fontFamily: "'Space Mono',monospace", outline: "none" }} />
+                        <span style={{ fontSize: 10, color: "#3a7a5a" }}>XP</span>
                         <input type="number" value={gpInlineXP} onChange={e => setGpInlineXP(Math.max(0, parseInt(e.target.value) || 0))}
-                          style={{ width: 40, background: "transparent", border: "none", color: "#c084fc", fontSize: 11, textAlign: "center", outline: "none" }} />
-                        <button onClick={doAddInlineItem} style={{ background: "rgba(168,85,247,0.2)", border: "1px solid rgba(168,85,247,0.5)", color: "#c084fc", borderRadius: 3, padding: "2px 9px", fontSize: 11, cursor: "pointer" }}>+</button>
+                          style={{ width: 40, background: "transparent", border: "none", color: "#00ff88", fontSize: 11, textAlign: "center", outline: "none" }} />
+                        <button onClick={doAddInlineItem} style={{ background: "rgba(0,255,136,0.2)", border: "1px solid rgba(0,255,136,0.5)", color: "#00ff88", borderRadius: 3, padding: "2px 9px", fontSize: 11, cursor: "pointer" }}>+</button>
                         <button onClick={() => { setGpInlineAdd(null); setGpInlineText(""); }} style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 14, lineHeight: 1 }}>×</button>
                       </div>
                     ) : (
                       <button onClick={() => { setGpInlineAdd({ parentId: p.id, type: "task" }); setGpInlineText(""); setGpInlineXP(50); }}
-                        style={{ alignSelf: "flex-start", background: "rgba(168,85,247,0.08)", border: "1px dashed rgba(168,85,247,0.45)", borderRadius: 3, padding: "4px 12px", color: "#c084fc", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                        style={{ alignSelf: "flex-start", background: "rgba(0,255,136,0.08)", border: "1px dashed rgba(0,255,136,0.45)", borderRadius: 3, padding: "4px 12px", color: "#00ff88", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
                         + задача
                       </button>
                     )}
@@ -3045,15 +3045,15 @@ export default function AITracker() {
             return (
               <div key={g.id}>
                 <div onClick={() => toggleExp(`goal_${g.id}`)}
-                  style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(5,14,10,0.95)", border: "1px solid rgba(0,255,136,0.35)", borderLeft: "3px solid #00ff88", borderRadius: 4, padding: "10px 12px", cursor: "pointer" }}>
-                  <span style={{ color: "#00ff88", fontSize: 10, flexShrink: 0, width: 14, opacity: goalPlans.length ? 1 : 0.3 }}>
+                  style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(20,10,30,0.95)", border: "1px solid rgba(168,85,247,0.35)", borderLeft: "3px solid #a855f7", borderRadius: 4, padding: "10px 12px", cursor: "pointer" }}>
+                  <span style={{ color: "#c084fc", fontSize: 10, flexShrink: 0, width: 14, opacity: goalPlans.length ? 1 : 0.3 }}>
                     {exp ? "▼" : "▶"}
                   </span>
                   <button onClick={e => { e.stopPropagation(); doCompleteGoal(g); }}
-                    style={{ width: 20, height: 20, borderRadius: "50%", border: "2px solid rgba(0,255,136,0.5)", background: "transparent", cursor: "pointer", flexShrink: 0 }} />
-                  <span style={{ flex: 1, color: "#e0f8ec", fontSize: 13, fontWeight: 600 }}>{g.text}</span>
-                  {goalPlans.length > 0 && <span style={{ fontSize: 10, color: "#4a7060" }}>{goalPlans.length} планів</span>}
-                  <span style={{ fontSize: 11, color: "#00ff88", background: "rgba(0,255,136,0.1)", border: "1px solid rgba(0,255,136,0.25)", padding: "2px 7px", borderRadius: 10, flexShrink: 0, whiteSpace: "nowrap" }}>+{g.customXP ?? 500} XP</span>
+                    style={{ width: 20, height: 20, borderRadius: "50%", border: "2px solid rgba(168,85,247,0.7)", background: "transparent", cursor: "pointer", flexShrink: 0 }} />
+                  <span style={{ flex: 1, color: "#f0e8fa", fontSize: 13, fontWeight: 600 }}>{g.text}</span>
+                  {goalPlans.length > 0 && <span style={{ fontSize: 10, color: "#7a6a90" }}>{goalPlans.length} планів</span>}
+                  <span style={{ fontSize: 11, color: "#c084fc", background: "rgba(168,85,247,0.14)", border: "1px solid rgba(168,85,247,0.35)", padding: "2px 7px", borderRadius: 10, flexShrink: 0, whiteSpace: "nowrap" }}>+{g.customXP ?? 500} XP</span>
                   <button onClick={e => { e.stopPropagation(); setLongGoals(prev => prev.map(x => x.id === g.id ? { ...x, pinned: !x.pinned } : x)); }}
                     style={{ background: "none", border: "none", color: g.pinned ? "#c9a84c" : "#3a3020", cursor: "pointer", fontSize: 12, padding: "0 2px" }} title={g.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
                   <button onClick={e => { e.stopPropagation(); softDelete("goal", g.id); }}
@@ -3144,9 +3144,9 @@ export default function AITracker() {
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                 <div style={{ display: "flex", gap: 3 }}>
                   {[
-                    { id: "goal", label: "🎯 Ціль",     color: "#00ff88" },
+                    { id: "goal", label: "🎯 Ціль",     color: "#c084fc" },
                     { id: "plan", label: "📋 План дій", color: "#22d3ee" },
-                    { id: "task", label: "✅ Задача",   color: "#c084fc" },
+                    { id: "task", label: "✅ Задача",   color: "#00ff88" },
                   ].map(tp => (
                     <button key={tp.id} onClick={() => { setGpAddType(tp.id); setGpAddXP(tp.id === "goal" ? 500 : tp.id === "plan" ? 150 : 50); }}
                       style={{ background: gpAddType === tp.id ? `${tp.color}18` : "transparent", border: `1px solid ${gpAddType === tp.id ? tp.color + "55" : "rgba(201,168,76,0.15)"}`, borderRadius: 3, padding: "5px 11px", color: gpAddType === tp.id ? tp.color : "#6a5f40", fontSize: 11, cursor: "pointer", fontWeight: gpAddType === tp.id ? 700 : 400, fontFamily: "'Exo 2',sans-serif" }}>
@@ -3164,7 +3164,7 @@ export default function AITracker() {
                     style={{ width: 50, background: "transparent", border: "none", color: "#00ff88", fontSize: 12, fontFamily: "'Space Mono',monospace", textAlign: "center", padding: "8px 0" }} />
                 </div>
                 <button onClick={doAddItem}
-                  style={{ background: gpAddType === "goal" ? "#00ff88" : gpAddType === "plan" ? "#22d3ee" : "#a855f7", color: gpAddType === "task" ? "#fff" : "#000", border: "none", padding: "8px 16px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'Exo 2',sans-serif" }}>
+                  style={{ background: gpAddType === "goal" ? "#a855f7" : gpAddType === "plan" ? "#22d3ee" : "#00ff88", color: gpAddType === "goal" ? "#fff" : "#000", border: "none", padding: "8px 16px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'Exo 2',sans-serif" }}>
                   + Додати
                 </button>
               </div>
@@ -3179,9 +3179,9 @@ export default function AITracker() {
               )}
               {activeGoals.length > 0 && (
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-                  <span style={{ fontSize: 12, fontWeight: 800, color: "#00ff88", background: "rgba(0,255,136,0.10)", border: "1px solid rgba(0,255,136,0.35)", borderRadius: 4, padding: "5px 14px", textTransform: "uppercase", letterSpacing: 1.5, fontFamily: "'Exo 2',sans-serif" }}>🎯 Цілі</span>
-                  <span style={{ flex: 1, height: 1, background: "linear-gradient(90deg, rgba(0,255,136,0.35), transparent)" }} />
-                  <span style={{ fontSize: 11, color: "#3a7a5a" }}>{activeGoals.length}</span>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: "#c084fc", background: "rgba(168,85,247,0.10)", border: "1px solid rgba(168,85,247,0.35)", borderRadius: 4, padding: "5px 14px", textTransform: "uppercase", letterSpacing: 1.5, fontFamily: "'Exo 2',sans-serif" }}>🎯 Цілі</span>
+                  <span style={{ flex: 1, height: 1, background: "linear-gradient(90deg, rgba(168,85,247,0.35), transparent)" }} />
+                  <span style={{ fontSize: 11, color: "#7a6a90" }}>{activeGoals.length}</span>
                 </div>
               )}
               {activeGoals.map(g => renderGoalRow(g))}
@@ -3198,9 +3198,9 @@ export default function AITracker() {
               {standaloneTasks.length > 0 && (
                 <>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14, marginBottom: 4 }}>
-                    <span style={{ fontSize: 12, fontWeight: 800, color: "#c084fc", background: "rgba(168,85,247,0.10)", border: "1px solid rgba(168,85,247,0.35)", borderRadius: 4, padding: "5px 14px", textTransform: "uppercase", letterSpacing: 1.5, fontFamily: "'Exo 2',sans-serif" }}>✅ Задачі без плану</span>
-                    <span style={{ flex: 1, height: 1, background: "linear-gradient(90deg, rgba(168,85,247,0.35), transparent)" }} />
-                    <span style={{ fontSize: 11, color: "#6a5a80" }}>{standaloneTasks.length}</span>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: "#00ff88", background: "rgba(0,255,136,0.10)", border: "1px solid rgba(0,255,136,0.35)", borderRadius: 4, padding: "5px 14px", textTransform: "uppercase", letterSpacing: 1.5, fontFamily: "'Exo 2',sans-serif" }}>✅ Задачі без плану</span>
+                    <span style={{ flex: 1, height: 1, background: "linear-gradient(90deg, rgba(0,255,136,0.35), transparent)" }} />
+                    <span style={{ fontSize: 11, color: "#3a7a5a" }}>{standaloneTasks.length}</span>
                   </div>
                   {standaloneTasks.map(t => renderTaskRow(t))}
                 </>
@@ -3218,13 +3218,13 @@ export default function AITracker() {
                 </button>
                 {gpDoneGoalsOpen && (
                   <div style={{ marginTop: 12 }}>
-                    {renderDoneSub(doneGoals, "#00ff88", "🎯 Цілі",
+                    {renderDoneSub(doneGoals, "#c084fc", "🎯 Цілі",
                       (g) => setLongGoals(prev => prev.map(x => { if (x.id !== g.id) return x; if (x.xpAwarded) loseXP(x.customXP ?? 200, "goal", "↩ ціль скасовано"); return { ...x, done: false, xpAwarded: false, completedAt: null }; })),
                       g => g.customXP ?? 200, g => g.text)}
                     {renderDoneSub(donePlans, "#22d3ee", "📋 Плани дій",
                       (p) => setPlan(prev => prev.map(x => { if (x.id !== p.id) return x; if (x.xpAwarded) loseXP(x.xp ?? 150, "plan", "↩ план скасовано"); return { ...x, done: false, xpAwarded: false, completedAt: null }; })),
                       p => p.xp ?? 150, p => p.text)}
-                    {renderDoneSub(doneTasks, "#c084fc", "✅ Задачі",
+                    {renderDoneSub(doneTasks, "#00ff88", "✅ Задачі",
                       (t) => setGoals(prev => prev.map(x => { if (x.id !== t.id) return x; if (x.xpAwarded) loseXP(x.xp ?? 50, "goal", "↩ задачу скасовано"); return { ...x, done: false, xpAwarded: false, completedAt: null }; })),
                       t => t.xp ?? 50, t => t.text)}
                   </div>
