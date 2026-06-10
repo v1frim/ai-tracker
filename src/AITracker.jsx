@@ -2123,25 +2123,28 @@ export default function AITracker() {
                     { id: "month",  label: "🗓 Місяць",    color: "#a855f7", bg: "rgba(168,85,247,0.14)" },
                   ];
                   // What to show per filter
+                  const aliveLongGoals = longGoals.filter(g => !g.done && !g.deletedAt);
+                  const alivePlan = plan.filter(p => !p.done && !p.deletedAt);
+                  const aliveTasks = goals.filter(g => !g.done && !g.deletedAt);
                   const focusLongGoals = focusFilter === "pinned"
-                    ? longGoals.filter(g => !g.done && g.pinned)
+                    ? aliveLongGoals.filter(g => g.pinned)
                     : focusFilter === "week"
-                      ? longGoals.filter(g => !g.done && g.period === "week_cur")
-                      : longGoals.filter(g => !g.done && g.period === "month_cur");
+                      ? aliveLongGoals.filter(g => g.period === "week_cur")
+                      : aliveLongGoals.filter(g => g.period === "month_cur");
                   const focusPlanItems = focusFilter === "pinned"
-                    ? plan.filter(p => !p.done && p.pinned)
+                    ? alivePlan.filter(p => p.pinned)
                     : focusFilter === "week"
-                      ? plan.filter(p => !p.done && (p.urgency === "now" || p.urgency === "soon")).slice(0, 5)
-                      : plan.filter(p => !p.done).slice(0, 5);
+                      ? alivePlan.filter(p => p.urgency === "now" || p.urgency === "soon").slice(0, 5)
+                      : alivePlan.slice(0, 5);
                   const focusTasks = focusFilter === "pinned"
-                    ? goals.filter(g => !g.done && g.pinned)
+                    ? aliveTasks.filter(g => g.pinned)
                     : focusFilter === "week"
-                      ? goals.filter(g => !g.done && (g.priority === "urgent" || g.priority === "important")).slice(0, 5)
-                      : goals.filter(g => !g.done && g.priority === "urgent").slice(0, 5);
+                      ? aliveTasks.filter(g => g.priority === "urgent" || g.priority === "important").slice(0, 5)
+                      : aliveTasks.filter(g => g.priority === "urgent").slice(0, 5);
                   const isEmpty = !focusLongGoals.length && !focusPlanItems.length && !focusTasks.length;
                   const completeTask = (id) => setGoals(prev => prev.map(x => {
                     if (x.id !== id) return x;
-                    if (!x.done && !x.xpAwarded) { gainXP(x.xp ?? 100, "(задачу виконано)", "goal"); return { ...x, done: true, xpAwarded: true, completedAt: new Date().toISOString() }; }
+                    if (!x.done && !x.xpAwarded) { gainXP(x.xp ?? 50, "(задачу виконано)", "goal"); return { ...x, done: true, xpAwarded: true, completedAt: new Date().toISOString() }; }
                     return { ...x, done: !x.done };
                   }));
                   return (
@@ -2170,13 +2173,12 @@ export default function AITracker() {
                       {/* Long-term goals */}
                       {focusLongGoals.length > 0 && (
                         <div>
-                          <div style={{ fontSize: 10, color: "#06b6d4", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 7 }}>🎯 Цілі</div>
+                          <div style={{ fontSize: 10, color: "#c084fc", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 7 }}>🎯 Цілі</div>
                           <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                             {focusLongGoals.map(g => {
-                              const pMeta = (() => { const p = GOAL_PERIODS?.find?.(x => x.id === g.period); return p ?? { color: "#06b6d4", label: g.period }; })();
                               return (
-                                <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(6,182,212,0.07)", border: "1px solid rgba(6,182,212,0.22)", borderRadius: 4, padding: "8px 11px" }}>
-                                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#06b6d4", flexShrink: 0 }} />
+                                <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(20,10,30,0.85)", border: "1px solid rgba(168,85,247,0.30)", borderLeft: "3px solid #a855f7", borderRadius: 4, padding: "8px 11px" }}>
+                                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#a855f7", flexShrink: 0 }} />
                                   <span style={{ flex: 1, fontSize: 12, color: "#cbd5e1", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.text}</span>
                                   <button onClick={() => setLongGoals(prev => prev.map(x => x.id === g.id ? { ...x, pinned: !x.pinned } : x))}
                                     title="Закріплено на головній"
@@ -2191,18 +2193,18 @@ export default function AITracker() {
                       {/* Plan items */}
                       {focusPlanItems.length > 0 && (
                         <div>
-                          <div style={{ fontSize: 10, color: "#a855f7", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 7 }}>📋 План дій</div>
+                          <div style={{ fontSize: 10, color: "#22d3ee", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 7 }}>📋 План дій</div>
                           <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                             {focusPlanItems.map(item => {
                               const pt = PLAN_TYPES.find(t => t.id === (item.type ?? "other")) ?? PLAN_TYPES[PLAN_TYPES.length - 1];
                               return (
-                                <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 8, background: pt.bg, border: `1px solid ${pt.color}22`, borderRadius: 4, padding: "8px 11px" }}>
+                                <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(4,18,24,0.85)", border: "1px solid rgba(6,182,212,0.30)", borderLeft: "3px solid #06b6d4", borderRadius: 4, padding: "8px 11px" }}>
                                   <button onClick={() => setPlan(prev => prev.map(x => {
                                     if (x.id !== item.id) return x;
-                                    if (!x.done && !x.xpAwarded) { gainXP(x.xp ?? 75, "(план дій)", "plan"); return { ...x, done: true, xpAwarded: true }; }
+                                    if (!x.done && !x.xpAwarded) { gainXP(x.xp ?? 150, "(план дій)", "plan"); return { ...x, done: true, xpAwarded: true, completedAt: new Date().toISOString() }; }
                                     return { ...x, done: !x.done };
                                   }))}
-                                    style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${pt.color}`, background: "transparent", cursor: "pointer", flexShrink: 0, fontSize: 9, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }} />
+                                    style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid rgba(6,182,212,0.7)", background: "transparent", cursor: "pointer", flexShrink: 0, fontSize: 9, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }} />
                                   <span style={{ flex: 1, fontSize: 12, color: "#cbd5e1", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.text}</span>
                                   <span style={{ fontSize: 9, color: pt.color, background: pt.bg, border: `1px solid ${pt.color}33`, padding: "2px 6px", borderRadius: 3, flexShrink: 0 }}>{pt.label}</span>
                                   <button onClick={() => setPlan(prev => prev.map(x => x.id === item.id ? { ...x, pinned: !x.pinned } : x))}
@@ -2223,9 +2225,9 @@ export default function AITracker() {
                             {focusTasks.map(g => {
                               const pr = TASK_PRIORITIES.find(p => p.id === g.priority) ?? TASK_PRIORITIES[2];
                               return (
-                                <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, background: pr.bg, border: `1px solid ${pr.border}`, borderRadius: 4, padding: "7px 10px" }}>
+                                <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(5,14,10,0.85)", border: "1px solid rgba(0,255,136,0.30)", borderLeft: "3px solid #00ff88", borderRadius: 4, padding: "7px 10px" }}>
                                   <button onClick={() => completeTask(g.id)}
-                                    style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${pr.color}66`, background: "transparent", cursor: "pointer", flexShrink: 0 }} />
+                                    style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid rgba(0,255,136,0.7)", background: "transparent", cursor: "pointer", flexShrink: 0 }} />
                                   <span style={{ flex: 1, fontSize: 12, color: "#e0d8c0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.text}</span>
                                   <span style={{ fontSize: 9, color: pr.color, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, flexShrink: 0 }}>{pr.label}</span>
                                   <button onClick={() => setGoals(prev => prev.map(x => x.id === g.id ? { ...x, pinned: !x.pinned } : x))}
