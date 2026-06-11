@@ -911,6 +911,7 @@ export default function AITracker() {
   const [gpInlineAdd, setGpInlineAdd] = useState(null);
   const [gpInlineText, setGpInlineText] = useState("");
   const [gpInlineXP, setGpInlineXP] = useState(75);
+  const [gpStreamFilter, setGpStreamFilter] = useState(null);
 
   // AI Chat Widget state
   const [aiOpen, setAiOpen] = useState(false);
@@ -2884,12 +2885,23 @@ export default function AITracker() {
 
         {/* Combined Goals & Plan tab */}
         {activeTab === "goalsplan" && (() => {
+          const GP_STREAMS = [
+            { id: "dev",     label: "📚 Розвиток", color: "#6366f1", bg: "rgba(99,102,241,0.14)" },
+            { id: "content", label: "🎬 Контент",  color: "#ec4899", bg: "rgba(236,72,153,0.14)" },
+            { id: "work",    label: "🚀 Проекти",  color: "#f59e0b", bg: "rgba(245,158,11,0.14)" },
+          ];
+          const streamMap = Object.fromEntries(GP_STREAMS.map(s => [s.id, s]));
+
           const toggleExp = (key) => setExpandGP(prev => ({ ...prev, [key]: !prev[key] }));
           const isExp = (key) => !!expandGP[key];
 
-          const activeGoals = longGoals.filter(g => !g.done && !g.deletedAt);
-          const activePlans = plan.filter(p => !p.done && !p.deletedAt);
-          const activeTasks = goals.filter(g => !g.done && !g.deletedAt);
+          const sf = gpStreamFilter;
+          const allActiveGoals = longGoals.filter(g => !g.done && !g.deletedAt);
+          const allActivePlans = plan.filter(p => !p.done && !p.deletedAt);
+          const allActiveTasks = goals.filter(g => !g.done && !g.deletedAt);
+          const activeGoals = sf ? allActiveGoals.filter(g => g.stream === sf) : allActiveGoals;
+          const activePlans = sf ? allActivePlans.filter(p => p.stream === sf || allActiveGoals.some(g => g.id === p.goalId && g.stream === sf)) : allActivePlans;
+          const activeTasks = sf ? allActiveTasks.filter(t => t.stream === sf || allActivePlans.some(p => p.id === t.planId && p.stream === sf)) : allActiveTasks;
           const standalonePlans = activePlans.filter(p => !p.goalId);
           const standaloneTasks = activeTasks.filter(t => !t.planId);
 
@@ -2951,23 +2963,25 @@ export default function AITracker() {
 
           const doAddItem = () => {
             if (!gpAddText.trim()) return;
+            const streamProp = gpStreamFilter ? { stream: gpStreamFilter } : {};
             if (gpAddType === "goal") {
-              setLongGoals(prev => [...prev, { id: `lg${Date.now()}`, text: gpAddText.trim(), period: "month_cur", customXP: gpAddXP, done: false, createdAt: new Date().toISOString() }]);
+              setLongGoals(prev => [...prev, { id: `lg${Date.now()}`, text: gpAddText.trim(), period: "month_cur", customXP: gpAddXP, done: false, createdAt: new Date().toISOString(), ...streamProp }]);
             } else if (gpAddType === "plan") {
-              setPlan(prev => [...prev, { id: `p${Date.now()}`, text: gpAddText.trim(), type: "other", urgency: "now", xp: gpAddXP, done: false, createdAt: new Date().toISOString() }]);
+              setPlan(prev => [...prev, { id: `p${Date.now()}`, text: gpAddText.trim(), type: "other", urgency: "now", xp: gpAddXP, done: false, createdAt: new Date().toISOString(), ...streamProp }]);
             } else {
-              setGoals(prev => [...prev, { id: `g${Date.now()}`, text: gpAddText.trim(), priority: "important", xp: gpAddXP, done: false, createdAt: new Date().toISOString() }]);
+              setGoals(prev => [...prev, { id: `g${Date.now()}`, text: gpAddText.trim(), priority: "important", xp: gpAddXP, done: false, createdAt: new Date().toISOString(), ...streamProp }]);
             }
             setGpAddText("");
           };
 
           const doAddInlineItem = () => {
             if (!gpInlineText.trim() || !gpInlineAdd) return;
-            const { parentId, type } = gpInlineAdd;
+            const { parentId, type, parentStream } = gpInlineAdd;
+            const streamProp = parentStream ? { stream: parentStream } : {};
             if (type === "plan") {
-              setPlan(prev => [...prev, { id: `p${Date.now()}`, text: gpInlineText.trim(), type: "other", urgency: "now", xp: gpInlineXP, done: false, goalId: parentId, createdAt: new Date().toISOString() }]);
+              setPlan(prev => [...prev, { id: `p${Date.now()}`, text: gpInlineText.trim(), type: "other", urgency: "now", xp: gpInlineXP, done: false, goalId: parentId, createdAt: new Date().toISOString(), ...streamProp }]);
             } else if (type === "task") {
-              setGoals(prev => [...prev, { id: `g${Date.now()}`, text: gpInlineText.trim(), priority: "important", xp: gpInlineXP, done: false, planId: parentId, createdAt: new Date().toISOString() }]);
+              setGoals(prev => [...prev, { id: `g${Date.now()}`, text: gpInlineText.trim(), priority: "important", xp: gpInlineXP, done: false, planId: parentId, createdAt: new Date().toISOString(), ...streamProp }]);
             }
             setGpInlineText("");
             setGpInlineAdd(null);
@@ -2979,11 +2993,33 @@ export default function AITracker() {
             return `${d.getDate()}.${String(d.getMonth()+1).padStart(2,"0")}.${d.getFullYear()}`;
           };
 
+          const StreamTag = ({ stream, onClick }) => {
+            const s = streamMap[stream];
+            if (!s) return null;
+            return (
+              <span onClick={e => { e.stopPropagation(); if (onClick) onClick(); }}
+                style={{ fontSize: 9, color: s.color, background: s.bg, border: `1px solid ${s.color}55`, padding: "1px 6px", borderRadius: 8, flexShrink: 0, whiteSpace: "nowrap", cursor: onClick ? "pointer" : "default", fontWeight: 700, letterSpacing: 0.5 }}>
+                {s.label}
+              </span>
+            );
+          };
+
+          const cycleStream = (item, setter) => {
+            const ids = [null, ...GP_STREAMS.map(s => s.id)];
+            const cur = item.stream ?? null;
+            const next = ids[(ids.indexOf(cur) + 1) % ids.length];
+            setter(prev => prev.map(x => x.id === item.id ? { ...x, stream: next } : x));
+          };
+
           const renderTaskRow = (t) => (
             <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(5,14,10,0.95)", border: "1px solid rgba(0,255,136,0.35)", borderLeft: "3px solid #00ff88", borderRadius: 4, padding: "9px 12px" }}>
               <button onClick={() => doCompleteTask(t)}
                 style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid rgba(0,255,136,0.7)", background: "transparent", cursor: "pointer", flexShrink: 0 }} />
               <span style={{ flex: 1, color: "#d8f8e8", fontSize: 12 }}>{t.text}</span>
+              {t.stream ? <StreamTag stream={t.stream} onClick={() => cycleStream(t, setGoals)} /> : (
+                <button onClick={e => { e.stopPropagation(); cycleStream(t, setGoals); }}
+                  style={{ background: "none", border: "1px dashed rgba(255,255,255,0.08)", borderRadius: 8, color: "#3a4030", fontSize: 9, padding: "1px 6px", cursor: "pointer", flexShrink: 0 }}>＋напрям</button>
+              )}
               <span style={{ fontSize: 10, color: "#00ff88", background: "rgba(0,255,136,0.14)", border: "1px solid rgba(0,255,136,0.35)", padding: "2px 6px", borderRadius: 10, flexShrink: 0, whiteSpace: "nowrap" }}>+{t.xp ?? 50} XP</span>
               <button onClick={() => setGoals(prev => prev.map(x => x.id === t.id ? { ...x, pinned: !x.pinned } : x))}
                 style={{ background: "none", border: "none", color: t.pinned ? "#c9a84c" : "#3a3020", cursor: "pointer", fontSize: 11, padding: "0 2px" }} title={t.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
@@ -3007,6 +3043,10 @@ export default function AITracker() {
                     style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid rgba(6,182,212,0.7)", background: "transparent", cursor: "pointer", flexShrink: 0 }} />
                   <span style={{ flex: 1, color: "#d0f0fa", fontSize: 12, fontWeight: 500 }}>{p.text}</span>
                   {planTasks.length > 0 && <span style={{ fontSize: 10, color: "#3a7a90" }}>{planTasks.length} задач</span>}
+                  {p.stream ? <StreamTag stream={p.stream} onClick={() => cycleStream(p, setPlan)} /> : (
+                    <button onClick={e => { e.stopPropagation(); cycleStream(p, setPlan); }}
+                      style={{ background: "none", border: "1px dashed rgba(255,255,255,0.08)", borderRadius: 8, color: "#3a4050", fontSize: 9, padding: "1px 6px", cursor: "pointer", flexShrink: 0 }}>＋напрям</button>
+                  )}
                   <span style={{ fontSize: 10, color: "#22d3ee", background: "rgba(6,182,212,0.14)", border: "1px solid rgba(6,182,212,0.35)", padding: "2px 6px", borderRadius: 10, flexShrink: 0, whiteSpace: "nowrap" }}>+{p.xp ?? 150} XP</span>
                   <button onClick={e => { e.stopPropagation(); setPlan(prev => prev.map(x => x.id === p.id ? { ...x, pinned: !x.pinned } : x)); }}
                     style={{ background: "none", border: "none", color: p.pinned ? "#c9a84c" : "#3a3020", cursor: "pointer", fontSize: 11, padding: "0 2px" }} title={p.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
@@ -3029,7 +3069,7 @@ export default function AITracker() {
                         <button onClick={() => { setGpInlineAdd(null); setGpInlineText(""); }} style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 14, lineHeight: 1 }}>×</button>
                       </div>
                     ) : (
-                      <button onClick={() => { setGpInlineAdd({ parentId: p.id, type: "task" }); setGpInlineText(""); setGpInlineXP(50); }}
+                      <button onClick={() => { setGpInlineAdd({ parentId: p.id, type: "task", parentStream: p.stream }); setGpInlineText(""); setGpInlineXP(50); }}
                         style={{ alignSelf: "flex-start", background: "rgba(0,255,136,0.08)", border: "1px dashed rgba(0,255,136,0.45)", borderRadius: 3, padding: "4px 12px", color: "#00ff88", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
                         + задача
                       </button>
@@ -3042,24 +3082,41 @@ export default function AITracker() {
 
           const renderGoalRow = (g) => {
             const exp = isExp(`goal_${g.id}`);
-            const goalPlans = activePlans.filter(p => p.goalId === g.id);
+            const goalPlans = allActivePlans.filter(p => p.goalId === g.id);
+            const donePlanCount = plan.filter(p => p.goalId === g.id && p.done && !p.deletedAt).length;
+            const totalPlanCount = goalPlans.length + donePlanCount;
             const isInlining = gpInlineAdd?.parentId === g.id && gpInlineAdd?.type === "plan";
+            const progressPct = totalPlanCount > 0 ? Math.round((donePlanCount / totalPlanCount) * 100) : 0;
             return (
               <div key={g.id}>
                 <div onClick={() => toggleExp(`goal_${g.id}`)}
-                  style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(20,10,30,0.95)", border: "1px solid rgba(168,85,247,0.35)", borderLeft: "3px solid #a855f7", borderRadius: 4, padding: "10px 12px", cursor: "pointer" }}>
-                  <span style={{ color: "#c084fc", fontSize: 10, flexShrink: 0, width: 14, opacity: goalPlans.length ? 1 : 0.3 }}>
-                    {exp ? "▼" : "▶"}
-                  </span>
-                  <button onClick={e => { e.stopPropagation(); doCompleteGoal(g); }}
-                    style={{ width: 20, height: 20, borderRadius: "50%", border: "2px solid rgba(168,85,247,0.7)", background: "transparent", cursor: "pointer", flexShrink: 0 }} />
-                  <span style={{ flex: 1, color: "#f0e8fa", fontSize: 13, fontWeight: 600 }}>{g.text}</span>
-                  {goalPlans.length > 0 && <span style={{ fontSize: 10, color: "#7a6a90" }}>{goalPlans.length} планів</span>}
-                  <span style={{ fontSize: 11, color: "#c084fc", background: "rgba(168,85,247,0.14)", border: "1px solid rgba(168,85,247,0.35)", padding: "2px 7px", borderRadius: 10, flexShrink: 0, whiteSpace: "nowrap" }}>+{g.customXP ?? 500} XP</span>
-                  <button onClick={e => { e.stopPropagation(); setLongGoals(prev => prev.map(x => x.id === g.id ? { ...x, pinned: !x.pinned } : x)); }}
-                    style={{ background: "none", border: "none", color: g.pinned ? "#c9a84c" : "#3a3020", cursor: "pointer", fontSize: 12, padding: "0 2px" }} title={g.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
-                  <button onClick={e => { e.stopPropagation(); softDelete("goal", g.id); }}
-                    style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 16, padding: "0 2px", lineHeight: 1 }}>×</button>
+                  style={{ display: "flex", flexDirection: "column", background: "rgba(20,10,30,0.95)", border: "1px solid rgba(168,85,247,0.35)", borderLeft: "3px solid #a855f7", borderRadius: 4, padding: "10px 12px", cursor: "pointer" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ color: "#c084fc", fontSize: 10, flexShrink: 0, width: 14, opacity: goalPlans.length ? 1 : 0.3 }}>
+                      {exp ? "▼" : "▶"}
+                    </span>
+                    <button onClick={e => { e.stopPropagation(); doCompleteGoal(g); }}
+                      style={{ width: 20, height: 20, borderRadius: "50%", border: "2px solid rgba(168,85,247,0.7)", background: "transparent", cursor: "pointer", flexShrink: 0 }} />
+                    <span style={{ flex: 1, color: "#f0e8fa", fontSize: 13, fontWeight: 600 }}>{g.text}</span>
+                    {g.stream ? <StreamTag stream={g.stream} onClick={() => cycleStream(g, setLongGoals)} /> : (
+                      <button onClick={e => { e.stopPropagation(); cycleStream(g, setLongGoals); }}
+                        style={{ background: "none", border: "1px dashed rgba(255,255,255,0.08)", borderRadius: 8, color: "#3a3040", fontSize: 9, padding: "1px 6px", cursor: "pointer", flexShrink: 0 }}>＋напрям</button>
+                    )}
+                    {totalPlanCount > 0 && <span style={{ fontSize: 10, color: "#7a6a90", flexShrink: 0 }}>{donePlanCount}/{totalPlanCount}</span>}
+                    <span style={{ fontSize: 11, color: "#c084fc", background: "rgba(168,85,247,0.14)", border: "1px solid rgba(168,85,247,0.35)", padding: "2px 7px", borderRadius: 10, flexShrink: 0, whiteSpace: "nowrap" }}>+{g.customXP ?? 500} XP</span>
+                    <button onClick={e => { e.stopPropagation(); setLongGoals(prev => prev.map(x => x.id === g.id ? { ...x, pinned: !x.pinned } : x)); }}
+                      style={{ background: "none", border: "none", color: g.pinned ? "#c9a84c" : "#3a3020", cursor: "pointer", fontSize: 12, padding: "0 2px" }} title={g.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
+                    <button onClick={e => { e.stopPropagation(); softDelete("goal", g.id); }}
+                      style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 16, padding: "0 2px", lineHeight: 1 }}>×</button>
+                  </div>
+                  {totalPlanCount > 0 && (
+                    <div style={{ marginTop: 7, marginLeft: 22, display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ flex: 1, height: 3, background: "rgba(168,85,247,0.15)", borderRadius: 2, overflow: "hidden" }}>
+                        <div style={{ width: `${progressPct}%`, height: "100%", background: progressPct === 100 ? "#a855f7" : "linear-gradient(90deg, #a855f7, #c084fc)", borderRadius: 2, transition: "width 0.3s" }} />
+                      </div>
+                      <span style={{ fontSize: 9, color: progressPct === 100 ? "#a855f7" : "#5a4a70", flexShrink: 0 }}>{progressPct}%</span>
+                    </div>
+                  )}
                 </div>
                 {exp && (
                   <div style={{ marginLeft: 22, marginTop: 3, display: "flex", flexDirection: "column", gap: 3 }}>
@@ -3077,7 +3134,7 @@ export default function AITracker() {
                         <button onClick={() => { setGpInlineAdd(null); setGpInlineText(""); }} style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 14, lineHeight: 1 }}>×</button>
                       </div>
                     ) : (
-                      <button onClick={() => { setGpInlineAdd({ parentId: g.id, type: "plan" }); setGpInlineText(""); setGpInlineXP(150); }}
+                      <button onClick={() => { setGpInlineAdd({ parentId: g.id, type: "plan", parentStream: g.stream }); setGpInlineText(""); setGpInlineXP(150); }}
                         style={{ alignSelf: "flex-start", background: "rgba(6,182,212,0.08)", border: "1px dashed rgba(6,182,212,0.45)", borderRadius: 3, padding: "4px 12px", color: "#22d3ee", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
                         + план дій
                       </button>
@@ -3170,6 +3227,20 @@ export default function AITracker() {
                   + Додати
                 </button>
               </div>
+            </div>
+
+            {/* Stream filter bar */}
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
+              <button onClick={() => setGpStreamFilter(null)}
+                style={{ background: !gpStreamFilter ? "rgba(201,168,76,0.18)" : "transparent", border: `1px solid ${!gpStreamFilter ? "rgba(201,168,76,0.55)" : "rgba(201,168,76,0.15)"}`, borderRadius: 3, padding: "4px 10px", color: !gpStreamFilter ? "#c9a84c" : "#6a5f40", fontSize: 11, fontWeight: !gpStreamFilter ? 700 : 400, cursor: "pointer", fontFamily: "'Exo 2',sans-serif" }}>
+                Всі напрями
+              </button>
+              {GP_STREAMS.map(s => (
+                <button key={s.id} onClick={() => setGpStreamFilter(gpStreamFilter === s.id ? null : s.id)}
+                  style={{ background: gpStreamFilter === s.id ? s.bg : "transparent", border: `1px solid ${gpStreamFilter === s.id ? s.color + "88" : s.color + "30"}`, borderRadius: 3, padding: "4px 10px", color: gpStreamFilter === s.id ? s.color : s.color + "88", fontSize: 11, fontWeight: gpStreamFilter === s.id ? 700 : 400, cursor: "pointer", fontFamily: "'Exo 2',sans-serif" }}>
+                  {s.label}
+                </button>
+              ))}
             </div>
 
             {/* Active items — hierarchical */}
