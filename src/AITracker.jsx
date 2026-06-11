@@ -912,6 +912,10 @@ export default function AITracker() {
   const [gpInlineText, setGpInlineText] = useState("");
   const [gpInlineXP, setGpInlineXP] = useState(75);
   const [gpStreamFilter, setGpStreamFilter] = useState(null);
+  const [inbox, setInbox] = useState(saved?.inbox ?? []);
+  const [gpInboxOpen, setGpInboxOpen] = useState(true);
+  const [gpInboxText, setGpInboxText] = useState("");
+  const [gpInboxConvert, setGpInboxConvert] = useState(null);
 
   // AI Chat Widget state
   const [aiOpen, setAiOpen] = useState(false);
@@ -973,10 +977,10 @@ export default function AITracker() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    const state = { skillData, totalXP, levelUpAt, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, longGoalEpoch, plan, aiMessages, aiModel, aiApiKeys, githubSync, progressLog, metricLog, todayXP, skillTasksData, learnTime };
+    const state = { skillData, totalXP, levelUpAt, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, longGoalEpoch, plan, aiMessages, aiModel, aiApiKeys, githubSync, progressLog, metricLog, todayXP, skillTasksData, learnTime, inbox };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     setSaveTick(t => t + 1);
-  }, [skillData, totalXP, levelUpAt, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, longGoalEpoch, plan, aiMessages, aiModel, aiApiKeys, githubSync, progressLog, metricLog, todayXP, skillTasksData, learnTime]);
+  }, [skillData, totalXP, levelUpAt, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, longGoalEpoch, plan, aiMessages, aiModel, aiApiKeys, githubSync, progressLog, metricLog, todayXP, skillTasksData, learnTime, inbox]);
 
   useEffect(() => {
     localStorage.setItem("ai_tracker_today_act", JSON.stringify({ date: todayStr(), data: todayActivity }));
@@ -3195,8 +3199,107 @@ export default function AITracker() {
             );
           };
 
+          const doAddToInbox = () => {
+            if (!gpInboxText.trim()) return;
+            setInbox(prev => [...prev, { id: `ib${Date.now()}`, text: gpInboxText.trim(), createdAt: new Date().toISOString() }]);
+            setGpInboxText("");
+          };
+
+          const doConvertInboxItem = (item) => {
+            const { type, xp, stream } = gpInboxConvert;
+            const streamProp = stream ? { stream } : {};
+            if (type === "goal") {
+              setLongGoals(prev => [...prev, { id: `lg${Date.now()}`, text: item.text, period: "month_cur", customXP: xp, done: false, createdAt: new Date().toISOString(), ...streamProp }]);
+            } else if (type === "plan") {
+              setPlan(prev => [...prev, { id: `p${Date.now()}`, text: item.text, type: "other", urgency: "now", xp, done: false, createdAt: new Date().toISOString(), ...streamProp }]);
+            } else {
+              setGoals(prev => [...prev, { id: `g${Date.now()}`, text: item.text, priority: "important", xp, done: false, createdAt: new Date().toISOString(), ...streamProp }]);
+            }
+            setInbox(prev => prev.filter(x => x.id !== item.id));
+            setGpInboxConvert(null);
+          };
+
           return (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+
+        {/* 💡 Inbox */}
+            <div style={{ background: "rgba(8,6,2,0.80)", border: "1px solid rgba(251,191,36,0.22)", borderRadius: 4, padding: 14 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: gpInboxOpen ? 12 : 0 }}>
+                <button onClick={() => setGpInboxOpen(o => !o)}
+                  style={{ background: "none", border: "none", color: "#fbbf24", cursor: "pointer", fontSize: 12, fontWeight: 700, padding: 0, fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1.5, display: "flex", alignItems: "center", gap: 6, flex: 1 }}>
+                  <span style={{ fontSize: 10 }}>{gpInboxOpen ? "▼" : "▶"}</span>
+                  💡 Інбокс ідей
+                  {inbox.length > 0 && <span style={{ fontSize: 10, fontWeight: 400, color: "#9a7820", marginLeft: 2 }}>({inbox.length})</span>}
+                </button>
+                <div style={{ display: "flex", gap: 5 }}>
+                  <input value={gpInboxText} onChange={e => setGpInboxText(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") doAddToInbox(); }}
+                    placeholder="Кинь ідею сюди..."
+                    style={{ width: 220, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(251,191,36,0.20)", borderRadius: 4, padding: "6px 10px", color: "#f0e0a0", fontSize: 12, fontFamily: "'Space Mono',monospace", outline: "none" }} />
+                  <button onClick={doAddToInbox}
+                    style={{ background: "rgba(251,191,36,0.15)", border: "1px solid rgba(251,191,36,0.35)", color: "#fbbf24", borderRadius: 4, padding: "6px 12px", fontWeight: 700, cursor: "pointer", fontSize: 12 }}>+</button>
+                </div>
+              </div>
+              {gpInboxOpen && inbox.length === 0 && (
+                <div style={{ textAlign: "center", padding: "14px 0", color: "#6a5820", fontSize: 12 }}>
+                  Поки порожньо — кидай сюди ідеї з IndieHackers, YouTube, подкастів...
+                </div>
+              )}
+              {gpInboxOpen && inbox.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                  {inbox.map(item => {
+                    const isConverting = gpInboxConvert?.id === item.id;
+                    return (
+                      <div key={item.id} style={{ background: "rgba(12,9,2,0.85)", border: `1px solid ${isConverting ? "rgba(251,191,36,0.45)" : "rgba(251,191,36,0.15)"}`, borderLeft: "3px solid rgba(251,191,36,0.6)", borderRadius: 4, overflow: "hidden" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px" }}>
+                          <span style={{ flex: 1, color: "#e8d080", fontSize: 12 }}>{item.text}</span>
+                          <span style={{ fontSize: 9, color: "#6a5820", flexShrink: 0 }}>{fmtDate(item.createdAt)}</span>
+                          <button onClick={() => setGpInboxConvert(isConverting ? null : { id: item.id, type: "task", xp: 50, stream: gpStreamFilter ?? null })}
+                            style={{ background: isConverting ? "rgba(251,191,36,0.2)" : "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.35)", color: "#fbbf24", borderRadius: 3, padding: "3px 9px", fontSize: 10, fontWeight: 700, cursor: "pointer", flexShrink: 0, whiteSpace: "nowrap" }}>
+                            {isConverting ? "▲ скасувати" : "→ перенести"}
+                          </button>
+                          <button onClick={() => setInbox(prev => prev.filter(x => x.id !== item.id))}
+                            style={{ background: "none", border: "none", color: "#5a4010", cursor: "pointer", fontSize: 15, padding: "0 2px", lineHeight: 1 }}>×</button>
+                        </div>
+                        {isConverting && (
+                          <div style={{ padding: "10px 12px", borderTop: "1px solid rgba(251,191,36,0.15)", background: "rgba(20,14,2,0.9)", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                            <div style={{ display: "flex", gap: 3 }}>
+                              {[
+                                { id: "goal", label: "🎯 Ціль",     color: "#c084fc", xp: 500 },
+                                { id: "plan", label: "📋 План",     color: "#22d3ee", xp: 150 },
+                                { id: "task", label: "✅ Задача",   color: "#00ff88", xp: 50  },
+                              ].map(tp => (
+                                <button key={tp.id} onClick={() => setGpInboxConvert(c => ({ ...c, type: tp.id, xp: tp.xp }))}
+                                  style={{ background: gpInboxConvert.type === tp.id ? `${tp.color}20` : "transparent", border: `1px solid ${gpInboxConvert.type === tp.id ? tp.color + "66" : "rgba(201,168,76,0.15)"}`, borderRadius: 3, padding: "4px 9px", color: gpInboxConvert.type === tp.id ? tp.color : "#6a5f40", fontSize: 11, cursor: "pointer", fontWeight: gpInboxConvert.type === tp.id ? 700 : 400 }}>
+                                  {tp.label}
+                                </button>
+                              ))}
+                            </div>
+                            <div style={{ display: "flex", gap: 3 }}>
+                              {GP_STREAMS.map(s => (
+                                <button key={s.id} onClick={() => setGpInboxConvert(c => ({ ...c, stream: c.stream === s.id ? null : s.id }))}
+                                  style={{ background: gpInboxConvert.stream === s.id ? s.bg : "transparent", border: `1px solid ${gpInboxConvert.stream === s.id ? s.color + "88" : s.color + "30"}`, borderRadius: 3, padding: "4px 8px", color: gpInboxConvert.stream === s.id ? s.color : s.color + "88", fontSize: 10, cursor: "pointer", fontWeight: gpInboxConvert.stream === s.id ? 700 : 400 }}>
+                                  {s.label}
+                                </button>
+                              ))}
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 3, background: "rgba(8,5,2,0.5)", border: "1px solid rgba(201,168,76,0.15)", borderRadius: 3, padding: "0 8px" }}>
+                              <span style={{ fontSize: 10, color: "#6a5f40" }}>XP</span>
+                              <input type="number" min="0" value={gpInboxConvert.xp} onChange={e => setGpInboxConvert(c => ({ ...c, xp: Math.max(0, parseInt(e.target.value) || 0) }))}
+                                style={{ width: 44, background: "transparent", border: "none", color: "#00ff88", fontSize: 11, textAlign: "center", outline: "none", padding: "5px 0" }} />
+                            </div>
+                            <button onClick={() => doConvertInboxItem(item)}
+                              style={{ background: gpInboxConvert.type === "goal" ? "#a855f7" : gpInboxConvert.type === "plan" ? "#22d3ee" : "#00ff88", color: gpInboxConvert.type === "goal" ? "#fff" : "#000", border: "none", padding: "6px 14px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'Exo 2',sans-serif", marginLeft: "auto" }}>
+                              ✓ Перенести
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
         {/* Add form */}
             <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.18)", borderRadius: 4, padding: 14 }}>
