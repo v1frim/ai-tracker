@@ -3102,11 +3102,8 @@ export default function AITracker() {
           };
 
           const renderTaskRow = (t) => (
-            <div key={t.id} {...dragHandlers(t.id, "task", "list")}
-              onDragOver={e => { e.preventDefault(); setDragOver(`task_${t.id}`); }}
-              onDragLeave={() => setDragOver(o => o === `task_${t.id}` ? null : o)}
-              onDrop={e => { e.preventDefault(); dropToType("task", t.id); }}
-              style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(5,14,10,0.95)", border: "1px solid rgba(0,255,136,0.35)", borderLeft: "3px solid #00ff88", borderRadius: 4, padding: "9px 12px", cursor: "grab", outline: dragOver === `task_${t.id}` ? "2px dashed #00ff88" : "none", opacity: dragItem?.id === t.id ? 0.4 : 1 }}>
+            <div key={t.id} {...dragHandlers(t.id, "task", "list")} {...rowDropProps("task", t.id)}
+              style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(5,14,10,0.95)", border: "1px solid rgba(0,255,136,0.35)", borderLeft: "3px solid #00ff88", borderRadius: 4, padding: "9px 12px", cursor: "grab", opacity: dragItem?.id === t.id ? 0.4 : 1 }}>
               <button onClick={() => doCompleteTask(t)}
                 style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid rgba(0,255,136,0.7)", background: "transparent", cursor: "pointer", flexShrink: 0 }} />
               <span style={{ flex: 1, color: "#d8f8e8", fontSize: 12 }}>{t.text}</span>
@@ -3128,11 +3125,8 @@ export default function AITracker() {
             const isInlining = gpInlineAdd?.parentId === p.id && gpInlineAdd?.type === "task";
             return (
               <div key={p.id}>
-                <div onClick={() => toggleExp(`plan_${p.id}`)} {...dragHandlers(p.id, "plan", "list")}
-                  onDragOver={e => { e.preventDefault(); setDragOver(`plan_${p.id}`); }}
-                  onDragLeave={() => setDragOver(o => o === `plan_${p.id}` ? null : o)}
-                  onDrop={e => { e.preventDefault(); dropToType("plan", p.id); }}
-                  style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(4,18,24,0.95)", border: "1px solid rgba(6,182,212,0.35)", borderLeft: "3px solid #06b6d4", borderRadius: 4, padding: "10px 12px", cursor: "grab", outline: dragOver === `plan_${p.id}` ? "2px dashed #06b6d4" : "none", opacity: dragItem?.id === p.id ? 0.4 : 1 }}>
+                <div onClick={() => toggleExp(`plan_${p.id}`)} {...dragHandlers(p.id, "plan", "list")} {...rowDropProps("plan", p.id)}
+                  style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(4,18,24,0.95)", border: "1px solid rgba(6,182,212,0.35)", borderLeft: "3px solid #06b6d4", borderRadius: 4, padding: "10px 12px", cursor: "grab", opacity: dragItem?.id === p.id ? 0.4 : 1 }}>
                   <span style={{ color: "#06b6d4", fontSize: 10, flexShrink: 0, width: 14, opacity: planTasks.length ? 1 : 0.3 }}>
                     {exp ? "▼" : "▶"}
                   </span>
@@ -3186,11 +3180,8 @@ export default function AITracker() {
             const progressPct = totalPlanCount > 0 ? Math.round((donePlanCount / totalPlanCount) * 100) : 0;
             return (
               <div key={g.id}>
-                <div onClick={() => toggleExp(`goal_${g.id}`)} {...dragHandlers(g.id, "goal", "list")}
-                  onDragOver={e => { e.preventDefault(); setDragOver(`goal_${g.id}`); }}
-                  onDragLeave={() => setDragOver(o => o === `goal_${g.id}` ? null : o)}
-                  onDrop={e => { e.preventDefault(); dropToType("goal", g.id); }}
-                  style={{ display: "flex", flexDirection: "column", background: "rgba(20,10,30,0.95)", border: "1px solid rgba(168,85,247,0.35)", borderLeft: "3px solid #a855f7", borderRadius: 4, padding: "10px 12px", cursor: "grab", outline: dragOver === `goal_${g.id}` ? "2px dashed #a855f7" : "none", opacity: dragItem?.id === g.id ? 0.4 : 1 }}>
+                <div onClick={() => toggleExp(`goal_${g.id}`)} {...dragHandlers(g.id, "goal", "list")} {...rowDropProps("goal", g.id)}
+                  style={{ display: "flex", flexDirection: "column", background: "rgba(20,10,30,0.95)", border: "1px solid rgba(168,85,247,0.35)", borderLeft: "3px solid #a855f7", borderRadius: 4, padding: "10px 12px", cursor: "grab", opacity: dragItem?.id === g.id ? 0.4 : 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ color: "#c084fc", fontSize: 10, flexShrink: 0, width: 14, opacity: goalPlans.length ? 1 : 0.3 }}>
                       {exp ? "▼" : "▶"}
@@ -3320,7 +3311,7 @@ export default function AITracker() {
           // Створює елемент типу toType з будь-якого джерела (елемент списку або ідея з інбоксу)
           const buildTyped = (src, toType, keepProgress) => {
             const m = TYPE_META[toType];
-            const xp = src.customXP ?? src.xp ?? m.defXP;
+            const xp = m.defXP; // XP скидається на стандартний для типу (ціль 500 / план 150 / задача 50)
             const base = { id: `${m.prefix}${Date.now()}${Math.floor(Math.random()*1000)}`, text: src.text, createdAt: src.createdAt ?? new Date().toISOString() };
             if (src.stream) base.stream = src.stream;
             if (src.pinned) base.pinned = true;
@@ -3344,7 +3335,8 @@ export default function AITracker() {
                 showNotif(`→ ${TYPE_META[toType].label}`);
               }
             } else if (di.fromType === toType) {
-              if (beforeId && beforeId !== di.id) {
+              // Той самий тип → перевпорядкування (beforeId=null → в кінець секції)
+              if (beforeId !== di.id) {
                 TYPE_META[toType].setter(prev => {
                   const it = prev.find(x => x.id === di.id);
                   if (!it) return prev;
@@ -3389,6 +3381,62 @@ export default function AITracker() {
             onDragStart: (e) => { setDragItem({ id, fromType, source }); e.dataTransfer.effectAllowed = "move"; try { e.dataTransfer.setData("text/plain", id); } catch (_) {} },
             onDragEnd: () => { setDragItem(null); setDragOver(null); },
           });
+
+          // Пропси-цілі для рядка списку: при наведенні підсвічує проміжок НАД рядком (куди вставиться), приймає drop
+          const rowDropProps = (type, id) => ({
+            onDragOver: (e) => { e.preventDefault(); setDragOver(`gap_${type}_${id}`); },
+            onDrop: (e) => { e.preventDefault(); dropToType(type, id); },
+          });
+
+          // Зона-проміжок між рядками — підсвічується, показуючи куди впадеться елемент
+          const GapZone = ({ type, beforeId }) => {
+            if (!dragItem) return null;
+            const key = `gap_${type}_${beforeId ?? "end"}`;
+            const hot = dragOver === key;
+            const color = TYPE_META[type].color;
+            return (
+              <div onDragOver={e => { e.preventDefault(); setDragOver(key); }}
+                onDrop={e => { e.preventDefault(); dropToType(type, beforeId); }}
+                style={{ height: hot ? 26 : 9, margin: "-2px 0", borderRadius: 5, transition: "height 0.1s, background 0.1s", background: hot ? `${color}26` : "transparent", border: hot ? `2px dashed ${color}` : "2px dashed transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {hot && <span style={{ fontSize: 9, color, fontFamily: "'Space Mono',monospace", letterSpacing: 1, whiteSpace: "nowrap" }}>↳ сюди</span>}
+              </div>
+            );
+          };
+
+          // Заголовок секції — також дропзона (скинути сюди = змінити тип і додати в кінець)
+          const SECTION_META = {
+            goal: { label: "🎯 Цілі",            color: "#c084fc", line: "rgba(168,85,247,0.35)", count: activeGoals.length },
+            plan: { label: "📋 Плани без цілі",  color: "#22d3ee", line: "rgba(6,182,212,0.35)",  count: standalonePlans.length },
+            task: { label: "✅ Задачі без плану", color: "#00ff88", line: "rgba(0,255,136,0.35)",  count: standaloneTasks.length },
+          };
+          const SectionHeader = ({ type, marginTop }) => {
+            const m = SECTION_META[type];
+            const key = `header_${type}`;
+            const hot = dragItem && dragOver === key;
+            return (
+              <div
+                onDragOver={dragItem ? (e => { e.preventDefault(); setDragOver(key); }) : undefined}
+                onDrop={dragItem ? (e => { e.preventDefault(); dropToType(type, null); }) : undefined}
+                style={{ display: "flex", alignItems: "center", gap: 10, marginTop, marginBottom: 4, padding: hot ? "4px 6px" : 0, borderRadius: 4, background: hot ? `${m.color}1a` : "transparent", outline: hot ? `2px dashed ${m.color}` : "none", transition: "background 0.1s" }}>
+                <span style={{ fontSize: 12, fontWeight: 800, color: m.color, background: `${m.color}1a`, border: `1px solid ${m.color}59`, borderRadius: 4, padding: "5px 14px", textTransform: "uppercase", letterSpacing: 1.5, fontFamily: "'Exo 2',sans-serif", whiteSpace: "nowrap" }}>{m.label}</span>
+                <span style={{ flex: 1, height: 1, background: `linear-gradient(90deg, ${m.line}, transparent)` }} />
+                {dragItem
+                  ? <span style={{ fontSize: 10, color: m.color, fontFamily: "'Space Mono',monospace", whiteSpace: "nowrap" }}>скинь → {TYPE_META[type].defXP} XP</span>
+                  : <span style={{ fontSize: 11, color: `${m.color}aa` }}>{m.count}</span>}
+              </div>
+            );
+          };
+
+          // Секція з рядками + зони-проміжки між ними
+          const renderSection = (items, type, renderFn) => (
+            <>
+              {items.map(it => [
+                <GapZone key={`gap_${it.id}`} type={type} beforeId={it.id} />,
+                renderFn(it),
+              ])}
+              <GapZone type={type} beforeId={null} />
+            </>
+          );
 
           const doConvertInboxItem = (item) => {
             const { type, xp, stream } = gpInboxConvert;
@@ -3577,60 +3625,24 @@ export default function AITracker() {
               ))}
             </div>
 
-            {/* Drag-панель: три зони типів (видима лише при перетягуванні) — гарантує зміну типу навіть для порожніх секцій */}
-            {dragItem && (
-              <div style={{ display: "flex", gap: 8 }}>
-                {["goal", "plan", "task"].map(tp => {
-                  const m = TYPE_META[tp];
-                  const hot = dragOver === `zone_${tp}`;
-                  return (
-                    <div key={tp}
-                      onDragOver={e => { e.preventDefault(); setDragOver(`zone_${tp}`); }}
-                      onDragLeave={() => setDragOver(o => o === `zone_${tp}` ? null : o)}
-                      onDrop={e => { e.preventDefault(); dropToType(tp); }}
-                      style={{ flex: 1, textAlign: "center", padding: "12px 8px", border: `2px dashed ${m.color}${hot ? "" : "55"}`, background: hot ? `${m.color}22` : `${m.color}0a`, borderRadius: 6, color: m.color, fontSize: 12, fontWeight: 700, fontFamily: "'Exo 2',sans-serif", letterSpacing: 1, transition: "all 0.12s" }}>
-                      {m.label}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Active items — hierarchical */}
+            {/* Active items — секції завжди присутні під час перетягування (щоб було куди скинути,
+                навіть якщо секція порожня). Перетягування між секціями міняє тип + XP. */}
             <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-              {activeGoals.length === 0 && standalonePlans.length === 0 && standaloneTasks.length === 0 && (
+              {!dragItem && activeGoals.length === 0 && standalonePlans.length === 0 && standaloneTasks.length === 0 && (
                 <div style={{ textAlign: "center", padding: "32px 16px", color: "#5a5040", fontSize: 13 }}>
                   Ще нічого немає. Додай першу ціль, план або задачу!
                 </div>
               )}
-              {activeGoals.length > 0 && (
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-                  <span style={{ fontSize: 12, fontWeight: 800, color: "#c084fc", background: "rgba(168,85,247,0.10)", border: "1px solid rgba(168,85,247,0.35)", borderRadius: 4, padding: "5px 14px", textTransform: "uppercase", letterSpacing: 1.5, fontFamily: "'Exo 2',sans-serif" }}>🎯 Цілі</span>
-                  <span style={{ flex: 1, height: 1, background: "linear-gradient(90deg, rgba(168,85,247,0.35), transparent)" }} />
-                  <span style={{ fontSize: 11, color: "#7a6a90" }}>{activeGoals.length}</span>
-                </div>
-              )}
-              {activeGoals.map(g => renderGoalRow(g))}
-              {standalonePlans.length > 0 && (
-                <>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14, marginBottom: 4 }}>
-                    <span style={{ fontSize: 12, fontWeight: 800, color: "#22d3ee", background: "rgba(6,182,212,0.10)", border: "1px solid rgba(6,182,212,0.35)", borderRadius: 4, padding: "5px 14px", textTransform: "uppercase", letterSpacing: 1.5, fontFamily: "'Exo 2',sans-serif" }}>📋 Плани без цілі</span>
-                    <span style={{ flex: 1, height: 1, background: "linear-gradient(90deg, rgba(6,182,212,0.35), transparent)" }} />
-                    <span style={{ fontSize: 11, color: "#3a7a90" }}>{standalonePlans.length}</span>
-                  </div>
-                  {standalonePlans.map(p => renderPlanRow(p))}
-                </>
-              )}
-              {standaloneTasks.length > 0 && (
-                <>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14, marginBottom: 4 }}>
-                    <span style={{ fontSize: 12, fontWeight: 800, color: "#00ff88", background: "rgba(0,255,136,0.10)", border: "1px solid rgba(0,255,136,0.35)", borderRadius: 4, padding: "5px 14px", textTransform: "uppercase", letterSpacing: 1.5, fontFamily: "'Exo 2',sans-serif" }}>✅ Задачі без плану</span>
-                    <span style={{ flex: 1, height: 1, background: "linear-gradient(90deg, rgba(0,255,136,0.35), transparent)" }} />
-                    <span style={{ fontSize: 11, color: "#3a7a5a" }}>{standaloneTasks.length}</span>
-                  </div>
-                  {standaloneTasks.map(t => renderTaskRow(t))}
-                </>
-              )}
+
+              {(activeGoals.length > 0 || dragItem) && <SectionHeader type="goal" />}
+              {(activeGoals.length > 0 || dragItem) && renderSection(activeGoals, "goal", renderGoalRow)}
+
+              {(standalonePlans.length > 0 || dragItem) && <SectionHeader type="plan" marginTop={14} />}
+              {(standalonePlans.length > 0 || dragItem) && renderSection(standalonePlans, "plan", renderPlanRow)}
+
+              {/* «Задачі без плану» лишається завжди, поки є хоч щось — щоб завжди було куди скинути */}
+              {(activeGoals.length > 0 || standalonePlans.length > 0 || standaloneTasks.length > 0 || dragItem) && <SectionHeader type="task" marginTop={14} />}
+              {(activeGoals.length > 0 || standalonePlans.length > 0 || standaloneTasks.length > 0 || dragItem) && renderSection(standaloneTasks, "task", renderTaskRow)}
             </div>
 
             {/* Done section */}
