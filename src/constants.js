@@ -116,6 +116,17 @@ export const YT_CHANNELS = [
   { handle: "aishny",           name: "ИИШНЫЙ",         channelId: "UCRArIk56Yl7ui2WUAKS3NGA" },
 ];
 
+// Радіо-станції (YouTube live-стріми) для вкладки «🎵 Радіо».
+// Перша — стрім, який скинув Вова; решта — рекомендації.
+// Користувач може додавати/видаляти свої — список зберігається в localStorage.
+export const DEFAULT_RADIO = [
+  { id: "r_futuregarage", title: "Future Garage Radio", channel: "Chill Music Lab", videoId: "M7CEXcnSyuU", genre: "Future Garage", color: "#06b6d4" },
+  { id: "r_lofi",         title: "lofi hip hop radio",   channel: "Lofi Girl",       videoId: "jfKfPfyJRdk", genre: "Lo-Fi",         color: "#ec4899" },
+  { id: "r_synthwave",    title: "synthwave radio",      channel: "Lofi Girl",       videoId: "4xDzrJKXOOY", genre: "Synthwave",     color: "#a855f7" },
+  { id: "r_chillhop",     title: "Chillhop Radio",       channel: "Chillhop Music",  videoId: "5yx6BWlEVcY", genre: "Chillhop",      color: "#f59e0b" },
+  { id: "r_sleep",        title: "lofi sleep radio",     channel: "Lofi Girl",       videoId: "rUxyKA_-grg", genre: "Sleep / Calm",  color: "#6366f1" },
+];
+
 export const ACTIVITY_DEFS = [
   { kind: "learn", key: "education",            emoji: "📚", label: "Навчання",    color: "#06b6d4", note: "30хв/раз", unit: "30 хв", xp: 4 },
   { kind: "learn", key: "business",             emoji: "💼", label: "Бізнес",      color: "#f59e0b", note: "30хв/раз", unit: "30 хв", xp: 4 },

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { SKILLS, TOTAL_TOOLS, SKILL_TASKS, TIERS, ACH_GROUPS, ACHIEVEMENTS, DEFAULT_SKILL_DATA, DEFAULT_PROJECTS, DEFAULT_SESSIONS, STORAGE_KEY, APP_START_DATE, ACTIVITY_DEFS, ACTIVITY_XP, GOAL_CATEGORIES, PLAN_TYPES, PROJECT_CATEGORIES, PROJECT_STATUSES, PLAN_URGENCIES, DEFAULT_GOALS, TASK_PRIORITIES, MONTH_NAMES_UA, LEAGUES, DEFAULT_INCOME_CATS, DEFAULT_EXPENSE_CATS, DEFAULT_LONG_GOALS, DEFAULT_PLAN, YT_CHANNELS } from "./constants.js";
+import { SKILLS, TOTAL_TOOLS, SKILL_TASKS, TIERS, ACH_GROUPS, ACHIEVEMENTS, DEFAULT_SKILL_DATA, DEFAULT_PROJECTS, DEFAULT_SESSIONS, STORAGE_KEY, APP_START_DATE, ACTIVITY_DEFS, ACTIVITY_XP, GOAL_CATEGORIES, PLAN_TYPES, PROJECT_CATEGORIES, PROJECT_STATUSES, PLAN_URGENCIES, DEFAULT_GOALS, TASK_PRIORITIES, MONTH_NAMES_UA, LEAGUES, DEFAULT_INCOME_CATS, DEFAULT_EXPENSE_CATS, DEFAULT_LONG_GOALS, DEFAULT_PLAN, YT_CHANNELS, DEFAULT_RADIO } from "./constants.js";
 
 const getItemPeriod = (completedAt) => {
   if (!completedAt) return { key: "p9_old", label: "Раніше" };
@@ -917,6 +917,14 @@ export default function AITracker() {
   const [gpInboxText, setGpInboxText] = useState("");
   const [gpInboxConvert, setGpInboxConvert] = useState(null);
 
+  // Радіо (YouTube live-стріми)
+  const [radioStations, setRadioStations] = useState(saved?.radioStations ?? DEFAULT_RADIO);
+  const [radioActive, setRadioActive] = useState(null); // videoId, що зараз грає (не зберігається — без автоплею при завантаженні)
+  const [radioAddOpen, setRadioAddOpen] = useState(false);
+  const [radioUrl, setRadioUrl] = useState("");
+  const [radioTitle, setRadioTitle] = useState("");
+  const [radioGenre, setRadioGenre] = useState("");
+
   // AI Chat Widget state
   const [aiOpen, setAiOpen] = useState(false);
   const [aiMessages, setAiMessages] = useState(saved?.aiMessages ?? []);
@@ -936,7 +944,7 @@ export default function AITracker() {
   const aiMsgsRef = useRef(null);
   const dragRef = useRef({});
 
-  const TAB_IDS = ["dashboard", "goalsplan", "projects", "tools", "skillstasks", "achievements", "finances", "sessions", "progress", "stats"];
+  const TAB_IDS = ["dashboard", "goalsplan", "projects", "tools", "skillstasks", "achievements", "finances", "sessions", "progress", "stats", "radio"];
 
   useEffect(() => {
     const now = new Date();
@@ -977,10 +985,10 @@ export default function AITracker() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    const state = { skillData, totalXP, levelUpAt, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, longGoalEpoch, plan, aiMessages, aiModel, aiApiKeys, githubSync, progressLog, metricLog, todayXP, skillTasksData, learnTime, inbox };
+    const state = { skillData, totalXP, levelUpAt, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, longGoalEpoch, plan, aiMessages, aiModel, aiApiKeys, githubSync, progressLog, metricLog, todayXP, skillTasksData, learnTime, inbox, radioStations };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     setSaveTick(t => t + 1);
-  }, [skillData, totalXP, levelUpAt, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, longGoalEpoch, plan, aiMessages, aiModel, aiApiKeys, githubSync, progressLog, metricLog, todayXP, skillTasksData, learnTime, inbox]);
+  }, [skillData, totalXP, levelUpAt, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, longGoalEpoch, plan, aiMessages, aiModel, aiApiKeys, githubSync, progressLog, metricLog, todayXP, skillTasksData, learnTime, inbox, radioStations]);
 
   useEffect(() => {
     localStorage.setItem("ai_tracker_today_act", JSON.stringify({ date: todayStr(), data: todayActivity }));
@@ -1834,7 +1842,51 @@ export default function AITracker() {
     { id: "sessions",     label: "🔥 Сесії" },
     { id: "progress",     label: "📝 Прогрес" },
     { id: "stats",        label: "📊 Статистика" },
+    { id: "radio",        label: "🎵 Радіо" },
   ];
+
+  // Витягує videoId з YouTube-посилання (watch?v=, youtu.be/, /embed/, /live/) або з сирого ID
+  const parseYtId = (raw) => {
+    const s = (raw || "").trim();
+    if (!s) return null;
+    if (/^[\w-]{11}$/.test(s)) return s;
+    try {
+      const u = new URL(s.includes("://") ? s : "https://" + s);
+      const v = u.searchParams.get("v");
+      if (v && /^[\w-]{11}$/.test(v)) return v;
+      const m = u.pathname.match(/\/(embed|live|shorts)\/([\w-]{11})/) || u.pathname.match(/^\/([\w-]{11})$/);
+      if (m) return m[m.length - 1];
+    } catch (_) {}
+    const m2 = s.match(/[\w-]{11}/);
+    return m2 ? m2[0] : null;
+  };
+
+  const addRadioStation = () => {
+    const videoId = parseYtId(radioUrl);
+    if (!videoId) { showNotif("Не вдалося розпізнати YouTube-посилання", "error"); return; }
+    if (radioStations.some(s => s.videoId === videoId)) { showNotif("Ця станція вже є у списку", "error"); return; }
+    const COLORS = ["#00ff88", "#ff6b35", "#a855f7", "#06b6d4", "#ec4899", "#f59e0b", "#6366f1", "#10b981"];
+    const station = {
+      id: "r_" + Date.now(),
+      title: radioTitle.trim() || "Моя станція",
+      channel: "",
+      videoId,
+      genre: radioGenre.trim() || "Custom",
+      color: COLORS[radioStations.length % COLORS.length],
+      custom: true,
+    };
+    setRadioStations(prev => [...prev, station]);
+    setRadioUrl(""); setRadioTitle(""); setRadioGenre(""); setRadioAddOpen(false);
+    showNotif("Станцію додано 🎵", "success");
+  };
+
+  const removeRadioStation = (id) => {
+    setRadioStations(prev => {
+      const st = prev.find(s => s.id === id);
+      if (st && st.videoId === radioActive) setRadioActive(null);
+      return prev.filter(s => s.id !== id);
+    });
+  };
 
   // Heatmap: group days into weeks
   const heatmapWeeks = useMemo(() => {
@@ -4651,6 +4703,91 @@ export default function AITracker() {
                 <div style={{ marginTop: 10, fontSize: 10, color: "#5a5040", fontFamily: "'Space Mono',monospace" }}>
                   Загальні лічильники — за весь час. Розбивка «Сьог/Міс/Рік» та по періодах рахується з цього оновлення (для фінансів — за всю історію записів).
                 </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {activeTab === "radio" && (() => {
+          const active = radioStations.find(s => s.videoId === radioActive) || null;
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {/* Header */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: "#d4b040", fontFamily: "'Exo 2',sans-serif", letterSpacing: 2, textTransform: "uppercase" }}>🎵 Радіо для роботи</div>
+                  <div style={{ fontSize: 11, color: "#6a5f40", fontFamily: "'Space Mono',monospace", marginTop: 4 }}>Фонова музика для фокусу. Обери станцію — грає, поки ти на сайті.</div>
+                </div>
+                <button onClick={() => setRadioAddOpen(o => !o)} style={{ padding: "9px 16px", background: radioAddOpen ? "rgba(201,168,76,0.18)" : "rgba(10,12,22,0.7)", border: "1px solid rgba(201,168,76,0.45)", borderRadius: 4, color: "#d4b040", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1, whiteSpace: "nowrap" }}>{radioAddOpen ? "× Скасувати" : "+ Додати станцію"}</button>
+              </div>
+
+              {/* Add form */}
+              {radioAddOpen && (
+                <div style={{ background: "rgba(10,12,22,0.6)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 8, padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+                  <input value={radioUrl} onChange={e => setRadioUrl(e.target.value)} placeholder="YouTube-посилання (youtube.com/watch?v=… або youtu.be/…)" style={{ width: "100%", padding: "10px 12px", background: "rgba(8,5,2,0.6)", border: "1px solid rgba(201,168,76,0.30)", borderRadius: 4, color: "#e0d8c0", fontSize: 13, fontFamily: "'Space Mono',monospace", outline: "none", boxSizing: "border-box" }} />
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <input value={radioTitle} onChange={e => setRadioTitle(e.target.value)} placeholder="Назва (необов'язково)" style={{ flex: "1 1 180px", padding: "10px 12px", background: "rgba(8,5,2,0.6)", border: "1px solid rgba(201,168,76,0.30)", borderRadius: 4, color: "#e0d8c0", fontSize: 13, fontFamily: "'Space Mono',monospace", outline: "none", boxSizing: "border-box" }} />
+                    <input value={radioGenre} onChange={e => setRadioGenre(e.target.value)} placeholder="Жанр (напр. Lo-Fi)" style={{ flex: "1 1 140px", padding: "10px 12px", background: "rgba(8,5,2,0.6)", border: "1px solid rgba(201,168,76,0.30)", borderRadius: 4, color: "#e0d8c0", fontSize: 13, fontFamily: "'Space Mono',monospace", outline: "none", boxSizing: "border-box" }} />
+                    <button onClick={addRadioStation} style={{ padding: "10px 20px", background: "rgba(0,255,136,0.14)", border: "1px solid rgba(0,255,136,0.5)", borderRadius: 4, color: "#00ff88", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>Додати</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Player */}
+              {active ? (
+                <div style={{ background: "rgba(8,5,2,0.6)", border: `1px solid ${active.color}55`, borderTop: `2px solid ${active.color}`, borderRadius: 8, overflow: "hidden", boxShadow: `0 0 24px ${active.color}22` }}>
+                  <div style={{ position: "relative", width: "100%", paddingTop: "56.25%" }}>
+                    <iframe
+                      key={active.videoId}
+                      src={`https://www.youtube.com/embed/${active.videoId}?autoplay=1&rel=0`}
+                      title={active.title}
+                      allow="autoplay; encrypted-media; picture-in-picture"
+                      allowFullScreen
+                      style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
+                    />
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", flexWrap: "wrap", gap: 8 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: active.color, boxShadow: `0 0 8px ${active.color}`, display: "inline-block" }} />
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "#e0d8c0", fontFamily: "'Exo 2',sans-serif" }}>{active.title}</span>
+                      {active.channel && <span style={{ fontSize: 11, color: "#6a5f40", fontFamily: "'Space Mono',monospace" }}>· {active.channel}</span>}
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <a href={`https://www.youtube.com/watch?v=${active.videoId}`} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: "#06b6d4", fontFamily: "'Space Mono',monospace", textDecoration: "none" }}>↗ Відкрити на YouTube</a>
+                      <button onClick={() => setRadioActive(null)} style={{ fontSize: 11, color: "#f43f5e", background: "none", border: "none", cursor: "pointer", fontFamily: "'Space Mono',monospace" }}>■ Зупинити</button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ background: "rgba(10,12,22,0.4)", border: "1px dashed rgba(201,168,76,0.25)", borderRadius: 8, padding: "28px 16px", textAlign: "center", color: "#6a5f40", fontSize: 13, fontFamily: "'Space Mono',monospace" }}>
+                  ▶ Обери станцію нижче, щоб увімкнути музику
+                </div>
+              )}
+
+              {/* Stations grid */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
+                {radioStations.map(st => {
+                  const playing = st.videoId === radioActive;
+                  return (
+                    <div key={st.id} style={{ position: "relative", background: playing ? `${st.color}14` : "rgba(10,12,22,0.55)", border: `1px solid ${playing ? st.color + "70" : "rgba(201,168,76,0.18)"}`, borderTop: `2px solid ${st.color}${playing ? "" : "55"}`, borderRadius: 8, padding: 14, cursor: "pointer", transition: "all 0.15s" }} onClick={() => setRadioActive(playing ? null : st.videoId)}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                        <span style={{ display: "inline-block", fontSize: 10, fontWeight: 700, color: st.color, background: `${st.color}1a`, border: `1px solid ${st.color}40`, borderRadius: 3, padding: "2px 8px", fontFamily: "'Space Mono',monospace", textTransform: "uppercase", letterSpacing: 1 }}>{st.genre}</span>
+                        {st.custom && (
+                          <button onClick={e => { e.stopPropagation(); removeRadioStation(st.id); }} title="Видалити" style={{ fontSize: 14, color: "#6a5f40", background: "none", border: "none", cursor: "pointer", lineHeight: 1, padding: 0 }}>×</button>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: "#e0d8c0", fontFamily: "'Exo 2',sans-serif", marginTop: 10 }}>{st.title}</div>
+                      {st.channel && <div style={{ fontSize: 11, color: "#6a5f40", fontFamily: "'Space Mono',monospace", marginTop: 2 }}>{st.channel}</div>}
+                      <div style={{ marginTop: 12, fontSize: 12, fontWeight: 700, color: playing ? st.color : "#9a8a60", fontFamily: "'Exo 2',sans-serif", letterSpacing: 1, textTransform: "uppercase" }}>
+                        {playing ? "♫ Грає зараз" : "▶ Увімкнути"}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div style={{ fontSize: 10, color: "#5a5040", fontFamily: "'Space Mono',monospace", lineHeight: 1.5 }}>
+                💡 Перша станція — той Future Garage стрім, що ти скинув. Решта — рекомендації для фокусу. Якщо стрім offline, відкрий його на YouTube або додай свій live-стрім кнопкою вгорі.
               </div>
             </div>
           );
