@@ -2661,63 +2661,37 @@ export default function AITracker() {
 
         {/* Skills */}
         {activeTab === "tools" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ fontSize: 11, color: "#5a5040", fontFamily: "'Space Mono',monospace", marginBottom: 2 }}>
+              Натисни — відкриється сайт.&nbsp;
+              <span style={{ color: "#9a8a60" }}>Кольорові</span> — ті що вже використовуєш;&nbsp;
+              <span style={{ color: "#3a3028" }}>сірі</span> — можна спробувати.
+            </div>
             {SKILLS.map(sk => {
-              const unlocked = skillData[sk.id].unlockedTools;
-              const isOpen = selectedSkill?.id === sk.id;
+              const activeCount = sk.tools.filter(t => t.active).length;
               return (
-                <div key={sk.id} className="skill-card wf-card" style={{ border: `1px solid ${isOpen ? sk.color + "80" : unlocked.length > 0 ? sk.color + "44" : "rgba(201,168,76,0.18)"}`, borderTop: `2px solid ${isOpen ? sk.color : unlocked.length > 0 ? sk.color + "88" : "rgba(201,168,76,0.35)"}`, overflow: "hidden" }}>
-                  <div onClick={() => setSelectedSkill(isOpen ? null : sk)} style={{ padding: "14px 16px", cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}>
-                    <span style={{ fontSize: 20 }}>{sk.emoji}</span>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 15, fontWeight: 800, color: "#e0d8c0", textTransform: "uppercase", letterSpacing: 2, fontFamily: "'Exo 2',sans-serif" }}>{sk.name}</div>
-                      <div style={{ fontSize: 13, color: sk.color, marginTop: 4, letterSpacing: 1, fontWeight: 600 }}>{unlocked.length}/{sk.tools.length} · +100 XP за інструмент</div>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ width: 80, height: 5, background: "rgba(201,168,76,0.18)", borderRadius: 3 }}>
-                        <div style={{ width: `${(unlocked.length / sk.tools.length) * 100}%`, height: "100%", background: sk.color, borderRadius: 3 }} />
-                      </div>
-                      <span style={{ color: "#9a8a60", fontSize: 14 }}>{isOpen ? "▲" : "▼"}</span>
-                    </div>
+                <div key={sk.id} style={{ background: "rgba(10,8,4,0.55)", border: `1px solid ${sk.color}30`, borderTop: `2px solid ${sk.color}88`, borderRadius: 6, padding: "12px 14px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                    <span style={{ fontSize: 18 }}>{sk.emoji}</span>
+                    <span style={{ fontSize: 13, fontWeight: 800, color: "#e0d8c0", textTransform: "uppercase", letterSpacing: 1.5, fontFamily: "'Exo 2',sans-serif" }}>{sk.name}</span>
+                    {activeCount > 0 && <span style={{ fontSize: 10, color: sk.color, background: `${sk.color}18`, border: `1px solid ${sk.color}40`, borderRadius: 3, padding: "1px 7px", fontFamily: "'Space Mono',monospace" }}>використовую: {activeCount}</span>}
                   </div>
-                  {isOpen && (
-                    <div style={{ padding: "0 16px 16px", display: "flex", flexWrap: "wrap", gap: 8 }}>
-                      {sk.tools.map(tool => {
-                        const done = unlocked.includes(tool);
-                        return (
-                          <button key={tool} className="tool-chip" onClick={() => done ? setToolRevokeConfirm({ skillId: sk.id, tool }) : learnTool(sk.id, tool)} style={{ padding: "7px 14px", borderRadius: 3, fontSize: 13, cursor: "pointer", background: done ? `${sk.color}20` : "rgba(6,4,1,0.72)", border: `1px solid ${done ? sk.color : "rgba(201,168,76,0.25)"}`, color: done ? sk.color : "#6a5f40", fontFamily: "'Space Mono',monospace", textDecoration: done ? "line-through" : "none" }}>
-                            {done ? "✓ " : ""}{tool}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+                    {sk.tools.map(tool => (
+                      <a key={tool.name} href={tool.url} target="_blank" rel="noreferrer"
+                        style={{ padding: "6px 13px", borderRadius: 4, fontSize: 12, fontFamily: "'Space Mono',monospace", textDecoration: "none", cursor: "pointer", transition: "all 0.15s",
+                          background:   tool.active ? `${sk.color}20` : "rgba(20,16,8,0.6)",
+                          border:       tool.active ? `1px solid ${sk.color}70` : "1px dashed rgba(80,65,40,0.35)",
+                          color:        tool.active ? sk.color : "#4a3f2a",
+                          fontWeight:   tool.active ? 700 : 400,
+                        }}>
+                        {tool.active && <span style={{ marginRight: 4, fontSize: 9 }}>▶</span>}{tool.name}
+                      </a>
+                    ))}
+                  </div>
                 </div>
               );
             })}
-          </div>
-        )}
-
-        {/* Revoke tool confirmation modal */}
-        {toolRevokeConfirm && (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.80)", zIndex: 9995, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-            <div className="wf-panel" style={{ maxWidth: 360, width: "100%", padding: 24 }}>
-              <div style={{ fontSize: 22, marginBottom: 12, textAlign: "center" }}>🔧</div>
-              <div className="wf-sec" style={{ textAlign: "center", marginBottom: 8 }}>Зняти інструмент?</div>
-              <div style={{ fontSize: 14, color: "#e0d8c0", textAlign: "center", marginBottom: 6, fontFamily: "'Space Mono',monospace", fontWeight: 700 }}>{toolRevokeConfirm.tool}</div>
-              <div style={{ fontSize: 12, color: "#f43f5e", textAlign: "center", marginBottom: 20, fontFamily: "'Space Mono',monospace" }}>−100 XP</div>
-              <div style={{ display: "flex", gap: 10 }}>
-                <button onClick={() => {
-                  setSkillData(prev => {
-                    const updated = { ...prev, [toolRevokeConfirm.skillId]: { unlockedTools: prev[toolRevokeConfirm.skillId].unlockedTools.filter(t => t !== toolRevokeConfirm.tool) } };
-                    return updated;
-                  });
-                  loseXP(100, "skill", "↩ інструмент");
-                  setToolRevokeConfirm(null);
-                }} style={{ flex: 1, background: "rgba(244,63,94,0.15)", border: "1px solid rgba(244,63,94,0.5)", color: "#f43f5e", padding: "10px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 13 }}>Так, зняти</button>
-                <button onClick={() => setToolRevokeConfirm(null)} style={{ flex: 1, background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.3)", color: "#c9a84c", padding: "10px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>Залишити</button>
-              </div>
-            </div>
           </div>
         )}
 
