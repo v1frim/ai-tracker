@@ -946,6 +946,7 @@ export default function AITracker() {
   const [aiAvailModels, setAiAvailModels] = useState(null);
   const aiMsgsRef = useRef(null);
   const dragRef = useRef({});
+  const progressEditRef = useRef(null);
 
   const TAB_IDS = ["dashboard", "goalsplan", "projects", "tools", "skillstasks", "achievements", "finances", "sessions", "progress", "stats", "radio"];
 
@@ -2167,6 +2168,36 @@ export default function AITracker() {
             <button key={t.id} className="tab-btn" onClick={() => setActiveTab(t.id)} style={{ padding: "11px 13px", borderRadius: 0, fontSize: 12, cursor: "pointer", background: "transparent", color: activeTab === t.id ? "#d4b040" : "#6a5f40", border: "none", borderBottom: activeTab === t.id ? "2px solid #d4b040" : "2px solid transparent", marginBottom: -4, fontWeight: activeTab === t.id ? 800 : 600, fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: "1.5px", whiteSpace: "nowrap", outline: "none" }}>{t.label}</button>
           ))}
         </div>
+
+        {/* ── Персистентний радіо-плеєр: рендериться поза вкладками, тому музика
+            не переривається при перемиканні категорій. На вкладці «Радіо» —
+            великий у потоці; на інших — компактний закріплений у кутку. ── */}
+        {radioActive && (() => {
+          const st = radioStations.find(s => s.videoId === radioActive);
+          if (!st) return null;
+          const isRadioTab = activeTab === "radio";
+          return (
+            <div style={isRadioTab
+              ? { marginBottom: 16, background: "rgba(8,5,2,0.6)", border: `1px solid ${st.color}55`, borderTop: `2px solid ${st.color}`, borderRadius: 8, overflow: "hidden", boxShadow: `0 0 24px ${st.color}22` }
+              : { position: "fixed", left: 16, bottom: 16, zIndex: 9000, width: "min(340px, calc(100vw - 32px))", background: "rgba(8,5,2,0.96)", border: `1px solid ${st.color}66`, borderTop: `2px solid ${st.color}`, borderRadius: 8, overflow: "hidden", boxShadow: "0 12px 48px rgba(0,0,0,0.7)" }}>
+              <div style={{ position: "relative", width: "100%", paddingTop: "56.25%" }}>
+                <iframe key={st.videoId} src={`https://www.youtube.com/embed/${st.videoId}?autoplay=1&rel=0`} title={st.title} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }} />
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: isRadioTab ? "10px 14px" : "7px 10px", flexWrap: "wrap", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: st.color, boxShadow: `0 0 8px ${st.color}`, flexShrink: 0 }} />
+                  <span style={{ fontSize: isRadioTab ? 13 : 11, fontWeight: 700, color: "#e0d8c0", fontFamily: "'Exo 2',sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{st.title}</span>
+                  {isRadioTab && st.channel && <span style={{ fontSize: 11, color: "#6a5f40", fontFamily: "'Space Mono',monospace" }}>· {st.channel}</span>}
+                </div>
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  {!isRadioTab && <button onClick={() => setActiveTab("radio")} style={{ fontSize: 10, color: st.color, background: "none", border: "none", cursor: "pointer", fontFamily: "'Space Mono',monospace" }}>⛶ Радіо</button>}
+                  {isRadioTab && <a href={`https://www.youtube.com/watch?v=${st.videoId}`} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: "#06b6d4", fontFamily: "'Space Mono',monospace", textDecoration: "none" }}>↗ YouTube</a>}
+                  <button onClick={() => setRadioActive(null)} style={{ fontSize: isRadioTab ? 11 : 10, color: "#f43f5e", background: "none", border: "none", cursor: "pointer", fontFamily: "'Space Mono',monospace" }}>■ Стоп</button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Dashboard */}
         {activeTab === "dashboard" && (
@@ -4642,14 +4673,43 @@ export default function AITracker() {
                               <div style={{ paddingRight: 52 }}>
                                 <textarea
                                   autoFocus
+                                  ref={el => {
+                                    progressEditRef.current = el;
+                                    // авто-висота під увесь текст при відкритті (один раз)
+                                    if (el && !el.dataset.sized) { el.dataset.sized = "1"; el.style.height = "auto"; el.style.height = Math.max(72, el.scrollHeight + 2) + "px"; }
+                                  }}
                                   value={progressEditText}
-                                  onChange={e => setProgressEditText(e.target.value)}
+                                  onChange={e => {
+                                    setProgressEditText(e.target.value);
+                                    // росте під текст, але не зменшується нижче поточної (ручної) висоти
+                                    const cur = e.target.offsetHeight;
+                                    e.target.style.height = "auto";
+                                    e.target.style.height = Math.max(72, cur, e.target.scrollHeight + 2) + "px";
+                                  }}
                                   onKeyDown={e => {
                                     if (e.key === "Enter" && e.ctrlKey) { setProgressLog(p => p.map(x => x.id === entry.id ? { ...x, text: progressEditText.trim() || x.text } : x)); setProgressEditId(null); }
                                     if (e.key === "Escape") setProgressEditId(null);
                                   }}
-                                  style={{ width: "100%", minHeight: 72, background: "rgba(8,5,2,0.8)", border: "1px solid rgba(201,168,76,0.35)", borderRadius: 3, padding: "8px 10px", color: "#fff", fontSize: 13, fontFamily: "'Exo 2',sans-serif", resize: "vertical", lineHeight: 1.6 }}
+                                  style={{ width: "100%", minHeight: 72, background: "rgba(8,5,2,0.8)", border: "1px solid rgba(201,168,76,0.35)", borderBottom: "none", borderRadius: "3px 3px 0 0", padding: "8px 10px", color: "#fff", fontSize: 13, fontFamily: "'Exo 2',sans-serif", resize: "none", overflow: "hidden", lineHeight: 1.6, display: "block", boxSizing: "border-box" }}
                                 />
+                                {/* Помітна ручка-смужка для ручного розтягування */}
+                                <div
+                                  onMouseDown={e => {
+                                    e.preventDefault();
+                                    const ta = progressEditRef.current;
+                                    if (!ta) return;
+                                    const startY = e.clientY;
+                                    const startH = ta.offsetHeight;
+                                    const onMove = ev => { ta.style.height = Math.max(72, startH + (ev.clientY - startY)) + "px"; };
+                                    const onUp = () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+                                    window.addEventListener("mousemove", onMove);
+                                    window.addEventListener("mouseup", onUp);
+                                  }}
+                                  title="Потягни, щоб змінити висоту"
+                                  style={{ height: 18, background: "rgba(201,168,76,0.14)", border: "1px solid rgba(201,168,76,0.35)", borderTop: "none", borderRadius: "0 0 3px 3px", cursor: "ns-resize", display: "flex", alignItems: "center", justifyContent: "center", gap: 3, userSelect: "none" }}>
+                                  <span style={{ width: 22, height: 2, background: "rgba(201,168,76,0.55)", borderRadius: 2 }} />
+                                  <span style={{ width: 10, height: 2, background: "rgba(201,168,76,0.4)", borderRadius: 2 }} />
+                                </div>
                                 <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
                                   <button onClick={() => { setProgressLog(p => p.map(x => x.id === entry.id ? { ...x, text: progressEditText.trim() || x.text } : x)); setProgressEditId(null); }}
                                     style={{ background: "#c9a84c", border: "none", color: "#000", padding: "5px 14px", borderRadius: 3, fontWeight: 700, cursor: "pointer", fontSize: 12 }}>Зберегти</button>
@@ -4900,32 +4960,9 @@ export default function AITracker() {
                 </div>
               )}
 
-              {/* Player */}
-              {active ? (
-                <div style={{ background: "rgba(8,5,2,0.6)", border: `1px solid ${active.color}55`, borderTop: `2px solid ${active.color}`, borderRadius: 8, overflow: "hidden", boxShadow: `0 0 24px ${active.color}22` }}>
-                  <div style={{ position: "relative", width: "100%", paddingTop: "56.25%" }}>
-                    <iframe
-                      key={active.videoId}
-                      src={`https://www.youtube.com/embed/${active.videoId}?autoplay=1&rel=0`}
-                      title={active.title}
-                      allow="autoplay; encrypted-media; picture-in-picture"
-                      allowFullScreen
-                      style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
-                    />
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", flexWrap: "wrap", gap: 8 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: active.color, boxShadow: `0 0 8px ${active.color}`, display: "inline-block" }} />
-                      <span style={{ fontSize: 13, fontWeight: 700, color: "#e0d8c0", fontFamily: "'Exo 2',sans-serif" }}>{active.title}</span>
-                      {active.channel && <span style={{ fontSize: 11, color: "#6a5f40", fontFamily: "'Space Mono',monospace" }}>· {active.channel}</span>}
-                    </div>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <a href={`https://www.youtube.com/watch?v=${active.videoId}`} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: "#06b6d4", fontFamily: "'Space Mono',monospace", textDecoration: "none" }}>↗ Відкрити на YouTube</a>
-                      <button onClick={() => setRadioActive(null)} style={{ fontSize: 11, color: "#f43f5e", background: "none", border: "none", cursor: "pointer", fontFamily: "'Space Mono',monospace" }}>■ Зупинити</button>
-                    </div>
-                  </div>
-                </div>
-              ) : (
+              {/* Сам плеєр живе у персистентному блоці над вкладками (грає і при
+                  перемиканні категорій). Тут — лише підказка, коли нічого не грає. */}
+              {!active && (
                 <div style={{ background: "rgba(10,12,22,0.4)", border: "1px dashed rgba(201,168,76,0.25)", borderRadius: 8, padding: "28px 16px", textAlign: "center", color: "#6a5f40", fontSize: 13, fontFamily: "'Space Mono',monospace" }}>
                   ▶ Обери станцію нижче, щоб увімкнути музику
                 </div>
