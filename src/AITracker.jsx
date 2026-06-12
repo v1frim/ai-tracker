@@ -2177,25 +2177,40 @@ export default function AITracker() {
           if (!st) return null;
           const isRadioTab = activeTab === "radio";
           return (
-            <div style={isRadioTab
-              ? { marginBottom: 16, background: "rgba(8,5,2,0.6)", border: `1px solid ${st.color}55`, borderTop: `2px solid ${st.color}`, borderRadius: 8, overflow: "hidden", boxShadow: `0 0 24px ${st.color}22` }
-              : { position: "fixed", left: 16, bottom: 16, zIndex: 9000, width: "min(340px, calc(100vw - 32px))", background: "rgba(8,5,2,0.96)", border: `1px solid ${st.color}66`, borderTop: `2px solid ${st.color}`, borderRadius: 8, overflow: "hidden", boxShadow: "0 12px 48px rgba(0,0,0,0.7)" }}>
-              <div style={{ position: "relative", width: "100%", paddingTop: "56.25%" }}>
-                <iframe key={st.videoId} src={`https://www.youtube.com/embed/${st.videoId}?autoplay=1&rel=0`} title={st.title} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }} />
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: isRadioTab ? "10px 14px" : "7px 10px", flexWrap: "wrap", gap: 8 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: st.color, boxShadow: `0 0 8px ${st.color}`, flexShrink: 0 }} />
-                  <span style={{ fontSize: isRadioTab ? 13 : 11, fontWeight: 700, color: "#e0d8c0", fontFamily: "'Exo 2',sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{st.title}</span>
-                  {isRadioTab && st.channel && <span style={{ fontSize: 11, color: "#6a5f40", fontFamily: "'Space Mono',monospace" }}>· {st.channel}</span>}
+            {isRadioTab ? (
+              /* На вкладці Радіо — повний плеєр у потоці */
+              <div style={{ marginBottom: 16, background: "rgba(8,5,2,0.6)", border: `1px solid ${st.color}55`, borderTop: `2px solid ${st.color}`, borderRadius: 8, overflow: "hidden", boxShadow: `0 0 24px ${st.color}22` }}>
+                <div style={{ position: "relative", width: "100%", paddingTop: "56.25%" }}>
+                  <iframe key={st.videoId} src={`https://www.youtube.com/embed/${st.videoId}?autoplay=1&rel=0`} title={st.title} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }} />
                 </div>
-                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                  {!isRadioTab && <button onClick={() => setActiveTab("radio")} style={{ fontSize: 10, color: st.color, background: "none", border: "none", cursor: "pointer", fontFamily: "'Space Mono',monospace" }}>⛶ Радіо</button>}
-                  {isRadioTab && <a href={`https://www.youtube.com/watch?v=${st.videoId}`} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: "#06b6d4", fontFamily: "'Space Mono',monospace", textDecoration: "none" }}>↗ YouTube</a>}
-                  <button onClick={() => setRadioActive(null)} style={{ fontSize: isRadioTab ? 11 : 10, color: "#f43f5e", background: "none", border: "none", cursor: "pointer", fontFamily: "'Space Mono',monospace" }}>■ Стоп</button>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", flexWrap: "wrap", gap: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: st.color, boxShadow: `0 0 8px ${st.color}`, flexShrink: 0 }} />
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "#e0d8c0", fontFamily: "'Exo 2',sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{st.title}</span>
+                    {st.channel && <span style={{ fontSize: 11, color: "#6a5f40", fontFamily: "'Space Mono',monospace" }}>· {st.channel}</span>}
+                  </div>
+                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    <a href={`https://www.youtube.com/watch?v=${st.videoId}`} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: "#06b6d4", fontFamily: "'Space Mono',monospace", textDecoration: "none" }}>↗ YouTube</a>
+                    <button onClick={() => setRadioActive(null)} style={{ fontSize: 11, color: "#f43f5e", background: "none", border: "none", cursor: "pointer", fontFamily: "'Space Mono',monospace" }}>■ Стоп</button>
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              /* На інших вкладках — компактний плеєр без відео (44px) */
+              <div style={{ position: "fixed", left: 16, bottom: 16, zIndex: 9000, width: "min(260px, calc(100vw - 32px))", background: "rgba(8,5,2,0.96)", border: `1px solid ${st.color}44`, borderLeft: `3px solid ${st.color}`, borderRadius: 6, boxShadow: "0 4px 20px rgba(0,0,0,0.65)", overflow: "hidden" }}>
+                {/* Прихований iframe — зберігає аудіопотік живим */}
+                <div style={{ position: "absolute", width: 2, height: 2, overflow: "hidden", top: 0, left: 0, pointerEvents: "none" }}>
+                  <iframe key={st.videoId} src={`https://www.youtube.com/embed/${st.videoId}?autoplay=1&rel=0`} title={st.title} allow="autoplay; encrypted-media" style={{ width: 200, height: 112, border: "none" }} />
+                </div>
+                {/* Компактна панель */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px" }}>
+                  <span style={{ width: 7, height: 7, borderRadius: "50%", background: st.color, boxShadow: `0 0 6px ${st.color}`, flexShrink: 0 }} />
+                  <span style={{ flex: 1, fontSize: 11, fontWeight: 700, color: "#e0d8c0", fontFamily: "'Exo 2',sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{st.title}</span>
+                  <button onClick={() => setActiveTab("radio")} style={{ fontSize: 10, color: st.color, background: "none", border: "none", cursor: "pointer", fontFamily: "'Space Mono',monospace", padding: 0, flexShrink: 0 }}>⛶</button>
+                  <button onClick={() => setRadioActive(null)} style={{ fontSize: 10, color: "#f43f5e", background: "none", border: "none", cursor: "pointer", fontFamily: "'Space Mono',monospace", padding: 0, flexShrink: 0 }}>■</button>
+                </div>
+              </div>
+            )}
           );
         })()}
 
@@ -3102,8 +3117,9 @@ export default function AITracker() {
           };
 
           const renderTaskRow = (t) => (
-            <div key={t.id} {...dragHandlers(t.id, "task", "list")} {...rowDropProps("task", t.id)}
-              style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(5,14,10,0.95)", border: "1px solid rgba(0,255,136,0.35)", borderLeft: "3px solid #00ff88", borderRadius: 4, padding: "9px 12px", cursor: "grab", opacity: dragItem?.id === t.id ? 0.4 : 1 }}>
+            <div key={t.id} {...rowDropProps("task", t.id)}
+              style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(5,14,10,0.95)", border: "1px solid rgba(0,255,136,0.35)", borderLeft: "3px solid #00ff88", borderRadius: 4, padding: "9px 12px", userSelect: "none", opacity: dragItem?.id === t.id ? 0.4 : 1 }}>
+              <span {...dragHandlers(t.id, "task", "list")} onClick={e => e.stopPropagation()} style={{ color: "#2a4a2a", fontSize: 13, cursor: "grab", flexShrink: 0, lineHeight: 1, padding: "0 2px" }} title="Перетягнути">⠿</span>
               <button onClick={() => doCompleteTask(t)}
                 style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid rgba(0,255,136,0.7)", background: "transparent", cursor: "pointer", flexShrink: 0 }} />
               <span style={{ flex: 1, color: "#d8f8e8", fontSize: 12 }}>{t.text}</span>
@@ -3111,7 +3127,7 @@ export default function AITracker() {
                 <button onClick={e => { e.stopPropagation(); cycleStream(t, setGoals); }}
                   style={{ background: "none", border: "1px dashed rgba(255,255,255,0.08)", borderRadius: 8, color: "#3a4030", fontSize: 9, padding: "1px 6px", cursor: "pointer", flexShrink: 0 }}>＋напрям</button>
               )}
-              <span style={{ fontSize: 10, color: "#00ff88", background: "rgba(0,255,136,0.14)", border: "1px solid rgba(0,255,136,0.35)", padding: "2px 6px", borderRadius: 10, flexShrink: 0, whiteSpace: "nowrap" }}>+{t.xp ?? 50} XP</span>
+              <span style={{ fontSize: 10, fontWeight: 700, color: "#00ff88", background: "rgba(0,255,136,0.18)", border: "1px solid rgba(0,255,136,0.60)", padding: "2px 7px", borderRadius: 4, flexShrink: 0, whiteSpace: "nowrap", boxShadow: "0 0 6px rgba(0,255,136,0.18)" }}>+{t.xp ?? 50} XP</span>
               <button onClick={() => setGoals(prev => prev.map(x => x.id === t.id ? { ...x, pinned: !x.pinned } : x))}
                 style={{ background: "none", border: "none", color: "#c9a84c", opacity: t.pinned ? 1 : 0.18, filter: t.pinned ? "drop-shadow(0 0 4px rgba(201,168,76,0.7))" : "none", cursor: "pointer", fontSize: 11, padding: "0 2px", transition: "opacity 0.2s, filter 0.2s" }} title={t.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
               <button onClick={() => softDelete("task", t.id)}
@@ -3125,8 +3141,9 @@ export default function AITracker() {
             const isInlining = gpInlineAdd?.parentId === p.id && gpInlineAdd?.type === "task";
             return (
               <div key={p.id}>
-                <div onClick={() => toggleExp(`plan_${p.id}`)} {...dragHandlers(p.id, "plan", "list")} {...rowDropProps("plan", p.id)}
-                  style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(4,18,24,0.95)", border: "1px solid rgba(6,182,212,0.35)", borderLeft: "3px solid #06b6d4", borderRadius: 4, padding: "10px 12px", cursor: "grab", opacity: dragItem?.id === p.id ? 0.4 : 1 }}>
+                <div onClick={() => toggleExp(`plan_${p.id}`)} {...rowDropProps("plan", p.id)}
+                  style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(4,18,24,0.95)", border: "1px solid rgba(6,182,212,0.35)", borderLeft: "3px solid #06b6d4", borderRadius: 4, padding: "10px 12px", userSelect: "none", opacity: dragItem?.id === p.id ? 0.4 : 1 }}>
+                  <span {...dragHandlers(p.id, "plan", "list")} onClick={e => e.stopPropagation()} style={{ color: "#1a4a5a", fontSize: 13, cursor: "grab", flexShrink: 0, lineHeight: 1, padding: "0 2px" }} title="Перетягнути">⠿</span>
                   <span style={{ color: "#06b6d4", fontSize: 10, flexShrink: 0, width: 14, opacity: planTasks.length ? 1 : 0.3 }}>
                     {exp ? "▼" : "▶"}
                   </span>
@@ -3138,7 +3155,7 @@ export default function AITracker() {
                     <button onClick={e => { e.stopPropagation(); cycleStream(p, setPlan); }}
                       style={{ background: "none", border: "1px dashed rgba(255,255,255,0.08)", borderRadius: 8, color: "#3a4050", fontSize: 9, padding: "1px 6px", cursor: "pointer", flexShrink: 0 }}>＋напрям</button>
                   )}
-                  <span style={{ fontSize: 10, color: "#22d3ee", background: "rgba(6,182,212,0.14)", border: "1px solid rgba(6,182,212,0.35)", padding: "2px 6px", borderRadius: 10, flexShrink: 0, whiteSpace: "nowrap" }}>+{p.xp ?? 150} XP</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "#22d3ee", background: "rgba(6,182,212,0.18)", border: "1px solid rgba(6,182,212,0.60)", padding: "2px 7px", borderRadius: 4, flexShrink: 0, whiteSpace: "nowrap", boxShadow: "0 0 6px rgba(6,182,212,0.18)" }}>+{p.xp ?? 150} XP</span>
                   <button onClick={e => { e.stopPropagation(); setPlan(prev => prev.map(x => x.id === p.id ? { ...x, pinned: !x.pinned } : x)); }}
                     style={{ background: "none", border: "none", color: "#c9a84c", opacity: p.pinned ? 1 : 0.18, filter: p.pinned ? "drop-shadow(0 0 4px rgba(201,168,76,0.7))" : "none", cursor: "pointer", fontSize: 11, padding: "0 2px", transition: "opacity 0.2s, filter 0.2s" }} title={p.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
                   <button onClick={e => { e.stopPropagation(); softDelete("plan", p.id); }}
@@ -3180,9 +3197,10 @@ export default function AITracker() {
             const progressPct = totalPlanCount > 0 ? Math.round((donePlanCount / totalPlanCount) * 100) : 0;
             return (
               <div key={g.id}>
-                <div onClick={() => toggleExp(`goal_${g.id}`)} {...dragHandlers(g.id, "goal", "list")} {...rowDropProps("goal", g.id)}
-                  style={{ display: "flex", flexDirection: "column", background: "rgba(20,10,30,0.95)", border: "1px solid rgba(168,85,247,0.35)", borderLeft: "3px solid #a855f7", borderRadius: 4, padding: "10px 12px", cursor: "grab", opacity: dragItem?.id === g.id ? 0.4 : 1 }}>
+                <div onClick={() => toggleExp(`goal_${g.id}`)} {...rowDropProps("goal", g.id)}
+                  style={{ display: "flex", flexDirection: "column", background: "rgba(20,10,30,0.95)", border: "1px solid rgba(168,85,247,0.35)", borderLeft: "3px solid #a855f7", borderRadius: 4, padding: "10px 12px", userSelect: "none", opacity: dragItem?.id === g.id ? 0.4 : 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span {...dragHandlers(g.id, "goal", "list")} onClick={e => e.stopPropagation()} style={{ color: "#3a1a5a", fontSize: 13, cursor: "grab", flexShrink: 0, lineHeight: 1, padding: "0 2px" }} title="Перетягнути">⠿</span>
                     <span style={{ color: "#c084fc", fontSize: 10, flexShrink: 0, width: 14, opacity: goalPlans.length ? 1 : 0.3 }}>
                       {exp ? "▼" : "▶"}
                     </span>
@@ -3194,7 +3212,7 @@ export default function AITracker() {
                         style={{ background: "none", border: "1px dashed rgba(255,255,255,0.08)", borderRadius: 8, color: "#3a3040", fontSize: 9, padding: "1px 6px", cursor: "pointer", flexShrink: 0 }}>＋напрям</button>
                     )}
                     {totalPlanCount > 0 && <span style={{ fontSize: 10, color: "#7a6a90", flexShrink: 0 }}>{donePlanCount}/{totalPlanCount}</span>}
-                    <span style={{ fontSize: 11, color: "#c084fc", background: "rgba(168,85,247,0.14)", border: "1px solid rgba(168,85,247,0.35)", padding: "2px 7px", borderRadius: 10, flexShrink: 0, whiteSpace: "nowrap" }}>+{g.customXP ?? 500} XP</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "#c084fc", background: "rgba(168,85,247,0.20)", border: "1px solid rgba(168,85,247,0.65)", padding: "2px 7px", borderRadius: 4, flexShrink: 0, whiteSpace: "nowrap", boxShadow: "0 0 6px rgba(168,85,247,0.20)" }}>+{g.customXP ?? 500} XP</span>
                     <button onClick={e => { e.stopPropagation(); setLongGoals(prev => prev.map(x => x.id === g.id ? { ...x, pinned: !x.pinned } : x)); }}
                       style={{ background: "none", border: "none", color: "#c9a84c", opacity: g.pinned ? 1 : 0.18, filter: g.pinned ? "drop-shadow(0 0 4px rgba(201,168,76,0.7))" : "none", cursor: "pointer", fontSize: 12, padding: "0 2px", transition: "opacity 0.2s, filter 0.2s" }} title={g.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
                     <button onClick={e => { e.stopPropagation(); softDelete("goal", g.id); }}
@@ -4988,9 +5006,7 @@ export default function AITracker() {
                     <div key={st.id} style={{ position: "relative", background: playing ? `${st.color}14` : "rgba(10,12,22,0.55)", border: `1px solid ${playing ? st.color + "70" : "rgba(201,168,76,0.18)"}`, borderTop: `2px solid ${st.color}${playing ? "" : "55"}`, borderRadius: 8, padding: 14, cursor: "pointer", transition: "all 0.15s" }} onClick={() => setRadioActive(playing ? null : st.videoId)}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                         <span style={{ display: "inline-block", fontSize: 10, fontWeight: 700, color: st.color, background: `${st.color}1a`, border: `1px solid ${st.color}40`, borderRadius: 3, padding: "2px 8px", fontFamily: "'Space Mono',monospace", textTransform: "uppercase", letterSpacing: 1 }}>{st.genre}</span>
-                        {st.custom && (
-                          <button onClick={e => { e.stopPropagation(); removeRadioStation(st.id); }} title="Видалити" style={{ fontSize: 14, color: "#6a5f40", background: "none", border: "none", cursor: "pointer", lineHeight: 1, padding: 0 }}>×</button>
-                        )}
+                        <button onClick={e => { e.stopPropagation(); removeRadioStation(st.id); }} title="Видалити" style={{ fontSize: 14, color: "#6a5f40", background: "none", border: "none", cursor: "pointer", lineHeight: 1, padding: 0 }}>×</button>
                       </div>
                       <div style={{ fontSize: 14, fontWeight: 800, color: "#e0d8c0", fontFamily: "'Exo 2',sans-serif", marginTop: 10 }}>{st.title}</div>
                       {st.channel && <div style={{ fontSize: 11, color: "#6a5f40", fontFamily: "'Space Mono',monospace", marginTop: 2 }}>{st.channel}</div>}
