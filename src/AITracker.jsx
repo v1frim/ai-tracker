@@ -915,7 +915,10 @@ export default function AITracker() {
   const [inbox, setInbox] = useState(saved?.inbox ?? []);
   const [gpInboxOpen, setGpInboxOpen] = useState(true);
   const [gpInboxText, setGpInboxText] = useState("");
+  const [gpInboxType, setGpInboxType] = useState("task");
   const [gpInboxConvert, setGpInboxConvert] = useState(null);
+  const [dragItem, setDragItem] = useState(null); // { id, fromType, source: "list"|"inbox" }
+  const [dragOver, setDragOver] = useState(null);  // ключ цілі під курсором для підсвітки
 
   // Радіо (YouTube live-стріми)
   const [radioStations, setRadioStations] = useState(saved?.radioStations ?? DEFAULT_RADIO);
@@ -3068,7 +3071,11 @@ export default function AITracker() {
           };
 
           const renderTaskRow = (t) => (
-            <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(5,14,10,0.95)", border: "1px solid rgba(0,255,136,0.35)", borderLeft: "3px solid #00ff88", borderRadius: 4, padding: "9px 12px" }}>
+            <div key={t.id} {...dragHandlers(t.id, "task", "list")}
+              onDragOver={e => { e.preventDefault(); setDragOver(`task_${t.id}`); }}
+              onDragLeave={() => setDragOver(o => o === `task_${t.id}` ? null : o)}
+              onDrop={e => { e.preventDefault(); dropToType("task", t.id); }}
+              style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(5,14,10,0.95)", border: "1px solid rgba(0,255,136,0.35)", borderLeft: "3px solid #00ff88", borderRadius: 4, padding: "9px 12px", cursor: "grab", outline: dragOver === `task_${t.id}` ? "2px dashed #00ff88" : "none", opacity: dragItem?.id === t.id ? 0.4 : 1 }}>
               <button onClick={() => doCompleteTask(t)}
                 style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid rgba(0,255,136,0.7)", background: "transparent", cursor: "pointer", flexShrink: 0 }} />
               <span style={{ flex: 1, color: "#d8f8e8", fontSize: 12 }}>{t.text}</span>
@@ -3090,8 +3097,11 @@ export default function AITracker() {
             const isInlining = gpInlineAdd?.parentId === p.id && gpInlineAdd?.type === "task";
             return (
               <div key={p.id}>
-                <div onClick={() => toggleExp(`plan_${p.id}`)}
-                  style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(4,18,24,0.95)", border: "1px solid rgba(6,182,212,0.35)", borderLeft: "3px solid #06b6d4", borderRadius: 4, padding: "10px 12px", cursor: "pointer" }}>
+                <div onClick={() => toggleExp(`plan_${p.id}`)} {...dragHandlers(p.id, "plan", "list")}
+                  onDragOver={e => { e.preventDefault(); setDragOver(`plan_${p.id}`); }}
+                  onDragLeave={() => setDragOver(o => o === `plan_${p.id}` ? null : o)}
+                  onDrop={e => { e.preventDefault(); dropToType("plan", p.id); }}
+                  style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(4,18,24,0.95)", border: "1px solid rgba(6,182,212,0.35)", borderLeft: "3px solid #06b6d4", borderRadius: 4, padding: "10px 12px", cursor: "grab", outline: dragOver === `plan_${p.id}` ? "2px dashed #06b6d4" : "none", opacity: dragItem?.id === p.id ? 0.4 : 1 }}>
                   <span style={{ color: "#06b6d4", fontSize: 10, flexShrink: 0, width: 14, opacity: planTasks.length ? 1 : 0.3 }}>
                     {exp ? "▼" : "▶"}
                   </span>
@@ -3145,8 +3155,11 @@ export default function AITracker() {
             const progressPct = totalPlanCount > 0 ? Math.round((donePlanCount / totalPlanCount) * 100) : 0;
             return (
               <div key={g.id}>
-                <div onClick={() => toggleExp(`goal_${g.id}`)}
-                  style={{ display: "flex", flexDirection: "column", background: "rgba(20,10,30,0.95)", border: "1px solid rgba(168,85,247,0.35)", borderLeft: "3px solid #a855f7", borderRadius: 4, padding: "10px 12px", cursor: "pointer" }}>
+                <div onClick={() => toggleExp(`goal_${g.id}`)} {...dragHandlers(g.id, "goal", "list")}
+                  onDragOver={e => { e.preventDefault(); setDragOver(`goal_${g.id}`); }}
+                  onDragLeave={() => setDragOver(o => o === `goal_${g.id}` ? null : o)}
+                  onDrop={e => { e.preventDefault(); dropToType("goal", g.id); }}
+                  style={{ display: "flex", flexDirection: "column", background: "rgba(20,10,30,0.95)", border: "1px solid rgba(168,85,247,0.35)", borderLeft: "3px solid #a855f7", borderRadius: 4, padding: "10px 12px", cursor: "grab", outline: dragOver === `goal_${g.id}` ? "2px dashed #a855f7" : "none", opacity: dragItem?.id === g.id ? 0.4 : 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ color: "#c084fc", fontSize: 10, flexShrink: 0, width: 14, opacity: goalPlans.length ? 1 : 0.3 }}>
                       {exp ? "▼" : "▶"}
@@ -3253,9 +3266,98 @@ export default function AITracker() {
 
           const doAddToInbox = () => {
             if (!gpInboxText.trim()) return;
-            setInbox(prev => [...prev, { id: `ib${Date.now()}`, text: gpInboxText.trim(), createdAt: new Date().toISOString() }]);
+            setInbox(prev => [...prev, { id: `ib${Date.now()}`, text: gpInboxText.trim(), type: gpInboxType, createdAt: new Date().toISOString() }]);
             setGpInboxText("");
           };
+
+          // ─── Drag & drop: спільна логіка для інбоксу і головного списку ───
+          // Типи: goal (longGoals) · plan (plan) · task (goals). Перетягування
+          // між секціями міняє тип елемента (текст/XP/напрям зберігаються).
+          const TYPE_META = {
+            goal: { setter: setLongGoals, arr: longGoals, prefix: "lg", color: "#c084fc", label: "🎯 Ціль",   defXP: 500 },
+            plan: { setter: setPlan,      arr: plan,      prefix: "p",  color: "#22d3ee", label: "📋 План",   defXP: 150 },
+            task: { setter: setGoals,     arr: goals,     prefix: "g",  color: "#00ff88", label: "✅ Задача", defXP: 50  },
+          };
+          const inboxType = (it) => TYPE_META[it.type] ? it.type : "task";
+
+          const insertBefore = (arr, item, beforeId) => {
+            if (!beforeId) return [...arr, item];
+            const idx = arr.findIndex(x => x.id === beforeId);
+            return idx < 0 ? [...arr, item] : [...arr.slice(0, idx), item, ...arr.slice(idx)];
+          };
+
+          // Створює елемент типу toType з будь-якого джерела (елемент списку або ідея з інбоксу)
+          const buildTyped = (src, toType, keepProgress) => {
+            const m = TYPE_META[toType];
+            const xp = src.customXP ?? src.xp ?? m.defXP;
+            const base = { id: `${m.prefix}${Date.now()}${Math.floor(Math.random()*1000)}`, text: src.text, createdAt: src.createdAt ?? new Date().toISOString() };
+            if (src.stream) base.stream = src.stream;
+            if (src.pinned) base.pinned = true;
+            if (keepProgress && src.done) { base.done = true; base.xpAwarded = src.xpAwarded ?? false; base.completedAt = src.completedAt ?? null; }
+            else base.done = false;
+            if (toType === "goal") return { ...base, period: src.period ?? "month_cur", customXP: xp };
+            if (toType === "plan") return { ...base, type: src.type ?? "other", urgency: src.urgency ?? "now", xp };
+            return { ...base, priority: src.priority ?? "important", xp };
+          };
+
+          // Drop у секцію головного списку (toType). beforeId — вставити перед цим елементом (для перевпорядкування)
+          const dropToType = (toType, beforeId = null) => {
+            const di = dragItem;
+            if (!di) { setDragOver(null); return; }
+            if (di.source === "inbox") {
+              const it = inbox.find(x => x.id === di.id);
+              if (it) {
+                const typed = buildTyped(it, toType, false);
+                setInbox(prev => prev.filter(x => x.id !== di.id));
+                TYPE_META[toType].setter(prev => insertBefore(prev, typed, beforeId));
+                showNotif(`→ ${TYPE_META[toType].label}`);
+              }
+            } else if (di.fromType === toType) {
+              if (beforeId && beforeId !== di.id) {
+                TYPE_META[toType].setter(prev => {
+                  const it = prev.find(x => x.id === di.id);
+                  if (!it) return prev;
+                  return insertBefore(prev.filter(x => x.id !== di.id), it, beforeId);
+                });
+              }
+            } else {
+              const it = TYPE_META[di.fromType].arr.find(x => x.id === di.id);
+              if (it) {
+                const typed = buildTyped(it, toType, true);
+                TYPE_META[di.fromType].setter(prev => prev.filter(x => x.id !== di.id));
+                TYPE_META[toType].setter(prev => insertBefore(prev, typed, beforeId));
+                showNotif(`→ ${TYPE_META[toType].label}`);
+              }
+            }
+            setDragItem(null); setDragOver(null);
+          };
+
+          // Drop в інбокс під певним типом (toType). Працює і для елементів інбоксу, і для елементів списку.
+          const dropToInboxType = (toType, beforeId = null) => {
+            const di = dragItem;
+            if (!di) { setDragOver(null); return; }
+            if (di.source === "inbox") {
+              setInbox(prev => {
+                const it = prev.find(x => x.id === di.id);
+                if (!it) return prev;
+                return insertBefore(prev.filter(x => x.id !== di.id), { ...it, type: toType }, beforeId);
+              });
+            } else {
+              const it = TYPE_META[di.fromType].arr.find(x => x.id === di.id);
+              if (it) {
+                TYPE_META[di.fromType].setter(prev => prev.filter(x => x.id !== di.id));
+                setInbox(prev => insertBefore(prev, { id: `ib${Date.now()}`, text: it.text, type: toType, createdAt: new Date().toISOString() }, beforeId));
+              }
+            }
+            setDragItem(null); setDragOver(null);
+          };
+
+          // Пропси для draggable-рядка
+          const dragHandlers = (id, fromType, source) => ({
+            draggable: true,
+            onDragStart: (e) => { setDragItem({ id, fromType, source }); e.dataTransfer.effectAllowed = "move"; try { e.dataTransfer.setData("text/plain", id); } catch (_) {} },
+            onDragEnd: () => { setDragItem(null); setDragOver(null); },
+          });
 
           const doConvertInboxItem = (item) => {
             const { type, xp, stream } = gpInboxConvert;
@@ -3276,22 +3378,52 @@ export default function AITracker() {
 
         {/* 💡 Inbox */}
             <div style={{ background: "rgba(8,6,2,0.80)", border: "1px solid rgba(251,191,36,0.22)", borderRadius: 4, padding: 14 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: gpInboxOpen ? 12 : 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: gpInboxOpen ? 12 : 0, flexWrap: "wrap" }}>
                 <button onClick={() => setGpInboxOpen(o => !o)}
-                  style={{ background: "none", border: "none", color: "#fbbf24", cursor: "pointer", fontSize: 12, fontWeight: 700, padding: 0, fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1.5, display: "flex", alignItems: "center", gap: 6, flex: 1 }}>
+                  style={{ background: "none", border: "none", color: "#fbbf24", cursor: "pointer", fontSize: 12, fontWeight: 700, padding: 0, fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1.5, display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 140 }}>
                   <span style={{ fontSize: 10 }}>{gpInboxOpen ? "▼" : "▶"}</span>
                   💡 Інбокс ідей
                   {inbox.length > 0 && <span style={{ fontSize: 10, fontWeight: 400, color: "#9a7820", marginLeft: 2 }}>({inbox.length})</span>}
                 </button>
-                <div style={{ display: "flex", gap: 5 }}>
+                <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", gap: 3 }}>
+                    {["goal", "plan", "task"].map(tp => {
+                      const m = TYPE_META[tp];
+                      const on = gpInboxType === tp;
+                      return (
+                        <button key={tp} onClick={() => setGpInboxType(tp)}
+                          style={{ background: on ? `${m.color}22` : "transparent", border: `1px solid ${on ? m.color + "66" : "rgba(201,168,76,0.15)"}`, borderRadius: 3, padding: "5px 9px", color: on ? m.color : "#6a5f40", fontSize: 11, cursor: "pointer", fontWeight: on ? 700 : 400 }}>
+                          {m.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                   <input value={gpInboxText} onChange={e => setGpInboxText(e.target.value)}
                     onKeyDown={e => { if (e.key === "Enter") doAddToInbox(); }}
                     placeholder="Кинь ідею сюди..."
-                    style={{ width: 220, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(251,191,36,0.20)", borderRadius: 4, padding: "6px 10px", color: "#f0e0a0", fontSize: 12, fontFamily: "'Space Mono',monospace", outline: "none" }} />
+                    style={{ width: 200, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(251,191,36,0.20)", borderRadius: 4, padding: "6px 10px", color: "#f0e0a0", fontSize: 12, fontFamily: "'Space Mono',monospace", outline: "none" }} />
                   <button onClick={doAddToInbox}
                     style={{ background: "rgba(251,191,36,0.15)", border: "1px solid rgba(251,191,36,0.35)", color: "#fbbf24", borderRadius: 4, padding: "6px 12px", fontWeight: 700, cursor: "pointer", fontSize: 12 }}>+</button>
                 </div>
               </div>
+              {/* Drag-панель інбоксу: зони типів (при перетягуванні) */}
+              {gpInboxOpen && dragItem && (
+                <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                  {["goal", "plan", "task"].map(tp => {
+                    const m = TYPE_META[tp];
+                    const hot = dragOver === `ibzone_${tp}`;
+                    return (
+                      <div key={tp}
+                        onDragOver={e => { e.preventDefault(); setDragOver(`ibzone_${tp}`); }}
+                        onDragLeave={() => setDragOver(o => o === `ibzone_${tp}` ? null : o)}
+                        onDrop={e => { e.preventDefault(); dropToInboxType(tp); }}
+                        style={{ flex: 1, textAlign: "center", padding: "8px 6px", border: `2px dashed ${m.color}${hot ? "" : "44"}`, background: hot ? `${m.color}22` : "transparent", borderRadius: 5, color: m.color, fontSize: 11, fontWeight: 700, fontFamily: "'Exo 2',sans-serif", transition: "all 0.12s" }}>
+                        {m.label}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               {gpInboxOpen && inbox.length === 0 && (
                 <div style={{ textAlign: "center", padding: "14px 0", color: "#6a5820", fontSize: 12 }}>
                   Поки порожньо — кидай сюди ідеї з IndieHackers, YouTube, подкастів...
@@ -3302,11 +3434,27 @@ export default function AITracker() {
                   {inbox.map(item => {
                     const isConverting = gpInboxConvert?.id === item.id;
                     return (
-                      <div key={item.id} style={{ background: "rgba(12,9,2,0.85)", border: `1px solid ${isConverting ? "rgba(251,191,36,0.45)" : "rgba(251,191,36,0.15)"}`, borderLeft: "3px solid rgba(251,191,36,0.6)", borderRadius: 4, overflow: "hidden" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px" }}>
+                      <div key={item.id} style={{ background: "rgba(12,9,2,0.85)", border: `1px solid ${isConverting ? "rgba(251,191,36,0.45)" : "rgba(251,191,36,0.15)"}`, borderLeft: `3px solid ${TYPE_META[inboxType(item)].color}99`, borderRadius: 4, overflow: "hidden", outline: dragOver === `ib_${item.id}` ? "2px dashed #fbbf24" : "none", opacity: dragItem?.id === item.id ? 0.4 : 1 }}>
+                        <div {...dragHandlers(item.id, inboxType(item), "inbox")}
+                          onDragOver={e => { e.preventDefault(); setDragOver(`ib_${item.id}`); }}
+                          onDragLeave={() => setDragOver(o => o === `ib_${item.id}` ? null : o)}
+                          onDrop={e => { e.preventDefault(); dropToInboxType(inboxType(item), item.id); }}
+                          style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", cursor: "grab" }}>
+                          {(() => {
+                            const m = TYPE_META[inboxType(item)];
+                            const order = ["goal", "plan", "task"];
+                            const next = order[(order.indexOf(inboxType(item)) + 1) % 3];
+                            return (
+                              <button onClick={e => { e.stopPropagation(); setInbox(prev => prev.map(x => x.id === item.id ? { ...x, type: next } : x)); }}
+                                title="Змінити тип (клік) або перетягни"
+                                style={{ flexShrink: 0, background: `${m.color}1a`, border: `1px solid ${m.color}55`, borderRadius: 3, padding: "2px 7px", color: m.color, fontSize: 10, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+                                {m.label}
+                              </button>
+                            );
+                          })()}
                           <span style={{ flex: 1, color: "#e8d080", fontSize: 12 }}>{item.text}</span>
                           <span style={{ fontSize: 9, color: "#6a5820", flexShrink: 0 }}>{fmtDate(item.createdAt)}</span>
-                          <button onClick={() => setGpInboxConvert(isConverting ? null : { id: item.id, type: "task", xp: 50, stream: gpStreamFilter ?? null })}
+                          <button onClick={() => setGpInboxConvert(isConverting ? null : { id: item.id, type: inboxType(item), xp: TYPE_META[inboxType(item)].defXP, stream: gpStreamFilter ?? null })}
                             style={{ background: isConverting ? "rgba(251,191,36,0.2)" : "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.35)", color: "#fbbf24", borderRadius: 3, padding: "3px 9px", fontSize: 10, fontWeight: 700, cursor: "pointer", flexShrink: 0, whiteSpace: "nowrap" }}>
                             {isConverting ? "▲ скасувати" : "→ перенести"}
                           </button>
@@ -3397,6 +3545,25 @@ export default function AITracker() {
                 </button>
               ))}
             </div>
+
+            {/* Drag-панель: три зони типів (видима лише при перетягуванні) — гарантує зміну типу навіть для порожніх секцій */}
+            {dragItem && (
+              <div style={{ display: "flex", gap: 8 }}>
+                {["goal", "plan", "task"].map(tp => {
+                  const m = TYPE_META[tp];
+                  const hot = dragOver === `zone_${tp}`;
+                  return (
+                    <div key={tp}
+                      onDragOver={e => { e.preventDefault(); setDragOver(`zone_${tp}`); }}
+                      onDragLeave={() => setDragOver(o => o === `zone_${tp}` ? null : o)}
+                      onDrop={e => { e.preventDefault(); dropToType(tp); }}
+                      style={{ flex: 1, textAlign: "center", padding: "12px 8px", border: `2px dashed ${m.color}${hot ? "" : "55"}`, background: hot ? `${m.color}22` : `${m.color}0a`, borderRadius: 6, color: m.color, fontSize: 12, fontWeight: 700, fontFamily: "'Exo 2',sans-serif", letterSpacing: 1, transition: "all 0.12s" }}>
+                      {m.label}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Active items — hierarchical */}
             <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
