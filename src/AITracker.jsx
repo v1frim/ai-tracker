@@ -2177,7 +2177,7 @@ export default function AITracker() {
           if (!st) return null;
           const isRadioTab = activeTab === "radio";
           return (
-            {isRadioTab ? (
+            isRadioTab ? (
               /* На вкладці Радіо — повний плеєр у потоці */
               <div style={{ marginBottom: 16, background: "rgba(8,5,2,0.6)", border: `1px solid ${st.color}55`, borderTop: `2px solid ${st.color}`, borderRadius: 8, overflow: "hidden", boxShadow: `0 0 24px ${st.color}22` }}>
                 <div style={{ position: "relative", width: "100%", paddingTop: "56.25%" }}>
@@ -2210,7 +2210,7 @@ export default function AITracker() {
                   <button onClick={() => setRadioActive(null)} style={{ fontSize: 10, color: "#f43f5e", background: "none", border: "none", cursor: "pointer", fontFamily: "'Space Mono',monospace", padding: 0, flexShrink: 0 }}>■</button>
                 </div>
               </div>
-            )}
+            )
           );
         })()}
 
