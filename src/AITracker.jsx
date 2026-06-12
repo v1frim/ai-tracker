@@ -923,6 +923,7 @@ export default function AITracker() {
   // Радіо (YouTube live-стріми)
   const [radioStations, setRadioStations] = useState(saved?.radioStations ?? DEFAULT_RADIO);
   const [radioActive, setRadioActive] = useState(null); // videoId, що зараз грає (не зберігається — без автоплею при завантаженні)
+  const [radioPaused, setRadioPaused] = useState(false); // пауза без закриття плеєра
   const [radioAddOpen, setRadioAddOpen] = useState(false);
   const [radioUrl, setRadioUrl] = useState("");
   const [radioTitle, setRadioTitle] = useState("");
@@ -1869,14 +1870,20 @@ export default function AITracker() {
     const videoId = parseYtId(radioUrl);
     if (!videoId) { showNotif("Не вдалося розпізнати YouTube-посилання", "error"); return; }
     if (radioStations.some(s => s.videoId === videoId)) { showNotif("Ця станція вже є у списку", "error"); return; }
-    const COLORS = ["#00ff88", "#ff6b35", "#a855f7", "#06b6d4", "#ec4899", "#f59e0b", "#6366f1", "#10b981"];
+    // Випадковий неоновий відтінок, рознесений від уже наявних — для різноманітності
+    const usedHues = radioStations.map(s => s._hue).filter(h => typeof h === "number");
+    let hue = Math.floor(Math.random() * 360);
+    for (let i = 0; i < 12 && usedHues.some(h => Math.abs(((hue - h + 540) % 360) - 180) > 150); i++) {
+      hue = Math.floor(Math.random() * 360);
+    }
     const station = {
       id: "r_" + Date.now(),
       title: radioTitle.trim() || "Моя станція",
       channel: "",
       videoId,
       genre: radioGenre.trim() || "Custom",
-      color: COLORS[radioStations.length % COLORS.length],
+      color: `hsl(${hue}, 75%, 60%)`,
+      _hue: hue,
       custom: true,
     };
     setRadioStations(prev => [...prev, station]);
@@ -1890,6 +1897,15 @@ export default function AITracker() {
       if (st && st.videoId === radioActive) setRadioActive(null);
       return prev.filter(s => s.id !== id);
     });
+  };
+
+  // Перемикання станцій: dir = -1 (попередня) / +1 (наступна), по колу
+  const switchRadioStation = (dir) => {
+    if (radioStations.length === 0) return;
+    const idx = radioStations.findIndex(s => s.videoId === radioActive);
+    const ni = ((idx < 0 ? 0 : idx) + dir + radioStations.length) % radioStations.length;
+    setRadioActive(radioStations[ni].videoId);
+    setRadioPaused(false);
   };
 
   // Heatmap: group days into weeks
@@ -2176,12 +2192,20 @@ export default function AITracker() {
           const st = radioStations.find(s => s.videoId === radioActive);
           if (!st) return null;
           const isRadioTab = activeTab === "radio";
+          const multi = radioStations.length > 1;
+          const ctrlBtn = { background: "none", border: "none", cursor: "pointer", fontFamily: "'Space Mono',monospace", padding: 0, flexShrink: 0, lineHeight: 1 };
           return (
             isRadioTab ? (
               /* На вкладці Радіо — повний плеєр у потоці */
               <div style={{ marginBottom: 16, background: "rgba(8,5,2,0.6)", border: `1px solid ${st.color}55`, borderTop: `2px solid ${st.color}`, borderRadius: 8, overflow: "hidden", boxShadow: `0 0 24px ${st.color}22` }}>
-                <div style={{ position: "relative", width: "100%", paddingTop: "56.25%" }}>
-                  <iframe key={st.videoId} src={`https://www.youtube.com/embed/${st.videoId}?autoplay=1&rel=0`} title={st.title} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }} />
+                <div style={{ position: "relative", width: "100%", paddingTop: "56.25%", background: "#000" }}>
+                  {!radioPaused && <iframe key={st.videoId} src={`https://www.youtube.com/embed/${st.videoId}?autoplay=1&rel=0`} title={st.title} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }} />}
+                  {radioPaused && (
+                    <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, color: st.color }}>
+                      <span style={{ fontSize: 30 }}>⏸</span>
+                      <span style={{ fontSize: 11, fontFamily: "'Space Mono',monospace", letterSpacing: 1 }}>ПАУЗА</span>
+                    </div>
+                  )}
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", flexWrap: "wrap", gap: 8 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
@@ -2189,25 +2213,33 @@ export default function AITracker() {
                     <span style={{ fontSize: 13, fontWeight: 700, color: "#e0d8c0", fontFamily: "'Exo 2',sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{st.title}</span>
                     {st.channel && <span style={{ fontSize: 11, color: "#6a5f40", fontFamily: "'Space Mono',monospace" }}>· {st.channel}</span>}
                   </div>
-                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                    {multi && <button onClick={() => switchRadioStation(-1)} title="Попередня станція" style={{ ...ctrlBtn, fontSize: 14, color: "#c9a84c" }}>⏮</button>}
+                    <button onClick={() => setRadioPaused(p => !p)} title={radioPaused ? "Грати" : "Пауза"} style={{ ...ctrlBtn, fontSize: 15, color: st.color }}>{radioPaused ? "▶" : "⏸"}</button>
+                    {multi && <button onClick={() => switchRadioStation(1)} title="Наступна станція" style={{ ...ctrlBtn, fontSize: 14, color: "#c9a84c" }}>⏭</button>}
                     <a href={`https://www.youtube.com/watch?v=${st.videoId}`} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: "#06b6d4", fontFamily: "'Space Mono',monospace", textDecoration: "none" }}>↗ YouTube</a>
-                    <button onClick={() => setRadioActive(null)} style={{ fontSize: 11, color: "#f43f5e", background: "none", border: "none", cursor: "pointer", fontFamily: "'Space Mono',monospace" }}>■ Стоп</button>
+                    <button onClick={() => { setRadioActive(null); setRadioPaused(false); }} style={{ ...ctrlBtn, fontSize: 11, color: "#f43f5e" }}>■ Стоп</button>
                   </div>
                 </div>
               </div>
             ) : (
-              /* На інших вкладках — компактний плеєр без відео (44px) */
-              <div style={{ position: "fixed", left: 16, bottom: 16, zIndex: 9000, width: "min(260px, calc(100vw - 32px))", background: "rgba(8,5,2,0.96)", border: `1px solid ${st.color}44`, borderLeft: `3px solid ${st.color}`, borderRadius: 6, boxShadow: "0 4px 20px rgba(0,0,0,0.65)", overflow: "hidden" }}>
-                {/* Прихований iframe — зберігає аудіопотік живим */}
-                <div style={{ position: "absolute", width: 2, height: 2, overflow: "hidden", top: 0, left: 0, pointerEvents: "none" }}>
-                  <iframe key={st.videoId} src={`https://www.youtube.com/embed/${st.videoId}?autoplay=1&rel=0`} title={st.title} allow="autoplay; encrypted-media" style={{ width: 200, height: 112, border: "none" }} />
-                </div>
+              /* На інших вкладках — компактний плеєр без відео */
+              <div style={{ position: "fixed", left: 16, bottom: 16, zIndex: 9000, width: "min(280px, calc(100vw - 32px))", background: "rgba(8,5,2,0.96)", border: `1px solid ${st.color}44`, borderLeft: `3px solid ${st.color}`, borderRadius: 6, boxShadow: "0 4px 20px rgba(0,0,0,0.65)", overflow: "hidden" }}>
+                {/* Прихований iframe — зберігає аудіопотік живим (знімається на паузі) */}
+                {!radioPaused && (
+                  <div style={{ position: "absolute", width: 2, height: 2, overflow: "hidden", top: 0, left: 0, pointerEvents: "none" }}>
+                    <iframe key={st.videoId} src={`https://www.youtube.com/embed/${st.videoId}?autoplay=1&rel=0`} title={st.title} allow="autoplay; encrypted-media" style={{ width: 200, height: 112, border: "none" }} />
+                  </div>
+                )}
                 {/* Компактна панель */}
-                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px" }}>
-                  <span style={{ width: 7, height: 7, borderRadius: "50%", background: st.color, boxShadow: `0 0 6px ${st.color}`, flexShrink: 0 }} />
+                <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 11px" }}>
+                  <span style={{ width: 7, height: 7, borderRadius: "50%", background: radioPaused ? "#5a4a30" : st.color, boxShadow: radioPaused ? "none" : `0 0 6px ${st.color}`, flexShrink: 0 }} />
                   <span style={{ flex: 1, fontSize: 11, fontWeight: 700, color: "#e0d8c0", fontFamily: "'Exo 2',sans-serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{st.title}</span>
-                  <button onClick={() => setActiveTab("radio")} style={{ fontSize: 10, color: st.color, background: "none", border: "none", cursor: "pointer", fontFamily: "'Space Mono',monospace", padding: 0, flexShrink: 0 }}>⛶</button>
-                  <button onClick={() => setRadioActive(null)} style={{ fontSize: 10, color: "#f43f5e", background: "none", border: "none", cursor: "pointer", fontFamily: "'Space Mono',monospace", padding: 0, flexShrink: 0 }}>■</button>
+                  {multi && <button onClick={() => switchRadioStation(-1)} title="Попередня" style={{ ...ctrlBtn, fontSize: 11, color: "#c9a84c" }}>⏮</button>}
+                  <button onClick={() => setRadioPaused(p => !p)} title={radioPaused ? "Грати" : "Пауза"} style={{ ...ctrlBtn, fontSize: 12, color: st.color }}>{radioPaused ? "▶" : "⏸"}</button>
+                  {multi && <button onClick={() => switchRadioStation(1)} title="Наступна" style={{ ...ctrlBtn, fontSize: 11, color: "#c9a84c" }}>⏭</button>}
+                  <button onClick={() => setActiveTab("radio")} title="Відкрити Радіо" style={{ ...ctrlBtn, fontSize: 10, color: "#6a5f40" }}>⛶</button>
+                  <button onClick={() => { setRadioActive(null); setRadioPaused(false); }} title="Закрити" style={{ ...ctrlBtn, fontSize: 11, color: "#f43f5e" }}>✕</button>
                 </div>
               </div>
             )
@@ -4977,7 +5009,7 @@ export default function AITracker() {
                 {radioStations.map(st => {
                   const playing = st.videoId === radioActive;
                   return (
-                    <div key={st.id} style={{ position: "relative", background: playing ? `${st.color}14` : "rgba(10,12,22,0.55)", border: `1px solid ${playing ? st.color + "70" : "rgba(201,168,76,0.18)"}`, borderTop: `2px solid ${st.color}${playing ? "" : "55"}`, borderRadius: 8, padding: 14, cursor: "pointer", transition: "all 0.15s" }} onClick={() => setRadioActive(playing ? null : st.videoId)}>
+                    <div key={st.id} style={{ position: "relative", background: playing ? `${st.color}14` : "rgba(10,12,22,0.55)", border: `1px solid ${playing ? st.color + "70" : "rgba(201,168,76,0.18)"}`, borderTop: `2px solid ${st.color}${playing ? "" : "55"}`, borderRadius: 8, padding: 14, cursor: "pointer", transition: "all 0.15s" }} onClick={() => { setRadioActive(playing ? null : st.videoId); setRadioPaused(false); }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                         <span style={{ display: "inline-block", fontSize: 10, fontWeight: 700, color: st.color, background: `${st.color}1a`, border: `1px solid ${st.color}40`, borderRadius: 3, padding: "2px 8px", fontFamily: "'Space Mono',monospace", textTransform: "uppercase", letterSpacing: 1 }}>{st.genre}</span>
                         <button onClick={e => { e.stopPropagation(); removeRadioStation(st.id); }} title="Видалити" style={{ fontSize: 14, color: "#6a5f40", background: "none", border: "none", cursor: "pointer", lineHeight: 1, padding: 0 }}>×</button>
@@ -4985,7 +5017,7 @@ export default function AITracker() {
                       <div style={{ fontSize: 14, fontWeight: 800, color: "#e0d8c0", fontFamily: "'Exo 2',sans-serif", marginTop: 10 }}>{st.title}</div>
                       {st.channel && <div style={{ fontSize: 11, color: "#6a5f40", fontFamily: "'Space Mono',monospace", marginTop: 2 }}>{st.channel}</div>}
                       <div style={{ marginTop: 12, fontSize: 12, fontWeight: 700, color: playing ? st.color : "#9a8a60", fontFamily: "'Exo 2',sans-serif", letterSpacing: 1, textTransform: "uppercase" }}>
-                        {playing ? "♫ Грає зараз" : "▶ Увімкнути"}
+                        {playing ? (radioPaused ? "⏸ На паузі" : "♫ Грає зараз") : "▶ Увімкнути"}
                       </div>
                     </div>
                   );
