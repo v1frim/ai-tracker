@@ -2187,7 +2187,7 @@ export default function AITracker() {
                                   <span style={{ flex: 1, fontSize: 12, color: "#cbd5e1", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.text}</span>
                                   <button onClick={() => setLongGoals(prev => prev.map(x => x.id === g.id ? { ...x, pinned: !x.pinned } : x))}
                                     title="Закріплено на головній"
-                                    style={{ background: "none", border: "none", color: g.pinned ? "#c9a84c" : "#4a4030", cursor: "pointer", fontSize: 13, padding: "0 2px", flexShrink: 0 }}>📌</button>
+                                    style={{ background: "none", border: "none", color: "#c9a84c", opacity: g.pinned ? 1 : 0.18, filter: g.pinned ? "drop-shadow(0 0 4px rgba(201,168,76,0.7))" : "none", cursor: "pointer", fontSize: 13, padding: "0 2px", flexShrink: 0, transition: "opacity 0.2s, filter 0.2s" }}>📌</button>
                                 </div>
                               );
                             })}
@@ -2214,7 +2214,7 @@ export default function AITracker() {
                                   <span style={{ fontSize: 9, color: pt.color, background: pt.bg, border: `1px solid ${pt.color}33`, padding: "2px 6px", borderRadius: 3, flexShrink: 0 }}>{pt.label}</span>
                                   <button onClick={() => setPlan(prev => prev.map(x => x.id === item.id ? { ...x, pinned: !x.pinned } : x))}
                                     title="Закріплено на головній"
-                                    style={{ background: "none", border: "none", color: item.pinned ? "#c9a84c" : "#4a4030", cursor: "pointer", fontSize: 13, padding: "0 2px", flexShrink: 0 }}>📌</button>
+                                    style={{ background: "none", border: "none", color: "#c9a84c", opacity: item.pinned ? 1 : 0.18, filter: item.pinned ? "drop-shadow(0 0 4px rgba(201,168,76,0.7))" : "none", cursor: "pointer", fontSize: 13, padding: "0 2px", flexShrink: 0, transition: "opacity 0.2s, filter 0.2s" }}>📌</button>
                                 </div>
                               );
                             })}
@@ -2237,7 +2237,7 @@ export default function AITracker() {
                                   <span style={{ fontSize: 9, color: pr.color, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, flexShrink: 0 }}>{pr.label}</span>
                                   <button onClick={() => setGoals(prev => prev.map(x => x.id === g.id ? { ...x, pinned: !x.pinned } : x))}
                                     title="Закріплено на головній"
-                                    style={{ background: "none", border: "none", color: g.pinned ? "#c9a84c" : "#4a4030", cursor: "pointer", fontSize: 13, padding: "0 2px", flexShrink: 0 }}>📌</button>
+                                    style={{ background: "none", border: "none", color: "#c9a84c", opacity: g.pinned ? 1 : 0.18, filter: g.pinned ? "drop-shadow(0 0 4px rgba(201,168,76,0.7))" : "none", cursor: "pointer", fontSize: 13, padding: "0 2px", flexShrink: 0, transition: "opacity 0.2s, filter 0.2s" }}>📌</button>
                                 </div>
                               );
                             })}
@@ -3026,7 +3026,7 @@ export default function AITracker() {
               )}
               <span style={{ fontSize: 10, color: "#00ff88", background: "rgba(0,255,136,0.14)", border: "1px solid rgba(0,255,136,0.35)", padding: "2px 6px", borderRadius: 10, flexShrink: 0, whiteSpace: "nowrap" }}>+{t.xp ?? 50} XP</span>
               <button onClick={() => setGoals(prev => prev.map(x => x.id === t.id ? { ...x, pinned: !x.pinned } : x))}
-                style={{ background: "none", border: "none", color: t.pinned ? "#c9a84c" : "#3a3020", cursor: "pointer", fontSize: 11, padding: "0 2px" }} title={t.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
+                style={{ background: "none", border: "none", color: "#c9a84c", opacity: t.pinned ? 1 : 0.18, filter: t.pinned ? "drop-shadow(0 0 4px rgba(201,168,76,0.7))" : "none", cursor: "pointer", fontSize: 11, padding: "0 2px", transition: "opacity 0.2s, filter 0.2s" }} title={t.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
               <button onClick={() => softDelete("task", t.id)}
                 style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 15, padding: "0 2px", lineHeight: 1 }}>×</button>
             </div>
@@ -3053,7 +3053,7 @@ export default function AITracker() {
                   )}
                   <span style={{ fontSize: 10, color: "#22d3ee", background: "rgba(6,182,212,0.14)", border: "1px solid rgba(6,182,212,0.35)", padding: "2px 6px", borderRadius: 10, flexShrink: 0, whiteSpace: "nowrap" }}>+{p.xp ?? 150} XP</span>
                   <button onClick={e => { e.stopPropagation(); setPlan(prev => prev.map(x => x.id === p.id ? { ...x, pinned: !x.pinned } : x)); }}
-                    style={{ background: "none", border: "none", color: p.pinned ? "#c9a84c" : "#3a3020", cursor: "pointer", fontSize: 11, padding: "0 2px" }} title={p.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
+                    style={{ background: "none", border: "none", color: "#c9a84c", opacity: p.pinned ? 1 : 0.18, filter: p.pinned ? "drop-shadow(0 0 4px rgba(201,168,76,0.7))" : "none", cursor: "pointer", fontSize: 11, padding: "0 2px", transition: "opacity 0.2s, filter 0.2s" }} title={p.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
                   <button onClick={e => { e.stopPropagation(); softDelete("plan", p.id); }}
                     style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 15, padding: "0 2px", lineHeight: 1 }}>×</button>
                 </div>
@@ -3109,7 +3109,7 @@ export default function AITracker() {
                     {totalPlanCount > 0 && <span style={{ fontSize: 10, color: "#7a6a90", flexShrink: 0 }}>{donePlanCount}/{totalPlanCount}</span>}
                     <span style={{ fontSize: 11, color: "#c084fc", background: "rgba(168,85,247,0.14)", border: "1px solid rgba(168,85,247,0.35)", padding: "2px 7px", borderRadius: 10, flexShrink: 0, whiteSpace: "nowrap" }}>+{g.customXP ?? 500} XP</span>
                     <button onClick={e => { e.stopPropagation(); setLongGoals(prev => prev.map(x => x.id === g.id ? { ...x, pinned: !x.pinned } : x)); }}
-                      style={{ background: "none", border: "none", color: g.pinned ? "#c9a84c" : "#3a3020", cursor: "pointer", fontSize: 12, padding: "0 2px" }} title={g.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
+                      style={{ background: "none", border: "none", color: "#c9a84c", opacity: g.pinned ? 1 : 0.18, filter: g.pinned ? "drop-shadow(0 0 4px rgba(201,168,76,0.7))" : "none", cursor: "pointer", fontSize: 12, padding: "0 2px", transition: "opacity 0.2s, filter 0.2s" }} title={g.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
                     <button onClick={e => { e.stopPropagation(); softDelete("goal", g.id); }}
                       style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 16, padding: "0 2px", lineHeight: 1 }}>×</button>
                   </div>
