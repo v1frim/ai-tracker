@@ -3123,9 +3123,9 @@ export default function AITracker() {
           };
 
           const renderTaskRow = (t) => (
-            <div key={t.id} {...rowDropProps("task", t.id)}
-              style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(5,14,10,0.95)", border: "1px solid rgba(0,255,136,0.35)", borderLeft: "3px solid #00ff88", borderRadius: 4, padding: "9px 12px", userSelect: "none", opacity: dragItem?.id === t.id ? 0.4 : 1 }}>
-              <span {...dragHandlers(t.id, "task", "list")} onClick={e => e.stopPropagation()} style={{ color: "#2a4a2a", fontSize: 13, cursor: "grab", flexShrink: 0, lineHeight: 1, padding: "0 2px" }} title="Перетягнути">⠿</span>
+            <div key={t.id} {...dragHandlers(t.id, "task", "list")} {...rowDropProps("task", t.id)}
+              style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(5,14,10,0.95)", border: "1px solid rgba(0,255,136,0.35)", borderLeft: "3px solid #00ff88", borderRadius: 4, padding: "9px 12px", userSelect: "none", cursor: "grab", opacity: dragItem?.id === t.id ? 0.4 : 1 }}>
+              <span style={{ color: "rgba(0,255,136,0.35)", fontSize: 13, flexShrink: 0, lineHeight: 1, padding: "0 2px", pointerEvents: "none" }}>⠿</span>
               <button onClick={() => doCompleteTask(t)}
                 style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid rgba(0,255,136,0.7)", background: "transparent", cursor: "pointer", flexShrink: 0 }} />
               <span style={{ flex: 1, color: "#d8f8e8", fontSize: 12 }}>{t.text}</span>
@@ -3147,9 +3147,9 @@ export default function AITracker() {
             const isInlining = gpInlineAdd?.parentId === p.id && gpInlineAdd?.type === "task";
             return (
               <div key={p.id}>
-                <div onClick={() => toggleExp(`plan_${p.id}`)} {...rowDropProps("plan", p.id)}
-                  style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(4,18,24,0.95)", border: "1px solid rgba(6,182,212,0.35)", borderLeft: "3px solid #06b6d4", borderRadius: 4, padding: "10px 12px", userSelect: "none", opacity: dragItem?.id === p.id ? 0.4 : 1 }}>
-                  <span {...dragHandlers(p.id, "plan", "list")} onClick={e => e.stopPropagation()} style={{ color: "#1a4a5a", fontSize: 13, cursor: "grab", flexShrink: 0, lineHeight: 1, padding: "0 2px" }} title="Перетягнути">⠿</span>
+                <div onClick={() => toggleExp(`plan_${p.id}`)} {...dragHandlers(p.id, "plan", "list")} {...rowDropProps("plan", p.id)}
+                  style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(4,18,24,0.95)", border: "1px solid rgba(6,182,212,0.35)", borderLeft: "3px solid #06b6d4", borderRadius: 4, padding: "10px 12px", userSelect: "none", cursor: "grab", opacity: dragItem?.id === p.id ? 0.4 : 1 }}>
+                  <span style={{ color: "rgba(6,182,212,0.35)", fontSize: 13, flexShrink: 0, lineHeight: 1, padding: "0 2px", pointerEvents: "none" }}>⠿</span>
                   <span style={{ color: "#06b6d4", fontSize: 10, flexShrink: 0, width: 14, opacity: planTasks.length ? 1 : 0.3 }}>
                     {exp ? "▼" : "▶"}
                   </span>
@@ -3203,10 +3203,10 @@ export default function AITracker() {
             const progressPct = totalPlanCount > 0 ? Math.round((donePlanCount / totalPlanCount) * 100) : 0;
             return (
               <div key={g.id}>
-                <div onClick={() => toggleExp(`goal_${g.id}`)} {...rowDropProps("goal", g.id)}
-                  style={{ display: "flex", flexDirection: "column", background: "rgba(20,10,30,0.95)", border: "1px solid rgba(168,85,247,0.35)", borderLeft: "3px solid #a855f7", borderRadius: 4, padding: "10px 12px", userSelect: "none", opacity: dragItem?.id === g.id ? 0.4 : 1 }}>
+                <div onClick={() => toggleExp(`goal_${g.id}`)} {...dragHandlers(g.id, "goal", "list")} {...rowDropProps("goal", g.id)}
+                  style={{ display: "flex", flexDirection: "column", background: "rgba(20,10,30,0.95)", border: "1px solid rgba(168,85,247,0.35)", borderLeft: "3px solid #a855f7", borderRadius: 4, padding: "10px 12px", userSelect: "none", cursor: "grab", opacity: dragItem?.id === g.id ? 0.4 : 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span {...dragHandlers(g.id, "goal", "list")} onClick={e => e.stopPropagation()} style={{ color: "#3a1a5a", fontSize: 13, cursor: "grab", flexShrink: 0, lineHeight: 1, padding: "0 2px" }} title="Перетягнути">⠿</span>
+                    <span style={{ color: "rgba(168,85,247,0.35)", fontSize: 13, flexShrink: 0, lineHeight: 1, padding: "0 2px", pointerEvents: "none" }}>⠿</span>
                     <span style={{ color: "#c084fc", fontSize: 10, flexShrink: 0, width: 14, opacity: goalPlans.length ? 1 : 0.3 }}>
                       {exp ? "▼" : "▶"}
                     </span>
@@ -3446,7 +3446,7 @@ export default function AITracker() {
                 <span style={{ flex: 1, height: 1, background: `linear-gradient(90deg, ${m.line}, transparent)` }} />
                 {dragItem
                   ? <span style={{ fontSize: 10, color: m.color, fontFamily: "'Space Mono',monospace", whiteSpace: "nowrap" }}>скинь → {TYPE_META[type].defXP} XP</span>
-                  : <span style={{ fontSize: 11, color: `${m.color}aa` }}>{m.count}</span>}
+                  : <span style={{ fontSize: 11, fontWeight: 700, color: m.color, background: `${m.color}18`, border: `1px solid ${m.color}55`, borderRadius: 4, padding: "2px 8px", fontFamily: "'Space Mono',monospace", minWidth: 24, textAlign: "center" }}>{m.count}</span>}
               </div>
             );
           };
@@ -3542,7 +3542,7 @@ export default function AITracker() {
                           onDragOver={e => { e.preventDefault(); setDragOver(`ib_${item.id}`); }}
                           onDragLeave={() => setDragOver(o => o === `ib_${item.id}` ? null : o)}
                           onDrop={e => { e.preventDefault(); dropToInboxType(inboxType(item), item.id); }}
-                          style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", cursor: "grab" }}>
+                          style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", cursor: "grab", userSelect: "none" }}>
                           {(() => {
                             const m = TYPE_META[inboxType(item)];
                             const order = ["goal", "plan", "task"];
