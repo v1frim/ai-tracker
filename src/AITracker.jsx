@@ -3400,9 +3400,15 @@ export default function AITracker() {
           };
 
           // Пропси для draggable-рядка
+          // ВАЖЛИВО: setDragItem у setTimeout(0) — інакше миттєвий React перерендер
+          // перемонтовує елемент під час dragstart і браузер скасовує drag.
           const dragHandlers = (id, fromType, source) => ({
             draggable: true,
-            onDragStart: (e) => { setDragItem({ id, fromType, source }); e.dataTransfer.effectAllowed = "move"; try { e.dataTransfer.setData("text/plain", id); } catch (_) {} },
+            onDragStart: (e) => {
+              e.dataTransfer.effectAllowed = "move";
+              try { e.dataTransfer.setData("text/plain", id); } catch (_) {}
+              setTimeout(() => setDragItem({ id, fromType, source }), 0);
+            },
             onDragEnd: () => { setDragItem(null); setDragOver(null); },
           });
 
