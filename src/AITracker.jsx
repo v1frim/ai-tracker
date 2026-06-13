@@ -3427,8 +3427,7 @@ export default function AITracker() {
             return (
               <div onDragOver={e => { e.preventDefault(); setDragOver(key); }}
                 onDrop={e => { e.preventDefault(); dropToType(type, beforeId); }}
-                style={{ height: hot ? 26 : 9, margin: "-2px 0", borderRadius: 5, transition: "height 0.1s, background 0.1s", background: hot ? `${color}26` : "transparent", border: hot ? `2px dashed ${color}` : "2px dashed transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {hot && <span style={{ fontSize: 9, color, fontFamily: "'Space Mono',monospace", letterSpacing: 1, whiteSpace: "nowrap" }}>↳ сюди</span>}
+                style={{ height: hot ? 4 : 5, margin: "1px 0", borderRadius: 2, transition: "background 0.08s", background: hot ? color : "transparent", boxShadow: hot ? `0 0 6px ${color}88` : "none" }}>
               </div>
             );
           };
