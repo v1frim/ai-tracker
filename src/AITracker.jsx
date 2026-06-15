@@ -912,6 +912,7 @@ export default function AITracker() {
   const [gpInlineText, setGpInlineText] = useState("");
   const [gpInlineXP, setGpInlineXP] = useState(75);
   const [gpStreamFilter, setGpStreamFilter] = useState(null);
+  const [gpXpEdit, setGpXpEdit] = useState(null); // { type:"goal"|"plan"|"task", id, val } — інлайн-редагування XP
   const [inbox, setInbox] = useState(saved?.inbox ?? []);
   const [gpInboxOpen, setGpInboxOpen] = useState(true);
   const [gpInboxText, setGpInboxText] = useState("");
@@ -3014,7 +3015,7 @@ export default function AITracker() {
           const activePlans = sf ? allActivePlans.filter(p => p.stream === sf || allActiveGoals.some(g => g.id === p.goalId && g.stream === sf)) : allActivePlans;
           const activeTasks = sf ? allActiveTasks.filter(t => t.stream === sf || allActivePlans.some(p => p.id === t.planId && p.stream === sf)) : allActiveTasks;
           const standalonePlans = activePlans.filter(p => !p.goalId);
-          const standaloneTasks = activeTasks.filter(t => !t.planId);
+          const standaloneTasks = activeTasks.filter(t => !t.planId && !t.goalId);
 
           const softDelete = (type, id) => {
             const deletedAt = new Date().toISOString();
@@ -3093,6 +3094,9 @@ export default function AITracker() {
               setPlan(prev => [...prev, { id: `p${Date.now()}`, text: gpInlineText.trim(), type: "other", urgency: "now", xp: gpInlineXP, done: false, goalId: parentId, createdAt: new Date().toISOString(), ...streamProp }]);
             } else if (type === "task") {
               setGoals(prev => [...prev, { id: `g${Date.now()}`, text: gpInlineText.trim(), priority: "important", xp: gpInlineXP, done: false, planId: parentId, createdAt: new Date().toISOString(), ...streamProp }]);
+            } else if (type === "goalTask") {
+              // Задача напряму в цілі (без плану) — лінкується через goalId
+              setGoals(prev => [...prev, { id: `g${Date.now()}`, text: gpInlineText.trim(), priority: "important", xp: gpInlineXP, done: false, goalId: parentId, createdAt: new Date().toISOString(), ...streamProp }]);
             }
             setGpInlineText("");
             setGpInlineAdd(null);
@@ -3122,6 +3126,55 @@ export default function AITracker() {
             setter(prev => prev.map(x => x.id === item.id ? { ...x, stream: next } : x));
           };
 
+          const XP_THEME = {
+            goal: { color: "#c084fc", bg: "rgba(168,85,247,0.20)", border: "rgba(168,85,247,0.65)", fs: 11, def: 500, field: "customXP", setter: setLongGoals, cat: "goal" },
+            plan: { color: "#22d3ee", bg: "rgba(6,182,212,0.18)", border: "rgba(6,182,212,0.60)", fs: 10, def: 150, field: "xp", setter: setPlan, cat: "plan" },
+            task: { color: "#00ff88", bg: "rgba(0,255,136,0.18)", border: "rgba(0,255,136,0.60)", fs: 10, def: 50, field: "xp", setter: setGoals, cat: "goal" },
+          };
+
+          const commitXpEdit = (type, item, rawVal) => {
+            const m = XP_THEME[type];
+            const newXP = Math.max(0, parseInt(rawVal) || 0);
+            const oldXP = item[m.field] ?? m.def;
+            // якщо елемент уже виконано — коригуємо загальний XP на різницю, щоб облік не «поплив»
+            if (newXP !== oldXP && item.done && item.xpAwarded) {
+              const d = newXP - oldXP;
+              if (d > 0) gainXP(d, "(XP змінено)", m.cat);
+              else loseXP(-d, m.cat, "(XP змінено)");
+            }
+            m.setter(prev => prev.map(x => x.id === item.id ? { ...x, [m.field]: newXP } : x));
+            setGpXpEdit(null);
+          };
+
+          // Клікабельна XP-плашка з інлайн-редагуванням. Це ФУНКЦІЯ, що повертає JSX (не
+          // окремий компонент) — щоб <input> не перемонтовувався і не губив фокус при наборі.
+          const xpBadge = (item, type) => {
+            const m = XP_THEME[type];
+            const editing = gpXpEdit?.type === type && gpXpEdit?.id === item.id;
+            const cur = item[m.field] ?? m.def;
+            if (editing) {
+              return (
+                <span draggable={false} onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}
+                  onDragStart={e => { e.stopPropagation(); e.preventDefault(); }}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 2, background: m.bg, border: `1px solid ${m.color}`, borderRadius: 4, padding: "1px 5px", flexShrink: 0, boxShadow: `0 0 6px ${m.bg}` }}>
+                  <span style={{ fontSize: m.fs, fontWeight: 700, color: m.color }}>+</span>
+                  <input autoFocus draggable={false} type="number" min="0" value={gpXpEdit.val}
+                    onChange={e => setGpXpEdit(s => ({ ...s, val: e.target.value }))}
+                    onMouseDown={e => e.stopPropagation()}
+                    onKeyDown={e => { e.stopPropagation(); if (e.key === "Enter") commitXpEdit(type, item, gpXpEdit.val); if (e.key === "Escape") setGpXpEdit(null); }}
+                    onBlur={() => commitXpEdit(type, item, gpXpEdit.val)}
+                    style={{ width: 46, background: "transparent", border: "none", color: m.color, fontSize: m.fs, fontWeight: 700, textAlign: "center", outline: "none", fontFamily: "'Space Mono',monospace" }} />
+                  <span style={{ fontSize: m.fs, fontWeight: 700, color: m.color }}>XP</span>
+                </span>
+              );
+            }
+            return (
+              <span onClick={e => { e.stopPropagation(); setGpXpEdit({ type, id: item.id, val: String(cur) }); }}
+                title="Клік — змінити XP"
+                style={{ fontSize: m.fs, fontWeight: 700, color: m.color, background: m.bg, border: `1px solid ${m.border}`, padding: "2px 7px", borderRadius: 4, flexShrink: 0, whiteSpace: "nowrap", cursor: "pointer", boxShadow: `0 0 6px ${m.bg}` }}>+{cur} XP</span>
+            );
+          };
+
           const renderTaskRow = (t) => (
             <div key={t.id} {...dragHandlers(t.id, "task", "list")} {...rowDropProps("task", t.id)}
               style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(5,14,10,0.95)", border: "1px solid rgba(0,255,136,0.35)", borderLeft: "3px solid #00ff88", borderRadius: 4, padding: "9px 12px", userSelect: "none", cursor: "grab", opacity: dragItem?.id === t.id ? 0.4 : (t.done ? 0.7 : 1) }}>
@@ -3133,7 +3186,7 @@ export default function AITracker() {
                 <button onClick={e => { e.stopPropagation(); cycleStream(t, setGoals); }}
                   style={{ background: "none", border: "1px dashed rgba(255,255,255,0.08)", borderRadius: 8, color: "#3a4030", fontSize: 9, padding: "1px 6px", cursor: "pointer", flexShrink: 0 }}>＋напрям</button>
               )}
-              <span style={{ fontSize: 10, fontWeight: 700, color: "#00ff88", background: "rgba(0,255,136,0.18)", border: "1px solid rgba(0,255,136,0.60)", padding: "2px 7px", borderRadius: 4, flexShrink: 0, whiteSpace: "nowrap", boxShadow: "0 0 6px rgba(0,255,136,0.18)" }}>+{t.xp ?? 50} XP</span>
+              {xpBadge(t, "task")}
               <button onClick={() => setGoals(prev => prev.map(x => x.id === t.id ? { ...x, pinned: !x.pinned } : x))}
                 style={{ background: "none", border: "none", color: "#c9a84c", opacity: t.pinned ? 1 : 0.18, filter: t.pinned ? "drop-shadow(0 0 4px rgba(201,168,76,0.7))" : "none", cursor: "pointer", fontSize: 11, padding: "0 2px", transition: "opacity 0.2s, filter 0.2s" }} title={t.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
               <button onClick={() => softDelete("task", t.id)}
@@ -3161,7 +3214,7 @@ export default function AITracker() {
                     <button onClick={e => { e.stopPropagation(); cycleStream(p, setPlan); }}
                       style={{ background: "none", border: "1px dashed rgba(255,255,255,0.08)", borderRadius: 8, color: "#3a4050", fontSize: 9, padding: "1px 6px", cursor: "pointer", flexShrink: 0 }}>＋напрям</button>
                   )}
-                  <span style={{ fontSize: 10, fontWeight: 700, color: "#22d3ee", background: "rgba(6,182,212,0.18)", border: "1px solid rgba(6,182,212,0.60)", padding: "2px 7px", borderRadius: 4, flexShrink: 0, whiteSpace: "nowrap", boxShadow: "0 0 6px rgba(6,182,212,0.18)" }}>+{p.xp ?? 150} XP</span>
+                  {xpBadge(p, "plan")}
                   <button onClick={e => { e.stopPropagation(); setPlan(prev => prev.map(x => x.id === p.id ? { ...x, pinned: !x.pinned } : x)); }}
                     style={{ background: "none", border: "none", color: "#c9a84c", opacity: p.pinned ? 1 : 0.18, filter: p.pinned ? "drop-shadow(0 0 4px rgba(201,168,76,0.7))" : "none", cursor: "pointer", fontSize: 11, padding: "0 2px", transition: "opacity 0.2s, filter 0.2s" }} title={p.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
                   <button onClick={e => { e.stopPropagation(); softDelete("plan", p.id); }}
@@ -3197,17 +3250,19 @@ export default function AITracker() {
           const renderGoalRow = (g) => {
             const exp = isExp(`goal_${g.id}`);
             const goalPlans = plan.filter(p => p.goalId === g.id && !p.deletedAt);
-            const donePlanCount = goalPlans.filter(p => p.done).length;
-            const totalPlanCount = goalPlans.length;
-            const isInlining = gpInlineAdd?.parentId === g.id && gpInlineAdd?.type === "plan";
-            const progressPct = totalPlanCount > 0 ? Math.round((donePlanCount / totalPlanCount) * 100) : 0;
+            const goalTasks = goals.filter(t => t.goalId === g.id && !t.deletedAt);
+            const doneChildCount = goalPlans.filter(p => p.done).length + goalTasks.filter(t => t.done).length;
+            const totalChildCount = goalPlans.length + goalTasks.length;
+            const isInliningPlan = gpInlineAdd?.parentId === g.id && gpInlineAdd?.type === "plan";
+            const isInliningGoalTask = gpInlineAdd?.parentId === g.id && gpInlineAdd?.type === "goalTask";
+            const progressPct = totalChildCount > 0 ? Math.round((doneChildCount / totalChildCount) * 100) : 0;
             return (
               <div key={g.id}>
                 <div onClick={() => toggleExp(`goal_${g.id}`)} {...dragHandlers(g.id, "goal", "list")} {...rowDropProps("goal", g.id)}
                   style={{ display: "flex", flexDirection: "column", background: "rgba(20,10,30,0.95)", border: "1px solid rgba(168,85,247,0.35)", borderLeft: "3px solid #a855f7", borderRadius: 4, padding: "10px 12px", userSelect: "none", cursor: "grab", opacity: dragItem?.id === g.id ? 0.4 : (g.done ? 0.7 : 1) }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ color: "rgba(168,85,247,0.35)", fontSize: 13, flexShrink: 0, lineHeight: 1, padding: "0 2px", pointerEvents: "none" }}>⠿</span>
-                    <span style={{ color: "#c084fc", fontSize: 10, flexShrink: 0, width: 14, opacity: goalPlans.length ? 1 : 0.3 }}>
+                    <span style={{ color: "#c084fc", fontSize: 10, flexShrink: 0, width: 14, opacity: (goalPlans.length || goalTasks.length) ? 1 : 0.3 }}>
                       {exp ? "▼" : "▶"}
                     </span>
                     <button onClick={e => { e.stopPropagation(); doCompleteGoal(g); }}
@@ -3217,14 +3272,14 @@ export default function AITracker() {
                       <button onClick={e => { e.stopPropagation(); cycleStream(g, setLongGoals); }}
                         style={{ background: "none", border: "1px dashed rgba(255,255,255,0.08)", borderRadius: 8, color: "#3a3040", fontSize: 9, padding: "1px 6px", cursor: "pointer", flexShrink: 0 }}>＋напрям</button>
                     )}
-                    {totalPlanCount > 0 && <span style={{ fontSize: 10, color: "#7a6a90", flexShrink: 0 }}>{donePlanCount}/{totalPlanCount}</span>}
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "#c084fc", background: "rgba(168,85,247,0.20)", border: "1px solid rgba(168,85,247,0.65)", padding: "2px 7px", borderRadius: 4, flexShrink: 0, whiteSpace: "nowrap", boxShadow: "0 0 6px rgba(168,85,247,0.20)" }}>+{g.customXP ?? 500} XP</span>
+                    {totalChildCount > 0 && <span style={{ fontSize: 10, color: "#7a6a90", flexShrink: 0 }}>{doneChildCount}/{totalChildCount}</span>}
+                    {xpBadge(g, "goal")}
                     <button onClick={e => { e.stopPropagation(); setLongGoals(prev => prev.map(x => x.id === g.id ? { ...x, pinned: !x.pinned } : x)); }}
                       style={{ background: "none", border: "none", color: "#c9a84c", opacity: g.pinned ? 1 : 0.18, filter: g.pinned ? "drop-shadow(0 0 4px rgba(201,168,76,0.7))" : "none", cursor: "pointer", fontSize: 12, padding: "0 2px", transition: "opacity 0.2s, filter 0.2s" }} title={g.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
                     <button onClick={e => { e.stopPropagation(); softDelete("goal", g.id); }}
                       style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 16, padding: "0 2px", lineHeight: 1 }}>×</button>
                   </div>
-                  {totalPlanCount > 0 && (
+                  {totalChildCount > 0 && (
                     <div style={{ marginTop: 7, marginLeft: 22, display: "flex", alignItems: "center", gap: 8 }}>
                       <div style={{ flex: 1, height: 3, background: "rgba(168,85,247,0.15)", borderRadius: 2, overflow: "hidden" }}>
                         <div style={{ width: `${progressPct}%`, height: "100%", background: progressPct === 100 ? "#a855f7" : "linear-gradient(90deg, #a855f7, #c084fc)", borderRadius: 2, transition: "width 0.3s" }} />
@@ -3236,7 +3291,8 @@ export default function AITracker() {
                 {exp && (
                   <div style={{ marginLeft: 22, marginTop: 3, display: "flex", flexDirection: "column", gap: 3 }}>
                     {goalPlans.map(p => renderPlanRow(p))}
-                    {!g.done && (isInlining ? (
+                    {goalTasks.map(t => renderTaskRow(t))}
+                    {!g.done && (isInliningPlan ? (
                       <div style={{ display: "flex", gap: 6, padding: "7px 10px", background: "rgba(4,18,24,0.9)", border: "1px dashed rgba(6,182,212,0.5)", borderRadius: 4, alignItems: "center" }}>
                         <input autoFocus value={gpInlineText} onChange={e => setGpInlineText(e.target.value)}
                           onKeyDown={e => { if (e.key === "Enter") doAddInlineItem(); if (e.key === "Escape") { setGpInlineAdd(null); setGpInlineText(""); } }}
@@ -3248,11 +3304,29 @@ export default function AITracker() {
                         <button onClick={doAddInlineItem} style={{ background: "rgba(6,182,212,0.2)", border: "1px solid rgba(6,182,212,0.5)", color: "#22d3ee", borderRadius: 3, padding: "2px 9px", fontSize: 11, cursor: "pointer" }}>+</button>
                         <button onClick={() => { setGpInlineAdd(null); setGpInlineText(""); }} style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 14, lineHeight: 1 }}>×</button>
                       </div>
+                    ) : isInliningGoalTask ? (
+                      <div style={{ display: "flex", gap: 6, padding: "7px 10px", background: "rgba(5,14,10,0.9)", border: "1px dashed rgba(0,255,136,0.5)", borderRadius: 4, alignItems: "center" }}>
+                        <input autoFocus value={gpInlineText} onChange={e => setGpInlineText(e.target.value)}
+                          onKeyDown={e => { if (e.key === "Enter") doAddInlineItem(); if (e.key === "Escape") { setGpInlineAdd(null); setGpInlineText(""); } }}
+                          placeholder="Назва задачі..."
+                          style={{ flex: 1, background: "transparent", border: "none", color: "#d8f8e8", fontSize: 12, fontFamily: "'Space Mono',monospace", outline: "none" }} />
+                        <span style={{ fontSize: 10, color: "#3a7a5a" }}>XP</span>
+                        <input type="number" value={gpInlineXP} onChange={e => setGpInlineXP(Math.max(0, parseInt(e.target.value) || 0))}
+                          style={{ width: 40, background: "transparent", border: "none", color: "#00ff88", fontSize: 11, textAlign: "center", outline: "none" }} />
+                        <button onClick={doAddInlineItem} style={{ background: "rgba(0,255,136,0.2)", border: "1px solid rgba(0,255,136,0.5)", color: "#00ff88", borderRadius: 3, padding: "2px 9px", fontSize: 11, cursor: "pointer" }}>+</button>
+                        <button onClick={() => { setGpInlineAdd(null); setGpInlineText(""); }} style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 14, lineHeight: 1 }}>×</button>
+                      </div>
                     ) : (
-                      <button onClick={() => { setGpInlineAdd({ parentId: g.id, type: "plan", parentStream: g.stream }); setGpInlineText(""); setGpInlineXP(150); }}
-                        style={{ alignSelf: "flex-start", background: "rgba(6,182,212,0.08)", border: "1px dashed rgba(6,182,212,0.45)", borderRadius: 3, padding: "4px 12px", color: "#22d3ee", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-                        + план дій
-                      </button>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        <button onClick={() => { setGpInlineAdd({ parentId: g.id, type: "plan", parentStream: g.stream }); setGpInlineText(""); setGpInlineXP(150); }}
+                          style={{ alignSelf: "flex-start", background: "rgba(6,182,212,0.08)", border: "1px dashed rgba(6,182,212,0.45)", borderRadius: 3, padding: "4px 12px", color: "#22d3ee", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                          + план дій
+                        </button>
+                        <button onClick={() => { setGpInlineAdd({ parentId: g.id, type: "goalTask", parentStream: g.stream }); setGpInlineText(""); setGpInlineXP(50); }}
+                          style={{ alignSelf: "flex-start", background: "rgba(0,255,136,0.08)", border: "1px dashed rgba(0,255,136,0.45)", borderRadius: 3, padding: "4px 12px", color: "#00ff88", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                          + задача
+                        </button>
+                      </div>
                     ))}
                   </div>
                 )}
@@ -3265,7 +3339,7 @@ export default function AITracker() {
           // всередині плану — лишаються закресленими на місці, всередині свого батька.
           const doneGoals = longGoals.filter(g => g.done && !g.deletedAt);
           const donePlans = plan.filter(p => p.done && !p.deletedAt && !p.goalId);
-          const doneTasks = goals.filter(g => g.done && !g.deletedAt && !g.planId);
+          const doneTasks = goals.filter(g => g.done && !g.deletedAt && !g.planId && !g.goalId);
           const deletedGoals = longGoals.filter(g => g.deletedAt);
           const deletedPlans = plan.filter(p => p.deletedAt);
           const deletedTasks = goals.filter(g => g.deletedAt);
