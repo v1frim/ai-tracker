@@ -2272,9 +2272,12 @@ export default function AITracker() {
                 {(() => {
                   // Лише ЗАКРІПЛЕНІ активні елементи. Підпункти показуються вкладено й
                   // розгортаються тим самим станом (expandGP), що й у вкладці «Цілі & план».
+                  const goalPinned = (gid) => longGoals.some(g => g.id === gid && g.pinned && !g.deletedAt);
+                  const planPinned = (pid) => plan.some(p => p.id === pid && p.pinned && !p.deletedAt);
                   const pinnedGoals = longGoals.filter(g => g.pinned && !g.done && !g.deletedAt);
-                  const pinnedSoloPlans = plan.filter(p => p.pinned && !p.done && !p.deletedAt && !p.goalId);
-                  const pinnedSoloTasks = goals.filter(t => t.pinned && !t.done && !t.deletedAt && !t.planId && !t.goalId);
+                  // Верхній рівень «Фокусу» — закріплені без закріпленого батька (щоб не дублювати під ним)
+                  const pinnedSoloPlans = plan.filter(p => p.pinned && !p.done && !p.deletedAt && !(p.goalId && goalPinned(p.goalId)));
+                  const pinnedSoloTasks = goals.filter(t => t.pinned && !t.done && !t.deletedAt && !(t.planId && planPinned(t.planId)) && !(t.goalId && goalPinned(t.goalId)));
                   const isEmpty = !pinnedGoals.length && !pinnedSoloPlans.length && !pinnedSoloTasks.length;
 
                   const fToggleExp = (key) => setExpandGP(prev => ({ ...prev, [key]: !prev[key] }));
@@ -2304,20 +2307,19 @@ export default function AITracker() {
                     const m = F_THEME[type];
                     const exp = expKey && !!expandGP[expKey];
                     return (
-                      <div key={`${type}_${item.id}`} style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: depth * 18, background: m.bg, border: `1px solid ${m.border}`, borderLeft: `3px solid ${m.color}`, borderRadius: 4, padding: "7px 10px" }}>
-                        {hasChildren
-                          ? <span onClick={() => fToggleExp(expKey)} style={{ cursor: "pointer", color: m.color, fontSize: 9, width: 12, flexShrink: 0, textAlign: "center" }}>{exp ? "▼" : "▶"}</span>
-                          : <span style={{ width: 12, flexShrink: 0 }} />}
-                        <button onClick={() => fToggleDone(type, item)}
-                          style={{ width: 16, height: 16, borderRadius: "50%", border: `2px solid ${m.color}aa`, background: "transparent", cursor: "pointer", flexShrink: 0 }} />
-                        <span style={{ flex: 1, fontSize: 12, color: m.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.text}</span>
-                        <button onClick={() => setPinnedCascade(type, item.id, false)} title="Відкріпити"
+                      <div key={`${type}_${item.id}`} onClick={hasChildren ? () => fToggleExp(expKey) : undefined}
+                        style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: depth * 18, background: m.bg, border: `1px solid ${m.border}`, borderLeft: `3px solid ${m.color}`, borderRadius: 4, padding: "7px 10px", cursor: hasChildren ? "pointer" : "default", userSelect: "none" }}>
+                        <span style={{ color: m.color, fontSize: 9, width: 12, flexShrink: 0, textAlign: "center", opacity: hasChildren ? 1 : 0 }}>{exp ? "▼" : "▶"}</span>
+                        <button onClick={e => { e.stopPropagation(); fToggleDone(type, item); }}
+                          style={{ width: 16, height: 16, borderRadius: "50%", border: `2px solid ${m.color}aa`, background: item.done ? m.color : "transparent", color: "#04140a", fontSize: 10, fontWeight: 800, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>{item.done ? "✓" : ""}</button>
+                        <span style={{ flex: 1, fontSize: 12, color: item.done ? "#6a6a55" : m.text, textDecoration: item.done ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.text}</span>
+                        <button onClick={e => { e.stopPropagation(); setPinnedCascade(type, item.id, false); }} title="Відкріпити"
                           style={{ background: "none", border: "none", color: "#c9a84c", filter: "drop-shadow(0 0 4px rgba(201,168,76,0.7))", cursor: "pointer", fontSize: 12, padding: "0 2px", flexShrink: 0 }}>📌</button>
                       </div>
                     );
                   };
                   const renderPlanTree = (p, depth) => {
-                    const pTasks = goals.filter(t => t.planId === p.id && t.pinned && !t.done && !t.deletedAt);
+                    const pTasks = goals.filter(t => t.planId === p.id && t.pinned && !t.deletedAt);
                     const k = `plan_${p.id}`;
                     const has = pTasks.length > 0;
                     const rows = [focusRow(p, "plan", depth, k, has)];
@@ -2325,8 +2327,8 @@ export default function AITracker() {
                     return rows;
                   };
                   const renderGoalTree = (g) => {
-                    const gPlans = plan.filter(p => p.goalId === g.id && p.pinned && !p.done && !p.deletedAt);
-                    const gTasks = goals.filter(t => t.goalId === g.id && t.pinned && !t.done && !t.deletedAt);
+                    const gPlans = plan.filter(p => p.goalId === g.id && p.pinned && !p.deletedAt);
+                    const gTasks = goals.filter(t => t.goalId === g.id && t.pinned && !t.deletedAt);
                     const k = `goal_${g.id}`;
                     const has = gPlans.length + gTasks.length > 0;
                     const rows = [focusRow(g, "goal", 0, k, has)];
@@ -3068,13 +3070,18 @@ export default function AITracker() {
             if (!gpInlineText.trim() || !gpInlineAdd) return;
             const { parentId, type, parentStream } = gpInlineAdd;
             const streamProp = parentStream ? { stream: parentStream } : {};
+            // Якщо батько закріплений — нова дитина теж (щоб одразу з'явилась у «Фокусі»)
+            const parentPinned = type === "task"
+              ? plan.some(p => p.id === parentId && p.pinned)
+              : longGoals.some(g => g.id === parentId && g.pinned);
+            const pinnedProp = parentPinned ? { pinned: true } : {};
             if (type === "plan") {
-              setPlan(prev => [...prev, { id: `p${Date.now()}`, text: gpInlineText.trim(), type: "other", urgency: "now", xp: gpInlineXP, done: false, goalId: parentId, createdAt: new Date().toISOString(), ...streamProp }]);
+              setPlan(prev => [...prev, { id: `p${Date.now()}`, text: gpInlineText.trim(), type: "other", urgency: "now", xp: gpInlineXP, done: false, goalId: parentId, createdAt: new Date().toISOString(), ...streamProp, ...pinnedProp }]);
             } else if (type === "task") {
-              setGoals(prev => [...prev, { id: `g${Date.now()}`, text: gpInlineText.trim(), priority: "important", xp: gpInlineXP, done: false, planId: parentId, createdAt: new Date().toISOString(), ...streamProp }]);
+              setGoals(prev => [...prev, { id: `g${Date.now()}`, text: gpInlineText.trim(), priority: "important", xp: gpInlineXP, done: false, planId: parentId, createdAt: new Date().toISOString(), ...streamProp, ...pinnedProp }]);
             } else if (type === "goalTask") {
               // Задача напряму в цілі (без плану) — лінкується через goalId
-              setGoals(prev => [...prev, { id: `g${Date.now()}`, text: gpInlineText.trim(), priority: "important", xp: gpInlineXP, done: false, goalId: parentId, createdAt: new Date().toISOString(), ...streamProp }]);
+              setGoals(prev => [...prev, { id: `g${Date.now()}`, text: gpInlineText.trim(), priority: "important", xp: gpInlineXP, done: false, goalId: parentId, createdAt: new Date().toISOString(), ...streamProp, ...pinnedProp }]);
             }
             setGpInlineText("");
             setGpInlineAdd(null);
