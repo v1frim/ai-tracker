@@ -3036,9 +3036,18 @@ export default function AITracker() {
             .slice().sort((a, b) => (projOrder[a.status ?? "active"] ?? 0) - (projOrder[b.status ?? "active"] ?? 0));
           const activePlans = plan.filter(p => !p.done && !p.deletedAt);
           const activeTasks = goals.filter(g => !g.done && !g.deletedAt);
-          const standaloneProjects = activeProjects.filter(pr => !pr.goalId);
-          const standalonePlans = activePlans.filter(p => !p.goalId && !p.projectId);
-          const standaloneTasks = activeTasks.filter(t => !t.planId && !t.projectId && !t.goalId);
+          // Множини наявних id — щоб відрізнити «справді самостійний» від «осиротілого»
+          // (батько зник, напр. після зміни типу): висяче посилання теж робить елемент
+          // самостійним, інакше він би просто зник з усіх списків.
+          const goalIdSet = new Set(longGoals.map(x => x.id));
+          const projectIdSet = new Set(projects.map(x => x.id));
+          const planIdSet = new Set(plan.map(x => x.id));
+          const hasGoalParent = (x) => !!x.goalId && goalIdSet.has(x.goalId);
+          const hasProjectParent = (x) => !!x.projectId && projectIdSet.has(x.projectId);
+          const hasPlanParent = (x) => !!x.planId && planIdSet.has(x.planId);
+          const standaloneProjects = activeProjects.filter(pr => !hasGoalParent(pr));
+          const standalonePlans = activePlans.filter(p => !hasGoalParent(p) && !hasProjectParent(p));
+          const standaloneTasks = activeTasks.filter(t => !hasPlanParent(t) && !hasProjectParent(t) && !hasGoalParent(t));
 
           const setterOf = (type) => type === "goal" ? setLongGoals : type === "project" ? setProjects : type === "plan" ? setPlan : setGoals;
 
@@ -3218,11 +3227,12 @@ export default function AITracker() {
 
           const renderPlanRow = (p) => {
             const exp = isExp(`plan_${p.id}`);
+            const nestHot = dragOver === `nest_plan_${p.id}`;
             const planTasks = goals.filter(t => t.planId === p.id && !t.deletedAt);
             return (
               <div key={p.id}>
                 <div onClick={() => toggleExp(`plan_${p.id}`)} {...dragHandlers(p.id, "plan", "list")} {...rowDropProps("plan", p.id)}
-                  style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(4,18,24,0.95)", border: "1px solid rgba(6,182,212,0.35)", borderLeft: "3px solid #06b6d4", borderRadius: 4, padding: "10px 12px", userSelect: "none", cursor: "grab", opacity: dragItem?.id === p.id ? 0.4 : (p.done ? 0.7 : 1) }}>
+                  style={{ display: "flex", alignItems: "center", gap: 8, background: nestHot ? "rgba(6,182,212,0.2)" : "rgba(4,18,24,0.95)", border: "1px solid rgba(6,182,212,0.35)", borderLeft: "3px solid #06b6d4", borderRadius: 4, padding: "10px 12px", userSelect: "none", cursor: "grab", outline: nestHot ? "2px dashed #22d3ee" : "none", outlineOffset: "2px", opacity: dragItem?.id === p.id ? 0.4 : (p.done ? 0.7 : 1) }}>
                   <span style={{ color: "rgba(6,182,212,0.35)", fontSize: 13, flexShrink: 0, lineHeight: 1, padding: "0 2px", pointerEvents: "none" }}>⠿</span>
                   <span style={{ color: "#06b6d4", fontSize: 10, flexShrink: 0, width: 14, opacity: planTasks.length ? 1 : 0.3 }}>
                     {exp ? "▼" : "▶"}
@@ -3249,6 +3259,7 @@ export default function AITracker() {
 
           const renderProjectRow = (pr) => {
             const exp = isExp(`project_${pr.id}`);
+            const nestHot = dragOver === `nest_project_${pr.id}`;
             const projPlans = plan.filter(p => p.projectId === pr.id && !p.deletedAt);
             const projTasks = goals.filter(t => t.projectId === pr.id && !t.deletedAt);
             const totalChildCount = projPlans.length + projTasks.length;
@@ -3259,7 +3270,7 @@ export default function AITracker() {
             return (
               <div key={pr.id}>
                 <div onClick={() => toggleExp(`project_${pr.id}`)} {...dragHandlers(pr.id, "project", "list")} {...rowDropProps("project", pr.id)}
-                  style={{ display: "flex", flexDirection: "column", background: "rgba(20,14,2,0.95)", border: "1px solid rgba(245,158,11,0.35)", borderLeft: "3px solid #f59e0b", borderRadius: 4, padding: "10px 12px", userSelect: "none", cursor: "grab", opacity: dragItem?.id === pr.id ? 0.4 : (pr.done ? 0.7 : paused ? 0.78 : 1) }}>
+                  style={{ display: "flex", flexDirection: "column", background: nestHot ? "rgba(245,158,11,0.2)" : "rgba(20,14,2,0.95)", border: "1px solid rgba(245,158,11,0.35)", borderLeft: "3px solid #f59e0b", borderRadius: 4, padding: "10px 12px", userSelect: "none", cursor: "grab", outline: nestHot ? "2px dashed #fbbf24" : "none", outlineOffset: "2px", opacity: dragItem?.id === pr.id ? 0.4 : (pr.done ? 0.7 : paused ? 0.78 : 1) }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ color: "rgba(245,158,11,0.35)", fontSize: 13, flexShrink: 0, lineHeight: 1, padding: "0 2px", pointerEvents: "none" }}>⠿</span>
                     <span style={{ color: "#f59e0b", fontSize: 10, flexShrink: 0, width: 14, opacity: totalChildCount ? 1 : 0.3 }}>{exp ? "▼" : "▶"}</span>
@@ -3311,6 +3322,7 @@ export default function AITracker() {
 
           const renderGoalRow = (g) => {
             const exp = isExp(`goal_${g.id}`);
+            const nestHot = dragOver === `nest_goal_${g.id}`;
             const goalProjects = projects.filter(pr => pr.goalId === g.id && !pr.deletedAt)
               .slice().sort((a, b) => (projOrder[a.status ?? "active"] ?? 0) - (projOrder[b.status ?? "active"] ?? 0));
             const goalPlans = plan.filter(p => p.goalId === g.id && !p.deletedAt);
@@ -3322,7 +3334,7 @@ export default function AITracker() {
             return (
               <div key={g.id}>
                 <div onClick={() => toggleExp(`goal_${g.id}`)} {...dragHandlers(g.id, "goal", "list")} {...rowDropProps("goal", g.id)}
-                  style={{ display: "flex", flexDirection: "column", background: "rgba(20,10,30,0.95)", border: "1px solid rgba(168,85,247,0.35)", borderLeft: "3px solid #a855f7", borderRadius: 4, padding: "10px 12px", userSelect: "none", cursor: "grab", opacity: dragItem?.id === g.id ? 0.4 : (g.done ? 0.7 : 1) }}>
+                  style={{ display: "flex", flexDirection: "column", background: nestHot ? "rgba(168,85,247,0.22)" : "rgba(20,10,30,0.95)", border: "1px solid rgba(168,85,247,0.35)", borderLeft: "3px solid #a855f7", borderRadius: 4, padding: "10px 12px", userSelect: "none", cursor: "grab", outline: nestHot ? "2px dashed #c084fc" : "none", outlineOffset: "2px", opacity: dragItem?.id === g.id ? 0.4 : (g.done ? 0.7 : 1) }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ color: "rgba(168,85,247,0.35)", fontSize: 13, flexShrink: 0, lineHeight: 1, padding: "0 2px", pointerEvents: "none" }}>⠿</span>
                     <span style={{ color: "#c084fc", fontSize: 10, flexShrink: 0, width: 14, opacity: totalChildCount ? 1 : 0.3 }}>
@@ -3363,9 +3375,9 @@ export default function AITracker() {
           // під-планами/під-задачами). Виконані дочірні — план усередині цілі, задача
           // всередині плану — лишаються закресленими на місці, всередині свого батька.
           const doneGoals = longGoals.filter(g => g.done && !g.deletedAt);
-          const doneProjects = projects.filter(pr => pr.done && !pr.deletedAt && !pr.goalId);
-          const donePlans = plan.filter(p => p.done && !p.deletedAt && !p.goalId && !p.projectId);
-          const doneTasks = goals.filter(g => g.done && !g.deletedAt && !g.planId && !g.projectId && !g.goalId);
+          const doneProjects = projects.filter(pr => pr.done && !pr.deletedAt && !hasGoalParent(pr));
+          const donePlans = plan.filter(p => p.done && !p.deletedAt && !hasGoalParent(p) && !hasProjectParent(p));
+          const doneTasks = goals.filter(g => g.done && !g.deletedAt && !hasPlanParent(g) && !hasProjectParent(g) && !hasGoalParent(g));
           const deletedGoals = longGoals.filter(g => g.deletedAt);
           const deletedProjects = projects.filter(pr => pr.deletedAt);
           const deletedPlans = plan.filter(p => p.deletedAt);
@@ -3430,6 +3442,56 @@ export default function AITracker() {
             return { ...base, priority: src.priority ?? "important", xp };
           };
 
+          // Поле зв'язку «дитина → батько» для кожного типу-батька + що який тип може містити.
+          const LINK_FIELD = { goal: "goalId", project: "projectId", plan: "planId", task: null };
+          const CAN_CONTAIN = {
+            goal:    { project: true, plan: true, task: true },
+            project: { plan: true, task: true },
+            plan:    { task: true },
+            task:    {},
+          };
+          // При зміні типу елемента (oldId → newId) переносимо його дітей на нового батька,
+          // щоб під-плани/під-задачі лишились прив'язаними. Якщо новий тип не може містити
+          // такий тип дитини (напр. проект-у-проекті) — дитина стає самостійною.
+          const reparentChildren = (fromType, oldId, toType, newId) => {
+            const fromField = LINK_FIELD[fromType];
+            if (!fromField) return; // задачі не мають дітей
+            const toField = LINK_FIELD[toType];
+            const remap = (childType, setter) => setter(prev => {
+              if (!prev.some(x => x[fromField] === oldId)) return prev;
+              return prev.map(x => {
+                if (x[fromField] !== oldId) return x;
+                const next = { ...x, goalId: null, projectId: null, planId: null };
+                if (toField && CAN_CONTAIN[toType][childType]) next[toField] = newId;
+                return next;
+              });
+            });
+            remap("project", setProjects);
+            remap("plan", setPlan);
+            remap("task", setGoals);
+          };
+
+          // Чи можна вкласти елемент, що тягнеться, у батька parentType як валідну дитину
+          // (без зміни типу). Завдяки строгій ієрархії ціль>проект>план>задача цикл неможливий.
+          const canNestInto = (parentType, parentId) =>
+            !!dragItem && dragItem.source === "list" && dragItem.id !== parentId &&
+            !!CAN_CONTAIN[parentType]?.[dragItem.fromType];
+
+          // Вкласти елемент, що тягнеться, у батька (перепривʼязати, тип лишається)
+          const nestUnder = (parentType, parentId) => {
+            const di = dragItem;
+            setDragOver(null); setDragItem(null);
+            if (!di || di.source !== "list" || di.id === parentId) return;
+            const childType = di.fromType;
+            if (!CAN_CONTAIN[parentType]?.[childType]) return;
+            const parentField = LINK_FIELD[parentType];
+            TYPE_META[childType].setter(prev => prev.map(x =>
+              x.id === di.id ? { ...x, goalId: null, projectId: null, planId: null, [parentField]: parentId } : x
+            ));
+            setExpandGP(prev => ({ ...prev, [`${parentType}_${parentId}`]: true })); // розкрити, щоб одразу видно
+            showNotif("↳ вкладено");
+          };
+
           // Drop у секцію головного списку (toType). beforeId — вставити перед цим елементом (для перевпорядкування)
           const dropToType = (toType, beforeId = null) => {
             const di = dragItem;
@@ -3457,6 +3519,7 @@ export default function AITracker() {
                 const typed = buildTyped(it, toType, true);
                 TYPE_META[di.fromType].setter(prev => prev.filter(x => x.id !== di.id));
                 TYPE_META[toType].setter(prev => insertBefore(prev, typed, beforeId));
+                reparentChildren(di.fromType, di.id, toType, typed.id); // діти лишаються прив'язаними
                 showNotif(`→ ${TYPE_META[toType].label}`);
               }
             }
@@ -3498,8 +3561,8 @@ export default function AITracker() {
 
           // Пропси-цілі для рядка списку: при наведенні підсвічує проміжок НАД рядком (куди вставиться), приймає drop
           const rowDropProps = (type, id) => ({
-            onDragOver: (e) => { e.preventDefault(); setDragOver(`gap_${type}_${id}`); },
-            onDrop: (e) => { e.preventDefault(); dropToType(type, id); },
+            onDragOver: (e) => { e.preventDefault(); setDragOver(canNestInto(type, id) ? `nest_${type}_${id}` : `gap_${type}_${id}`); },
+            onDrop: (e) => { e.preventDefault(); if (canNestInto(type, id)) nestUnder(type, id); else dropToType(type, id); },
           });
 
           // Зона-проміжок між рядками. Контейнер під час перетягування має gap:0, тож
