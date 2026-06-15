@@ -899,7 +899,6 @@ export default function AITracker() {
   const [planXP, setPlanXP] = useState(75);
   const [planEditXP, setPlanEditXP] = useState(75);
   const [goalsSubTab, setGoalsSubTab] = useState("tasks");
-  const [focusFilter, setFocusFilter] = useState("pinned");
   const [expandGP, setExpandGP] = useState(() => {
     try { return JSON.parse(localStorage.getItem("ai_tracker_gp_exp") ?? "{}"); } catch { return {}; }
   });
@@ -1468,6 +1467,21 @@ export default function AITracker() {
     setTodayXP(prev => prev.date === todayStr() ? { ...prev, total: Math.max(0, prev.total - amount) } : prev);
     logXP(-amount, source, label);
   }, [logXP]);
+
+  // Закріплення з каскадом: основа (ціль/план) тягне за собою всі під-плани й під-задачі
+  const setPinnedCascade = (type, id, val) => {
+    if (type === "goal") {
+      const childPlanIds = plan.filter(p => p.goalId === id).map(p => p.id);
+      setLongGoals(prev => prev.map(x => x.id === id ? { ...x, pinned: val } : x));
+      setPlan(prev => prev.map(p => p.goalId === id ? { ...p, pinned: val } : p));
+      setGoals(prev => prev.map(t => (t.goalId === id || childPlanIds.includes(t.planId)) ? { ...t, pinned: val } : t));
+    } else if (type === "plan") {
+      setPlan(prev => prev.map(p => p.id === id ? { ...p, pinned: val } : p));
+      setGoals(prev => prev.map(t => t.planId === id ? { ...t, pinned: val } : t));
+    } else {
+      setGoals(prev => prev.map(t => t.id === id ? { ...t, pinned: val } : t));
+    }
+  };
 
   const recordActiveDay = useCallback(() => {
     const today = todayStr();
@@ -2256,129 +2270,93 @@ export default function AITracker() {
               {/* LEFT: Focus block */}
               <div style={{ flex: "0 0 calc(50% - 8px)", minWidth: 260 }}>
                 {(() => {
-                  const FILTERS = [
-                    { id: "pinned", label: "📌 Закріплені", color: "#c9a84c", bg: "rgba(201,168,76,0.14)" },
-                    { id: "week",   label: "📅 Тиждень",   color: "#06b6d4", bg: "rgba(6,182,212,0.14)" },
-                    { id: "month",  label: "🗓 Місяць",    color: "#a855f7", bg: "rgba(168,85,247,0.14)" },
-                  ];
-                  // What to show per filter
-                  const aliveLongGoals = longGoals.filter(g => !g.done && !g.deletedAt);
-                  const alivePlan = plan.filter(p => !p.done && !p.deletedAt);
-                  const aliveTasks = goals.filter(g => !g.done && !g.deletedAt);
-                  const focusLongGoals = focusFilter === "pinned"
-                    ? aliveLongGoals.filter(g => g.pinned)
-                    : focusFilter === "week"
-                      ? aliveLongGoals.filter(g => g.period === "week_cur")
-                      : aliveLongGoals.filter(g => g.period === "month_cur");
-                  const focusPlanItems = focusFilter === "pinned"
-                    ? alivePlan.filter(p => p.pinned)
-                    : focusFilter === "week"
-                      ? alivePlan.filter(p => p.urgency === "now" || p.urgency === "soon").slice(0, 5)
-                      : alivePlan.slice(0, 5);
-                  const focusTasks = focusFilter === "pinned"
-                    ? aliveTasks.filter(g => g.pinned)
-                    : focusFilter === "week"
-                      ? aliveTasks.filter(g => g.priority === "urgent" || g.priority === "important").slice(0, 5)
-                      : aliveTasks.filter(g => g.priority === "urgent").slice(0, 5);
-                  const isEmpty = !focusLongGoals.length && !focusPlanItems.length && !focusTasks.length;
-                  const completeTask = (id) => setGoals(prev => prev.map(x => {
-                    if (x.id !== id) return x;
-                    if (!x.done && !x.xpAwarded) { gainXP(x.xp ?? 50, "(задачу виконано)", "goal"); return { ...x, done: true, xpAwarded: true, completedAt: new Date().toISOString() }; }
-                    return { ...x, done: !x.done };
-                  }));
+                  // Лише ЗАКРІПЛЕНІ активні елементи. Підпункти показуються вкладено й
+                  // розгортаються тим самим станом (expandGP), що й у вкладці «Цілі & план».
+                  const pinnedGoals = longGoals.filter(g => g.pinned && !g.done && !g.deletedAt);
+                  const pinnedSoloPlans = plan.filter(p => p.pinned && !p.done && !p.deletedAt && !p.goalId);
+                  const pinnedSoloTasks = goals.filter(t => t.pinned && !t.done && !t.deletedAt && !t.planId && !t.goalId);
+                  const isEmpty = !pinnedGoals.length && !pinnedSoloPlans.length && !pinnedSoloTasks.length;
+
+                  const fToggleExp = (key) => setExpandGP(prev => ({ ...prev, [key]: !prev[key] }));
+                  const fToggleDone = (type, item) => {
+                    const setter = type === "goal" ? setLongGoals : type === "plan" ? setPlan : setGoals;
+                    const fld = type === "goal" ? "customXP" : "xp";
+                    const def = type === "goal" ? 500 : type === "plan" ? 150 : 50;
+                    const cat = type === "plan" ? "plan" : "goal";
+                    const lbl = type === "goal" ? "(ціль досягнута)" : type === "plan" ? "(план дій)" : "(задачу виконано)";
+                    setter(prev => prev.map(x => {
+                      if (x.id !== item.id) return x;
+                      if (!x.done) {
+                        if (!x.xpAwarded) { gainXP(x[fld] ?? def, lbl, cat); return { ...x, done: true, xpAwarded: true, completedAt: new Date().toISOString() }; }
+                        return { ...x, done: true, completedAt: new Date().toISOString() };
+                      }
+                      if (x.xpAwarded) loseXP(x[fld] ?? def, cat, "↩ скасовано");
+                      return { ...x, done: false, xpAwarded: false, completedAt: null };
+                    }));
+                  };
+
+                  const F_THEME = {
+                    goal: { color: "#a855f7", text: "#f0e8fa", bg: "rgba(20,10,30,0.85)", border: "rgba(168,85,247,0.30)" },
+                    plan: { color: "#06b6d4", text: "#d0f0fa", bg: "rgba(4,18,24,0.85)", border: "rgba(6,182,212,0.30)" },
+                    task: { color: "#00ff88", text: "#d8f8e8", bg: "rgba(5,14,10,0.85)", border: "rgba(0,255,136,0.30)" },
+                  };
+                  const focusRow = (item, type, depth, expKey, hasChildren) => {
+                    const m = F_THEME[type];
+                    const exp = expKey && !!expandGP[expKey];
+                    return (
+                      <div key={`${type}_${item.id}`} style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: depth * 18, background: m.bg, border: `1px solid ${m.border}`, borderLeft: `3px solid ${m.color}`, borderRadius: 4, padding: "7px 10px" }}>
+                        {hasChildren
+                          ? <span onClick={() => fToggleExp(expKey)} style={{ cursor: "pointer", color: m.color, fontSize: 9, width: 12, flexShrink: 0, textAlign: "center" }}>{exp ? "▼" : "▶"}</span>
+                          : <span style={{ width: 12, flexShrink: 0 }} />}
+                        <button onClick={() => fToggleDone(type, item)}
+                          style={{ width: 16, height: 16, borderRadius: "50%", border: `2px solid ${m.color}aa`, background: "transparent", cursor: "pointer", flexShrink: 0 }} />
+                        <span style={{ flex: 1, fontSize: 12, color: m.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.text}</span>
+                        <button onClick={() => setPinnedCascade(type, item.id, false)} title="Відкріпити"
+                          style={{ background: "none", border: "none", color: "#c9a84c", filter: "drop-shadow(0 0 4px rgba(201,168,76,0.7))", cursor: "pointer", fontSize: 12, padding: "0 2px", flexShrink: 0 }}>📌</button>
+                      </div>
+                    );
+                  };
+                  const renderPlanTree = (p, depth) => {
+                    const pTasks = goals.filter(t => t.planId === p.id && t.pinned && !t.done && !t.deletedAt);
+                    const k = `plan_${p.id}`;
+                    const has = pTasks.length > 0;
+                    const rows = [focusRow(p, "plan", depth, k, has)];
+                    if (has && !!expandGP[k]) pTasks.forEach(t => rows.push(focusRow(t, "task", depth + 1, null, false)));
+                    return rows;
+                  };
+                  const renderGoalTree = (g) => {
+                    const gPlans = plan.filter(p => p.goalId === g.id && p.pinned && !p.done && !p.deletedAt);
+                    const gTasks = goals.filter(t => t.goalId === g.id && t.pinned && !t.done && !t.deletedAt);
+                    const k = `goal_${g.id}`;
+                    const has = gPlans.length + gTasks.length > 0;
+                    const rows = [focusRow(g, "goal", 0, k, has)];
+                    if (has && !!expandGP[k]) {
+                      gPlans.forEach(p => rows.push(...renderPlanTree(p, 1)));
+                      gTasks.forEach(t => rows.push(focusRow(t, "task", 1, null, false)));
+                    }
+                    return rows;
+                  };
                   return (
-                    <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18, display: "flex", flexDirection: "column", gap: 14 }}>
-                      {/* Header + filter */}
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+                    <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18, display: "flex", flexDirection: "column", gap: 12 }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                         <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2 }}>🎯 Фокус</div>
-                        <div style={{ display: "flex", gap: 4 }}>
-                          {FILTERS.map(f => (
-                            <button key={f.id} onClick={() => setFocusFilter(f.id)}
-                              style={{ background: focusFilter === f.id ? f.bg : "rgba(8,5,2,0.5)", border: `1px solid ${focusFilter === f.id ? f.color + "88" : "rgba(201,168,76,0.12)"}`, borderRadius: 3, padding: "3px 8px", color: focusFilter === f.id ? f.color : "#5a5040", fontSize: 10, cursor: "pointer", fontFamily: "'Exo 2',sans-serif", fontWeight: 600, whiteSpace: "nowrap" }}>
-                              {f.label}
-                            </button>
-                          ))}
-                        </div>
+                        <button onClick={() => setActiveTab("goalsplan")} style={{ background: "none", border: "none", color: "#6a5f40", fontSize: 11, cursor: "pointer", fontFamily: "'Space Mono',monospace", padding: 0 }}>
+                          Цілі & план →
+                        </button>
                       </div>
 
                       {isEmpty && (
                         <div style={{ textAlign: "center", padding: "12px 0", fontSize: 12, color: "#5a5040" }}>
-                          {focusFilter === "pinned"
-                            ? <>Натисни 📌 на цілі, план або задачу, щоб вони з'явились тут<br/><span onClick={() => { setActiveTab("goalsplan"); }} style={{ color: "#c9a84c", cursor: "pointer", marginTop: 6, display: "inline-block" }}>Відкрити Цілі & план →</span></>
-                            : "Нічого на цей період"}
+                          Натисни 📌 на цілі, плані або задачі, щоб закріпити їх тут<br/>
+                          <span onClick={() => setActiveTab("goalsplan")} style={{ color: "#c9a84c", cursor: "pointer", marginTop: 6, display: "inline-block" }}>Відкрити Цілі & план →</span>
                         </div>
                       )}
 
-                      {/* Long-term goals */}
-                      {focusLongGoals.length > 0 && (
-                        <div>
-                          <div style={{ fontSize: 10, color: "#c084fc", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 7 }}>🎯 Цілі</div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                            {focusLongGoals.map(g => {
-                              return (
-                                <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(20,10,30,0.85)", border: "1px solid rgba(168,85,247,0.30)", borderLeft: "3px solid #a855f7", borderRadius: 4, padding: "8px 11px" }}>
-                                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#a855f7", flexShrink: 0 }} />
-                                  <span style={{ flex: 1, fontSize: 12, color: "#cbd5e1", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.text}</span>
-                                  <button onClick={() => setLongGoals(prev => prev.map(x => x.id === g.id ? { ...x, pinned: !x.pinned } : x))}
-                                    title="Закріплено на головній"
-                                    style={{ background: "none", border: "none", color: "#c9a84c", opacity: g.pinned ? 1 : 0.18, filter: g.pinned ? "drop-shadow(0 0 4px rgba(201,168,76,0.7))" : "none", cursor: "pointer", fontSize: 13, padding: "0 2px", flexShrink: 0, transition: "opacity 0.2s, filter 0.2s" }}>📌</button>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Plan items */}
-                      {focusPlanItems.length > 0 && (
-                        <div>
-                          <div style={{ fontSize: 10, color: "#22d3ee", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 7 }}>📋 План дій</div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                            {focusPlanItems.map(item => {
-                              const pt = PLAN_TYPES.find(t => t.id === (item.type ?? "other")) ?? PLAN_TYPES[PLAN_TYPES.length - 1];
-                              return (
-                                <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(4,18,24,0.85)", border: "1px solid rgba(6,182,212,0.30)", borderLeft: "3px solid #06b6d4", borderRadius: 4, padding: "8px 11px" }}>
-                                  <button onClick={() => setPlan(prev => prev.map(x => {
-                                    if (x.id !== item.id) return x;
-                                    if (!x.done && !x.xpAwarded) { gainXP(x.xp ?? 150, "(план дій)", "plan"); return { ...x, done: true, xpAwarded: true, completedAt: new Date().toISOString() }; }
-                                    return { ...x, done: !x.done };
-                                  }))}
-                                    style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid rgba(6,182,212,0.7)", background: "transparent", cursor: "pointer", flexShrink: 0, fontSize: 9, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }} />
-                                  <span style={{ flex: 1, fontSize: 12, color: "#cbd5e1", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.text}</span>
-                                  <span style={{ fontSize: 9, color: pt.color, background: pt.bg, border: `1px solid ${pt.color}33`, padding: "2px 6px", borderRadius: 3, flexShrink: 0 }}>{pt.label}</span>
-                                  <button onClick={() => setPlan(prev => prev.map(x => x.id === item.id ? { ...x, pinned: !x.pinned } : x))}
-                                    title="Закріплено на головній"
-                                    style={{ background: "none", border: "none", color: "#c9a84c", opacity: item.pinned ? 1 : 0.18, filter: item.pinned ? "drop-shadow(0 0 4px rgba(201,168,76,0.7))" : "none", cursor: "pointer", fontSize: 13, padding: "0 2px", flexShrink: 0, transition: "opacity 0.2s, filter 0.2s" }}>📌</button>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Tasks */}
-                      {focusTasks.length > 0 && (
-                        <div>
-                          <div style={{ fontSize: 10, color: "#00ff88", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 7 }}>✅ Задачі</div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                            {focusTasks.map(g => {
-                              const pr = TASK_PRIORITIES.find(p => p.id === g.priority) ?? TASK_PRIORITIES[2];
-                              return (
-                                <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(5,14,10,0.85)", border: "1px solid rgba(0,255,136,0.30)", borderLeft: "3px solid #00ff88", borderRadius: 4, padding: "7px 10px" }}>
-                                  <button onClick={() => completeTask(g.id)}
-                                    style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid rgba(0,255,136,0.7)", background: "transparent", cursor: "pointer", flexShrink: 0 }} />
-                                  <span style={{ flex: 1, fontSize: 12, color: "#e0d8c0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.text}</span>
-                                  <span style={{ fontSize: 9, color: pr.color, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, flexShrink: 0 }}>{pr.label}</span>
-                                  <button onClick={() => setGoals(prev => prev.map(x => x.id === g.id ? { ...x, pinned: !x.pinned } : x))}
-                                    title="Закріплено на головній"
-                                    style={{ background: "none", border: "none", color: "#c9a84c", opacity: g.pinned ? 1 : 0.18, filter: g.pinned ? "drop-shadow(0 0 4px rgba(201,168,76,0.7))" : "none", cursor: "pointer", fontSize: 13, padding: "0 2px", flexShrink: 0, transition: "opacity 0.2s, filter 0.2s" }}>📌</button>
-                                </div>
-                              );
-                            })}
-                          </div>
-                          <button onClick={() => setActiveTab("goalsplan")} style={{ marginTop: 8, background: "none", border: "none", color: "#6a5f40", fontSize: 11, cursor: "pointer", fontFamily: "'Space Mono',monospace", padding: 0 }}>
-                            Всі задачі ({goals.filter(g => !g.done).length}) →
-                          </button>
+                      {!isEmpty && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                          {pinnedGoals.map(g => renderGoalTree(g))}
+                          {pinnedSoloPlans.map(p => renderPlanTree(p, 0))}
+                          {pinnedSoloTasks.map(t => focusRow(t, "task", 0, null, false))}
                         </div>
                       )}
                     </div>
@@ -3187,7 +3165,7 @@ export default function AITracker() {
                   style={{ background: "none", border: "1px dashed rgba(255,255,255,0.08)", borderRadius: 8, color: "#3a4030", fontSize: 9, padding: "1px 6px", cursor: "pointer", flexShrink: 0 }}>＋напрям</button>
               )}
               {xpBadge(t, "task")}
-              <button onClick={() => setGoals(prev => prev.map(x => x.id === t.id ? { ...x, pinned: !x.pinned } : x))}
+              <button onClick={() => setPinnedCascade("task", t.id, !t.pinned)}
                 style={{ background: "none", border: "none", color: "#c9a84c", opacity: t.pinned ? 1 : 0.18, filter: t.pinned ? "drop-shadow(0 0 4px rgba(201,168,76,0.7))" : "none", cursor: "pointer", fontSize: 11, padding: "0 2px", transition: "opacity 0.2s, filter 0.2s" }} title={t.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
               <button onClick={() => softDelete("task", t.id)}
                 style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 15, padding: "0 2px", lineHeight: 1 }}>×</button>
@@ -3215,14 +3193,14 @@ export default function AITracker() {
                       style={{ background: "none", border: "1px dashed rgba(255,255,255,0.08)", borderRadius: 8, color: "#3a4050", fontSize: 9, padding: "1px 6px", cursor: "pointer", flexShrink: 0 }}>＋напрям</button>
                   )}
                   {xpBadge(p, "plan")}
-                  <button onClick={e => { e.stopPropagation(); setPlan(prev => prev.map(x => x.id === p.id ? { ...x, pinned: !x.pinned } : x)); }}
+                  <button onClick={e => { e.stopPropagation(); setPinnedCascade("plan", p.id, !p.pinned); }}
                     style={{ background: "none", border: "none", color: "#c9a84c", opacity: p.pinned ? 1 : 0.18, filter: p.pinned ? "drop-shadow(0 0 4px rgba(201,168,76,0.7))" : "none", cursor: "pointer", fontSize: 11, padding: "0 2px", transition: "opacity 0.2s, filter 0.2s" }} title={p.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
                   <button onClick={e => { e.stopPropagation(); softDelete("plan", p.id); }}
                     style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 15, padding: "0 2px", lineHeight: 1 }}>×</button>
                 </div>
                 {exp && (
-                  <div style={{ marginLeft: 22, marginTop: 3, display: "flex", flexDirection: "column", gap: 3 }}>
-                    {planTasks.map(t => renderTaskRow(t))}
+                  <div style={{ marginLeft: 22, marginTop: 3, display: "flex", flexDirection: "column", gap: dragItem ? 0 : 3 }}>
+                    {renderSection(planTasks, "task", renderTaskRow, 3)}
                     {!p.done && (isInlining ? (
                       <div style={{ display: "flex", gap: 6, padding: "7px 10px", background: "rgba(5,14,10,0.9)", border: "1px dashed rgba(0,255,136,0.5)", borderRadius: 4, alignItems: "center" }}>
                         <input autoFocus value={gpInlineText} onChange={e => setGpInlineText(e.target.value)}
@@ -3274,7 +3252,7 @@ export default function AITracker() {
                     )}
                     {totalChildCount > 0 && <span style={{ fontSize: 10, color: "#7a6a90", flexShrink: 0 }}>{doneChildCount}/{totalChildCount}</span>}
                     {xpBadge(g, "goal")}
-                    <button onClick={e => { e.stopPropagation(); setLongGoals(prev => prev.map(x => x.id === g.id ? { ...x, pinned: !x.pinned } : x)); }}
+                    <button onClick={e => { e.stopPropagation(); setPinnedCascade("goal", g.id, !g.pinned); }}
                       style={{ background: "none", border: "none", color: "#c9a84c", opacity: g.pinned ? 1 : 0.18, filter: g.pinned ? "drop-shadow(0 0 4px rgba(201,168,76,0.7))" : "none", cursor: "pointer", fontSize: 12, padding: "0 2px", transition: "opacity 0.2s, filter 0.2s" }} title={g.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
                     <button onClick={e => { e.stopPropagation(); softDelete("goal", g.id); }}
                       style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 16, padding: "0 2px", lineHeight: 1 }}>×</button>
@@ -3289,9 +3267,9 @@ export default function AITracker() {
                   )}
                 </div>
                 {exp && (
-                  <div style={{ marginLeft: 22, marginTop: 3, display: "flex", flexDirection: "column", gap: 3 }}>
-                    {goalPlans.map(p => renderPlanRow(p))}
-                    {goalTasks.map(t => renderTaskRow(t))}
+                  <div style={{ marginLeft: 22, marginTop: 3, display: "flex", flexDirection: "column", gap: dragItem ? 0 : 3 }}>
+                    {renderSection(goalPlans, "plan", renderPlanRow, 3)}
+                    {renderSection(goalTasks, "task", renderTaskRow, 3)}
                     {!g.done && (isInliningPlan ? (
                       <div style={{ display: "flex", gap: 6, padding: "7px 10px", background: "rgba(4,18,24,0.9)", border: "1px dashed rgba(6,182,212,0.5)", borderRadius: 4, alignItems: "center" }}>
                         <input autoFocus value={gpInlineText} onChange={e => setGpInlineText(e.target.value)}
@@ -3474,8 +3452,10 @@ export default function AITracker() {
             onDrop: (e) => { e.preventDefault(); dropToType(type, id); },
           });
 
-          // Зона-проміжок між рядками — підсвічується, показуючи куди впадеться елемент
-          const GapZone = ({ type, beforeId }) => {
+          // Зона-проміжок між рядками. Контейнер під час перетягування має gap:0, тож
+          // рядки стоять як завжди (проміжок = звичайний base). Лише під курсором (hot)
+          // проміжок «розкривається» — показуючи саме те місце, куди впаде елемент.
+          const GapZone = ({ type, beforeId, base = 5 }) => {
             if (!dragItem) return null;
             const key = `gap_${type}_${beforeId ?? "end"}`;
             const hot = dragOver === key;
@@ -3483,7 +3463,7 @@ export default function AITracker() {
             return (
               <div onDragOver={e => { e.preventDefault(); setDragOver(key); }}
                 onDrop={e => { e.preventDefault(); dropToType(type, beforeId); }}
-                style={{ height: hot ? 4 : 5, margin: "1px 0", borderRadius: 2, transition: "background 0.08s", background: hot ? color : "transparent", boxShadow: hot ? `0 0 6px ${color}88` : "none" }}>
+                style={{ height: hot ? base + 10 : base, borderRadius: 2, transition: "background 0.1s", background: hot ? color : "transparent", boxShadow: hot ? `0 0 8px ${color}` : "none" }}>
               </div>
             );
           };
@@ -3513,13 +3493,13 @@ export default function AITracker() {
           };
 
           // Секція з рядками + зони-проміжки між ними
-          const renderSection = (items, type, renderFn) => (
+          const renderSection = (items, type, renderFn, base = 5) => (
             <>
               {items.map(it => [
-                <GapZone key={`gap_${it.id}`} type={type} beforeId={it.id} />,
+                <GapZone key={`gap_${it.id}`} type={type} beforeId={it.id} base={base} />,
                 renderFn(it),
               ])}
-              <GapZone type={type} beforeId={null} />
+              <GapZone type={type} beforeId={null} base={base} />
             </>
           );
 
@@ -3712,7 +3692,7 @@ export default function AITracker() {
 
             {/* Active items — секції завжди присутні під час перетягування (щоб було куди скинути,
                 навіть якщо секція порожня). Перетягування між секціями міняє тип + XP. */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: dragItem ? 0 : 5 }}>
               {!dragItem && activeGoals.length === 0 && standalonePlans.length === 0 && standaloneTasks.length === 0 && (
                 <div style={{ textAlign: "center", padding: "32px 16px", color: "#5a5040", fontSize: 13 }}>
                   Ще нічого немає. Додай першу ціль, план або задачу!
