@@ -810,7 +810,29 @@ export default function AITracker() {
   const [revokeConfirm, setRevokeConfirm] = useState(null); // { id, name, xp }
   const [toolRevokeConfirm, setToolRevokeConfirm] = useState(null); // { skillId, tool }
   const [projectDeleteConfirm, setProjectDeleteConfirm] = useState(null); // index
-  const [projects, setProjects] = useState(saved?.projects ?? DEFAULT_PROJECTS);
+  const [projects, setProjects] = useState(() => {
+    const raw = saved?.projects ?? DEFAULT_PROJECTS;
+    // Міграція проектів у дерево-сумісний вигляд: id, text, goalId, статус active/paused
+    // (виконання — через прапорець done, а не статус). Старі поля лишаємо сумісними.
+    return raw.map((p, i) => {
+      if (p.id && p.text !== undefined && (p.status === "active" || p.status === "paused")) return p;
+      const oldStatus = p.status ?? "done";
+      return {
+        id: p.id ?? `pr${Date.now()}_${i}`,
+        text: p.text ?? p.name ?? "",
+        category: p.category ?? "other",
+        status: oldStatus === "paused" ? "paused" : "active",
+        customXP: p.completionXP ?? p.customXP ?? 200,
+        done: p.done ?? (oldStatus === "done"),
+        xpAwarded: p.completionXPPaid ?? p.xpAwarded ?? (oldStatus === "done"),
+        completedAt: p.completedAt ?? null,
+        goalId: p.goalId ?? null,
+        pinned: p.pinned ?? false,
+        deletedAt: p.deletedAt ?? null,
+        createdAt: p.createdAt ?? new Date().toISOString(),
+      };
+    });
+  });
   const [projectCategory, setProjectCategory] = useState("ai");
   const [tasksDoneOpen, setTasksDoneOpen] = useState(false);
   const [goalsDoneOpen, setGoalsDoneOpen] = useState(false);
@@ -843,7 +865,10 @@ export default function AITracker() {
     }
     return { date: todayStr(), total: 0 };
   });
-  const [activeTab, setActiveTab] = useState(() => sessionStorage.getItem("ai_tracker_tab") ?? "dashboard");
+  const [activeTab, setActiveTab] = useState(() => {
+    const t = sessionStorage.getItem("ai_tracker_tab") ?? "dashboard";
+    return t === "projects" ? "goalsplan" : t; // вкладку «Проєкти» злито в «Цілі & проєкти»
+  });
   const [selectedSkill, setSelectedSkill] = useState(null);
   const [selectedSkillTask, setSelectedSkillTask] = useState(null);
   const [skillTasksData, setSkillTasksData] = useState(saved?.skillTasksData ?? {});
@@ -906,11 +931,10 @@ export default function AITracker() {
   const [gpDelOpen, setGpDelOpen] = useState(false);
   const [gpAddType, setGpAddType] = useState("goal");
   const [gpAddText, setGpAddText] = useState("");
-  const [gpAddXP, setGpAddXP] = useState(500);
+  const [gpAddXP, setGpAddXP] = useState(1000);
   const [gpInlineAdd, setGpInlineAdd] = useState(null);
   const [gpInlineText, setGpInlineText] = useState("");
   const [gpInlineXP, setGpInlineXP] = useState(75);
-  const [gpStreamFilter, setGpStreamFilter] = useState(null);
   const [gpXpEdit, setGpXpEdit] = useState(null); // { type:"goal"|"plan"|"task", id, val } — інлайн-редагування XP
   const [inbox, setInbox] = useState(saved?.inbox ?? []);
   const [gpInboxOpen, setGpInboxOpen] = useState(true);
@@ -1471,10 +1495,17 @@ export default function AITracker() {
   // Закріплення з каскадом: основа (ціль/план) тягне за собою всі під-плани й під-задачі
   const setPinnedCascade = (type, id, val) => {
     if (type === "goal") {
-      const childPlanIds = plan.filter(p => p.goalId === id).map(p => p.id);
+      const projIds = new Set(projects.filter(pr => pr.goalId === id).map(pr => pr.id));
+      const planIds = new Set(plan.filter(p => p.goalId === id || projIds.has(p.projectId)).map(p => p.id));
       setLongGoals(prev => prev.map(x => x.id === id ? { ...x, pinned: val } : x));
-      setPlan(prev => prev.map(p => p.goalId === id ? { ...p, pinned: val } : p));
-      setGoals(prev => prev.map(t => (t.goalId === id || childPlanIds.includes(t.planId)) ? { ...t, pinned: val } : t));
+      setProjects(prev => prev.map(pr => pr.goalId === id ? { ...pr, pinned: val } : pr));
+      setPlan(prev => prev.map(p => (p.goalId === id || projIds.has(p.projectId)) ? { ...p, pinned: val } : p));
+      setGoals(prev => prev.map(t => (t.goalId === id || projIds.has(t.projectId) || planIds.has(t.planId)) ? { ...t, pinned: val } : t));
+    } else if (type === "project") {
+      const planIds = new Set(plan.filter(p => p.projectId === id).map(p => p.id));
+      setProjects(prev => prev.map(pr => pr.id === id ? { ...pr, pinned: val } : pr));
+      setPlan(prev => prev.map(p => p.projectId === id ? { ...p, pinned: val } : p));
+      setGoals(prev => prev.map(t => (t.projectId === id || planIds.has(t.planId)) ? { ...t, pinned: val } : t));
     } else if (type === "plan") {
       setPlan(prev => prev.map(p => p.id === id ? { ...p, pinned: val } : p));
       setGoals(prev => prev.map(t => t.planId === id ? { ...t, pinned: val } : t));
@@ -1853,16 +1884,15 @@ export default function AITracker() {
 
   const tabs = [
     { id: "dashboard",    label: "🏠 Головна" },
-    { id: "goalsplan",    label: "🎯 Цілі & план" },
-    { id: "projects",     label: "🚀 Проекти" },
+    { id: "goalsplan",    label: "🎯 Цілі & проєкти" },
     { id: "tools",        label: "🛠️ Інструменти" },
     { id: "skillstasks",  label: "💪 Навички" },
     { id: "achievements", label: "🏆 Досягнення" },
     { id: "finances",     label: "💸 Фінанси" },
     { id: "sessions",     label: "🔥 Сесії" },
-    { id: "progress",     label: "📝 Прогрес" },
-    { id: "stats",        label: "📊 Статистика" },
+    { id: "progress",     label: "📝 Нотатки" },
     { id: "radio",        label: "🎵 Радіо" },
+    { id: "stats",        label: "📊 Статистика" },
   ];
 
   // Витягує videoId з YouTube-посилання (watch?v=, youtu.be/, /embed/, /live/) або з сирого ID
@@ -2114,7 +2144,7 @@ export default function AITracker() {
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "stretch" }}>
               {[
                 { label: "Дохід", val: `$${totalIncome.toFixed(0)}`, color: lc },
-                { label: "Проекти", val: projects.filter(p => (p.status ?? "done") === "done").length, color: lc },
+                { label: "Проекти", val: projects.filter(p => p.done && !p.deletedAt).length, color: lc },
                 { label: "Клієнти", val: (skillTasksData["monetize_clients"]?.count ?? 0), color: "#fbbf24" },
                 { label: "Досягнення", val: `${unlockedAchievements.length}/${ACHIEVEMENTS.length}`, color: "#00ff88" },
                 { label: "Сесій/міс", val: `${monthSessions}/${daysInCurrentMonth}`, color: lc },
@@ -2273,20 +2303,22 @@ export default function AITracker() {
                   // Лише ЗАКРІПЛЕНІ активні елементи. Підпункти показуються вкладено й
                   // розгортаються тим самим станом (expandGP), що й у вкладці «Цілі & план».
                   const goalPinned = (gid) => longGoals.some(g => g.id === gid && g.pinned && !g.deletedAt);
+                  const projPinned = (prid) => projects.some(pr => pr.id === prid && pr.pinned && !pr.deletedAt);
                   const planPinned = (pid) => plan.some(p => p.id === pid && p.pinned && !p.deletedAt);
                   const pinnedGoals = longGoals.filter(g => g.pinned && !g.done && !g.deletedAt);
                   // Верхній рівень «Фокусу» — закріплені без закріпленого батька (щоб не дублювати під ним)
-                  const pinnedSoloPlans = plan.filter(p => p.pinned && !p.done && !p.deletedAt && !(p.goalId && goalPinned(p.goalId)));
-                  const pinnedSoloTasks = goals.filter(t => t.pinned && !t.done && !t.deletedAt && !(t.planId && planPinned(t.planId)) && !(t.goalId && goalPinned(t.goalId)));
-                  const isEmpty = !pinnedGoals.length && !pinnedSoloPlans.length && !pinnedSoloTasks.length;
+                  const pinnedSoloProjects = projects.filter(pr => pr.pinned && !pr.done && !pr.deletedAt && !(pr.goalId && goalPinned(pr.goalId)));
+                  const pinnedSoloPlans = plan.filter(p => p.pinned && !p.done && !p.deletedAt && !(p.goalId && goalPinned(p.goalId)) && !(p.projectId && projPinned(p.projectId)));
+                  const pinnedSoloTasks = goals.filter(t => t.pinned && !t.done && !t.deletedAt && !(t.planId && planPinned(t.planId)) && !(t.projectId && projPinned(t.projectId)) && !(t.goalId && goalPinned(t.goalId)));
+                  const isEmpty = !pinnedGoals.length && !pinnedSoloProjects.length && !pinnedSoloPlans.length && !pinnedSoloTasks.length;
 
                   const fToggleExp = (key) => setExpandGP(prev => ({ ...prev, [key]: !prev[key] }));
                   const fToggleDone = (type, item) => {
-                    const setter = type === "goal" ? setLongGoals : type === "plan" ? setPlan : setGoals;
-                    const fld = type === "goal" ? "customXP" : "xp";
-                    const def = type === "goal" ? 500 : type === "plan" ? 150 : 50;
-                    const cat = type === "plan" ? "plan" : "goal";
-                    const lbl = type === "goal" ? "(ціль досягнута)" : type === "plan" ? "(план дій)" : "(задачу виконано)";
+                    const setter = type === "goal" ? setLongGoals : type === "project" ? setProjects : type === "plan" ? setPlan : setGoals;
+                    const fld = (type === "goal" || type === "project") ? "customXP" : "xp";
+                    const def = type === "goal" ? 1000 : type === "project" ? 200 : type === "plan" ? 50 : 10;
+                    const cat = type === "project" ? "project" : type === "plan" ? "plan" : "goal";
+                    const lbl = type === "goal" ? "(ціль досягнута)" : type === "project" ? "(проект завершено)" : type === "plan" ? "(план дій)" : "(задачу виконано)";
                     setter(prev => prev.map(x => {
                       if (x.id !== item.id) return x;
                       if (!x.done) {
@@ -2299,9 +2331,10 @@ export default function AITracker() {
                   };
 
                   const F_THEME = {
-                    goal: { color: "#a855f7", text: "#f0e8fa", bg: "rgba(20,10,30,0.85)", border: "rgba(168,85,247,0.30)" },
-                    plan: { color: "#06b6d4", text: "#d0f0fa", bg: "rgba(4,18,24,0.85)", border: "rgba(6,182,212,0.30)" },
-                    task: { color: "#00ff88", text: "#d8f8e8", bg: "rgba(5,14,10,0.85)", border: "rgba(0,255,136,0.30)" },
+                    goal:    { color: "#a855f7", text: "#f0e8fa", bg: "rgba(20,10,30,0.85)", border: "rgba(168,85,247,0.30)" },
+                    project: { color: "#f59e0b", text: "#fbe6b0", bg: "rgba(20,14,2,0.85)", border: "rgba(245,158,11,0.30)" },
+                    plan:    { color: "#06b6d4", text: "#d0f0fa", bg: "rgba(4,18,24,0.85)", border: "rgba(6,182,212,0.30)" },
+                    task:    { color: "#00ff88", text: "#d8f8e8", bg: "rgba(5,14,10,0.85)", border: "rgba(0,255,136,0.30)" },
                   };
                   const focusRow = (item, type, depth, expKey, hasChildren) => {
                     const m = F_THEME[type];
@@ -2326,13 +2359,27 @@ export default function AITracker() {
                     if (has && !!expandGP[k]) pTasks.forEach(t => rows.push(focusRow(t, "task", depth + 1, null, false)));
                     return rows;
                   };
+                  const renderProjectTree = (pr, depth) => {
+                    const prPlans = plan.filter(p => p.projectId === pr.id && p.pinned && !p.deletedAt);
+                    const prTasks = goals.filter(t => t.projectId === pr.id && t.pinned && !t.deletedAt);
+                    const k = `project_${pr.id}`;
+                    const has = prPlans.length + prTasks.length > 0;
+                    const rows = [focusRow(pr, "project", depth, k, has)];
+                    if (has && !!expandGP[k]) {
+                      prPlans.forEach(p => rows.push(...renderPlanTree(p, depth + 1)));
+                      prTasks.forEach(t => rows.push(focusRow(t, "task", depth + 1, null, false)));
+                    }
+                    return rows;
+                  };
                   const renderGoalTree = (g) => {
+                    const gProjects = projects.filter(pr => pr.goalId === g.id && pr.pinned && !pr.deletedAt);
                     const gPlans = plan.filter(p => p.goalId === g.id && p.pinned && !p.deletedAt);
                     const gTasks = goals.filter(t => t.goalId === g.id && t.pinned && !t.deletedAt);
                     const k = `goal_${g.id}`;
-                    const has = gPlans.length + gTasks.length > 0;
+                    const has = gProjects.length + gPlans.length + gTasks.length > 0;
                     const rows = [focusRow(g, "goal", 0, k, has)];
                     if (has && !!expandGP[k]) {
+                      gProjects.forEach(pr => rows.push(...renderProjectTree(pr, 1)));
                       gPlans.forEach(p => rows.push(...renderPlanTree(p, 1)));
                       gTasks.forEach(t => rows.push(focusRow(t, "task", 1, null, false)));
                     }
@@ -2343,20 +2390,21 @@ export default function AITracker() {
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                         <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2 }}>🎯 Фокус</div>
                         <button onClick={() => setActiveTab("goalsplan")} style={{ background: "none", border: "none", color: "#6a5f40", fontSize: 11, cursor: "pointer", fontFamily: "'Space Mono',monospace", padding: 0 }}>
-                          Цілі & план →
+                          Цілі & проєкти →
                         </button>
                       </div>
 
                       {isEmpty && (
                         <div style={{ textAlign: "center", padding: "12px 0", fontSize: 12, color: "#5a5040" }}>
-                          Натисни 📌 на цілі, плані або задачі, щоб закріпити їх тут<br/>
-                          <span onClick={() => setActiveTab("goalsplan")} style={{ color: "#c9a84c", cursor: "pointer", marginTop: 6, display: "inline-block" }}>Відкрити Цілі & план →</span>
+                          Натисни 📌 на цілі, проекті, плані або задачі, щоб закріпити їх тут<br/>
+                          <span onClick={() => setActiveTab("goalsplan")} style={{ color: "#c9a84c", cursor: "pointer", marginTop: 6, display: "inline-block" }}>Відкрити Цілі & проєкти →</span>
                         </div>
                       )}
 
                       {!isEmpty && (
                         <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                           {pinnedGoals.map(g => renderGoalTree(g))}
+                          {pinnedSoloProjects.map(pr => renderProjectTree(pr, 0))}
                           {pinnedSoloPlans.map(p => renderPlanTree(p, 0))}
                           {pinnedSoloTasks.map(t => focusRow(t, "task", 0, null, false))}
                         </div>
@@ -2977,25 +3025,22 @@ export default function AITracker() {
 
         {/* Combined Goals & Plan tab */}
         {activeTab === "goalsplan" && (() => {
-          const GP_STREAMS = [
-            { id: "dev",     label: "📚 Розвиток", color: "#6366f1", bg: "rgba(99,102,241,0.14)" },
-            { id: "content", label: "🎬 Контент",  color: "#ec4899", bg: "rgba(236,72,153,0.14)" },
-            { id: "work",    label: "🚀 Проекти",  color: "#f59e0b", bg: "rgba(245,158,11,0.14)" },
-          ];
-          const streamMap = Object.fromEntries(GP_STREAMS.map(s => [s.id, s]));
-
           const toggleExp = (key) => setExpandGP(prev => ({ ...prev, [key]: !prev[key] }));
           const isExp = (key) => !!expandGP[key];
 
-          const sf = gpStreamFilter;
-          const allActiveGoals = longGoals.filter(g => !g.done && !g.deletedAt);
-          const allActivePlans = plan.filter(p => !p.done && !p.deletedAt);
-          const allActiveTasks = goals.filter(g => !g.done && !g.deletedAt);
-          const activeGoals = sf ? allActiveGoals.filter(g => g.stream === sf) : allActiveGoals;
-          const activePlans = sf ? allActivePlans.filter(p => p.stream === sf || allActiveGoals.some(g => g.id === p.goalId && g.stream === sf)) : allActivePlans;
-          const activeTasks = sf ? allActiveTasks.filter(t => t.stream === sf || allActivePlans.some(p => p.id === t.planId && p.stream === sf)) : allActiveTasks;
-          const standalonePlans = activePlans.filter(p => !p.goalId);
-          const standaloneTasks = activeTasks.filter(t => !t.planId && !t.goalId);
+          // Ієрархія: Ціль → Проект → План дій → Задача (гнучка вкладеність)
+          const activeGoals = longGoals.filter(g => !g.done && !g.deletedAt);
+          // Проекти сортуємо за статусом: спершу «в процесі», потім «на паузі»
+          const projOrder = { active: 0, paused: 1 };
+          const activeProjects = projects.filter(pr => !pr.done && !pr.deletedAt)
+            .slice().sort((a, b) => (projOrder[a.status ?? "active"] ?? 0) - (projOrder[b.status ?? "active"] ?? 0));
+          const activePlans = plan.filter(p => !p.done && !p.deletedAt);
+          const activeTasks = goals.filter(g => !g.done && !g.deletedAt);
+          const standaloneProjects = activeProjects.filter(pr => !pr.goalId);
+          const standalonePlans = activePlans.filter(p => !p.goalId && !p.projectId);
+          const standaloneTasks = activeTasks.filter(t => !t.planId && !t.projectId && !t.goalId);
+
+          const setterOf = (type) => type === "goal" ? setLongGoals : type === "project" ? setProjects : type === "plan" ? setPlan : setGoals;
 
           const softDelete = (type, id) => {
             const deletedAt = new Date().toISOString();
@@ -3005,83 +3050,55 @@ export default function AITracker() {
               const oldest = del.sort((a, b) => a.deletedAt.localeCompare(b.deletedAt)).slice(0, del.length - 10).map(x => x.id);
               return arr.filter(x => !oldest.includes(x.id));
             };
-            if (type === "goal") setLongGoals(prev => trim10(prev.map(x => x.id === id ? { ...x, deletedAt } : x)));
-            if (type === "plan") setPlan(prev => trim10(prev.map(x => x.id === id ? { ...x, deletedAt } : x)));
-            if (type === "task") setGoals(prev => trim10(prev.map(x => x.id === id ? { ...x, deletedAt } : x)));
+            setterOf(type)(prev => trim10(prev.map(x => x.id === id ? { ...x, deletedAt } : x)));
             setExpandGP(prev => { const n = { ...prev }; delete n[`${type}_${id}`]; return n; });
           };
+          const restoreItem = (type, id) => setterOf(type)(prev => prev.map(x => x.id === id ? { ...x, deletedAt: null } : x));
+          const permanentDelete = (type, id) => setterOf(type)(prev => prev.filter(x => x.id !== id));
 
-          const restoreItem = (type, id) => {
-            if (type === "goal") setLongGoals(prev => prev.map(x => x.id === id ? { ...x, deletedAt: null } : x));
-            if (type === "plan") setPlan(prev => prev.map(x => x.id === id ? { ...x, deletedAt: null } : x));
-            if (type === "task") setGoals(prev => prev.map(x => x.id === id ? { ...x, deletedAt: null } : x));
-          };
-
-          const permanentDelete = (type, id) => {
-            if (type === "goal") setLongGoals(prev => prev.filter(x => x.id !== id));
-            if (type === "plan") setPlan(prev => prev.filter(x => x.id !== id));
-            if (type === "task") setGoals(prev => prev.filter(x => x.id !== id));
-          };
-
-          const doCompleteGoal = (g) => setLongGoals(prev => prev.map(x => {
-            if (x.id !== g.id) return x;
+          const makeToggleDone = (setter, field, def, cat, label) => (item) => setter(prev => prev.map(x => {
+            if (x.id !== item.id) return x;
             if (!x.done) {
-              if (!x.xpAwarded) { gainXP(x.customXP ?? 200, "(ціль досягнута)", "goal"); return { ...x, done: true, xpAwarded: true, completedAt: new Date().toISOString() }; }
+              if (!x.xpAwarded) { gainXP(x[field] ?? def, label, cat); return { ...x, done: true, xpAwarded: true, completedAt: new Date().toISOString() }; }
               return { ...x, done: true, completedAt: new Date().toISOString() };
             }
-            if (x.xpAwarded) loseXP(x.customXP ?? 200, "goal", "↩ ціль скасовано");
+            if (x.xpAwarded) loseXP(x[field] ?? def, cat, "↩ скасовано");
             return { ...x, done: false, xpAwarded: false, completedAt: null };
           }));
-
-          const doCompletePlan = (p) => setPlan(prev => prev.map(x => {
-            if (x.id !== p.id) return x;
-            if (!x.done) {
-              if (!x.xpAwarded) { gainXP(x.xp ?? 75, "(план дій)", "plan"); return { ...x, done: true, xpAwarded: true, completedAt: new Date().toISOString() }; }
-              return { ...x, done: true, completedAt: new Date().toISOString() };
-            }
-            if (x.xpAwarded) loseXP(x.xp ?? 75, "plan", "↩ план скасовано");
-            return { ...x, done: false, xpAwarded: false, completedAt: null };
-          }));
-
-          const doCompleteTask = (t) => setGoals(prev => prev.map(x => {
-            if (x.id !== t.id) return x;
-            if (!x.done) {
-              if (!x.xpAwarded) { gainXP(x.xp ?? 100, "(задачу виконано)", "goal"); return { ...x, done: true, xpAwarded: true, completedAt: new Date().toISOString() }; }
-              return { ...x, done: true, completedAt: new Date().toISOString() };
-            }
-            if (x.xpAwarded) loseXP(x.xp ?? 100, "goal", "↩ задачу скасовано");
-            return { ...x, done: false, xpAwarded: false, completedAt: null };
-          }));
+          const doCompleteGoal    = makeToggleDone(setLongGoals, "customXP", 1000, "goal",    "(ціль досягнута)");
+          const doCompleteProject = makeToggleDone(setProjects,  "customXP", 200,  "project", "(проект завершено)");
+          const doCompletePlan    = makeToggleDone(setPlan,      "xp",       50,   "plan",    "(план дій)");
+          const doCompleteTask    = makeToggleDone(setGoals,     "xp",       10,   "goal",    "(задачу виконано)");
 
           const doAddItem = () => {
             if (!gpAddText.trim()) return;
-            const streamProp = gpStreamFilter ? { stream: gpStreamFilter } : {};
             if (gpAddType === "goal") {
-              setLongGoals(prev => [...prev, { id: `lg${Date.now()}`, text: gpAddText.trim(), period: "month_cur", customXP: gpAddXP, done: false, createdAt: new Date().toISOString(), ...streamProp }]);
+              setLongGoals(prev => [...prev, { id: `lg${Date.now()}`, text: gpAddText.trim(), period: "month_cur", customXP: gpAddXP, done: false, createdAt: new Date().toISOString() }]);
+            } else if (gpAddType === "project") {
+              setProjects(prev => [...prev, { id: `pr${Date.now()}`, text: gpAddText.trim(), category: projectCategory, status: "active", customXP: gpAddXP, done: false, createdAt: new Date().toISOString() }]);
             } else if (gpAddType === "plan") {
-              setPlan(prev => [...prev, { id: `p${Date.now()}`, text: gpAddText.trim(), type: "other", urgency: "now", xp: gpAddXP, done: false, createdAt: new Date().toISOString(), ...streamProp }]);
+              setPlan(prev => [...prev, { id: `p${Date.now()}`, text: gpAddText.trim(), type: "other", urgency: "now", xp: gpAddXP, done: false, createdAt: new Date().toISOString() }]);
             } else {
-              setGoals(prev => [...prev, { id: `g${Date.now()}`, text: gpAddText.trim(), priority: "important", xp: gpAddXP, done: false, createdAt: new Date().toISOString(), ...streamProp }]);
+              setGoals(prev => [...prev, { id: `g${Date.now()}`, text: gpAddText.trim(), priority: "important", xp: gpAddXP, done: false, createdAt: new Date().toISOString() }]);
             }
             setGpAddText("");
           };
 
           const doAddInlineItem = () => {
             if (!gpInlineText.trim() || !gpInlineAdd) return;
-            const { parentId, type, parentStream } = gpInlineAdd;
-            const streamProp = parentStream ? { stream: parentStream } : {};
-            // Якщо батько закріплений — нова дитина теж (щоб одразу з'явилась у «Фокусі»)
-            const parentPinned = type === "task"
-              ? plan.some(p => p.id === parentId && p.pinned)
-              : longGoals.some(g => g.id === parentId && g.pinned);
-            const pinnedProp = parentPinned ? { pinned: true } : {};
-            if (type === "plan") {
-              setPlan(prev => [...prev, { id: `p${Date.now()}`, text: gpInlineText.trim(), type: "other", urgency: "now", xp: gpInlineXP, done: false, goalId: parentId, createdAt: new Date().toISOString(), ...streamProp, ...pinnedProp }]);
-            } else if (type === "task") {
-              setGoals(prev => [...prev, { id: `g${Date.now()}`, text: gpInlineText.trim(), priority: "important", xp: gpInlineXP, done: false, planId: parentId, createdAt: new Date().toISOString(), ...streamProp, ...pinnedProp }]);
-            } else if (type === "goalTask") {
-              // Задача напряму в цілі (без плану) — лінкується через goalId
-              setGoals(prev => [...prev, { id: `g${Date.now()}`, text: gpInlineText.trim(), priority: "important", xp: gpInlineXP, done: false, goalId: parentId, createdAt: new Date().toISOString(), ...streamProp, ...pinnedProp }]);
+            const { parentId, parentType, childType } = gpInlineAdd;
+            // Посилання на батька за його типом
+            const link = parentType === "goal" ? { goalId: parentId } : parentType === "project" ? { projectId: parentId } : { planId: parentId };
+            // Авто-пін, якщо батько закріплений (щоб одразу з'явилось у «Фокусі»)
+            const parentArr = parentType === "goal" ? longGoals : parentType === "project" ? projects : plan;
+            const pinnedProp = parentArr.some(x => x.id === parentId && x.pinned) ? { pinned: true } : {};
+            const base = { text: gpInlineText.trim(), done: false, createdAt: new Date().toISOString(), ...link, ...pinnedProp };
+            if (childType === "project") {
+              setProjects(prev => [...prev, { id: `pr${Date.now()}`, category: "other", status: "active", customXP: gpInlineXP, ...base }]);
+            } else if (childType === "plan") {
+              setPlan(prev => [...prev, { id: `p${Date.now()}`, type: "other", urgency: "now", xp: gpInlineXP, ...base }]);
+            } else {
+              setGoals(prev => [...prev, { id: `g${Date.now()}`, priority: "important", xp: gpInlineXP, ...base }]);
             }
             setGpInlineText("");
             setGpInlineAdd(null);
@@ -3093,28 +3110,11 @@ export default function AITracker() {
             return `${d.getDate()}.${String(d.getMonth()+1).padStart(2,"0")}.${d.getFullYear()}`;
           };
 
-          const StreamTag = ({ stream, onClick }) => {
-            const s = streamMap[stream];
-            if (!s) return null;
-            return (
-              <span onClick={e => { e.stopPropagation(); if (onClick) onClick(); }}
-                style={{ fontSize: 9, color: s.color, background: s.bg, border: `1px solid ${s.color}55`, padding: "1px 6px", borderRadius: 8, flexShrink: 0, whiteSpace: "nowrap", cursor: onClick ? "pointer" : "default", fontWeight: 700, letterSpacing: 0.5 }}>
-                {s.label}
-              </span>
-            );
-          };
-
-          const cycleStream = (item, setter) => {
-            const ids = [null, ...GP_STREAMS.map(s => s.id)];
-            const cur = item.stream ?? null;
-            const next = ids[(ids.indexOf(cur) + 1) % ids.length];
-            setter(prev => prev.map(x => x.id === item.id ? { ...x, stream: next } : x));
-          };
-
           const XP_THEME = {
-            goal: { color: "#c084fc", bg: "rgba(168,85,247,0.20)", border: "rgba(168,85,247,0.65)", fs: 11, def: 500, field: "customXP", setter: setLongGoals, cat: "goal" },
-            plan: { color: "#22d3ee", bg: "rgba(6,182,212,0.18)", border: "rgba(6,182,212,0.60)", fs: 10, def: 150, field: "xp", setter: setPlan, cat: "plan" },
-            task: { color: "#00ff88", bg: "rgba(0,255,136,0.18)", border: "rgba(0,255,136,0.60)", fs: 10, def: 50, field: "xp", setter: setGoals, cat: "goal" },
+            goal:    { color: "#c084fc", bg: "rgba(168,85,247,0.20)", border: "rgba(168,85,247,0.65)", fs: 11, def: 1000, field: "customXP", setter: setLongGoals, cat: "goal" },
+            project: { color: "#fbbf24", bg: "rgba(245,158,11,0.20)", border: "rgba(245,158,11,0.65)", fs: 11, def: 200,  field: "customXP", setter: setProjects,  cat: "project" },
+            plan:    { color: "#22d3ee", bg: "rgba(6,182,212,0.18)", border: "rgba(6,182,212,0.60)", fs: 10, def: 50,   field: "xp", setter: setPlan,  cat: "plan" },
+            task:    { color: "#00ff88", bg: "rgba(0,255,136,0.18)", border: "rgba(0,255,136,0.60)", fs: 10, def: 10,   field: "xp", setter: setGoals, cat: "goal" },
           };
 
           const commitXpEdit = (type, item, rawVal) => {
@@ -3160,6 +3160,47 @@ export default function AITracker() {
             );
           };
 
+          const PROJ_CAT = Object.fromEntries(PROJECT_CATEGORIES.map(c => [c.id, c]));
+
+          // Інлайн-додавання дитини (проект/план/задача) до батька певного типу
+          const CHILD_META = {
+            project: { color: "#fbbf24", bg: "rgba(245,158,11,0.08)", inputBg: "rgba(20,14,2,0.92)", text: "#fcd34d", ph: "Назва проекту...",   def: 200, label: "+ проект" },
+            plan:    { color: "#22d3ee", bg: "rgba(6,182,212,0.08)",  inputBg: "rgba(4,18,24,0.92)",  text: "#d0f0fa", ph: "Назва плану дій...", def: 50,  label: "+ план дій" },
+            task:    { color: "#00ff88", bg: "rgba(0,255,136,0.08)",  inputBg: "rgba(5,14,10,0.92)",  text: "#d8f8e8", ph: "Назва задачі...",    def: 10,  label: "+ задача" },
+          };
+          const renderAddChildren = (parentType, parentId, childTypes) => {
+            const active = (gpInlineAdd?.parentId === parentId && childTypes.includes(gpInlineAdd?.childType)) ? gpInlineAdd.childType : null;
+            if (active) {
+              const m = CHILD_META[active];
+              return (
+                <div style={{ display: "flex", gap: 6, padding: "7px 10px", background: m.inputBg, border: `1px dashed ${m.color}88`, borderRadius: 4, alignItems: "center" }}>
+                  <input autoFocus value={gpInlineText} onChange={e => setGpInlineText(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") doAddInlineItem(); if (e.key === "Escape") { setGpInlineAdd(null); setGpInlineText(""); } }}
+                    placeholder={m.ph}
+                    style={{ flex: 1, background: "transparent", border: "none", color: m.text, fontSize: 12, fontFamily: "'Space Mono',monospace", outline: "none" }} />
+                  <span style={{ fontSize: 10, color: m.color }}>XP</span>
+                  <input type="number" value={gpInlineXP} onChange={e => setGpInlineXP(Math.max(0, parseInt(e.target.value) || 0))}
+                    style={{ width: 40, background: "transparent", border: "none", color: m.color, fontSize: 11, textAlign: "center", outline: "none" }} />
+                  <button onClick={doAddInlineItem} style={{ background: `${m.color}33`, border: `1px solid ${m.color}88`, color: m.color, borderRadius: 3, padding: "2px 9px", fontSize: 11, cursor: "pointer" }}>+</button>
+                  <button onClick={() => { setGpInlineAdd(null); setGpInlineText(""); }} style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 14, lineHeight: 1 }}>×</button>
+                </div>
+              );
+            }
+            return (
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {childTypes.map(ct => {
+                  const m = CHILD_META[ct];
+                  return (
+                    <button key={ct} onClick={() => { setGpInlineAdd({ parentId, parentType, childType: ct }); setGpInlineText(""); setGpInlineXP(m.def); }}
+                      style={{ background: m.bg, border: `1px dashed ${m.color}73`, borderRadius: 3, padding: "4px 12px", color: m.color, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                      {m.label}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          };
+
           const renderTaskRow = (t) => (
             <div key={t.id} {...dragHandlers(t.id, "task", "list")} {...rowDropProps("task", t.id)}
               style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(5,14,10,0.95)", border: "1px solid rgba(0,255,136,0.35)", borderLeft: "3px solid #00ff88", borderRadius: 4, padding: "9px 12px", userSelect: "none", cursor: "grab", opacity: dragItem?.id === t.id ? 0.4 : (t.done ? 0.7 : 1) }}>
@@ -3167,10 +3208,6 @@ export default function AITracker() {
               <button onClick={() => doCompleteTask(t)}
                 style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid rgba(0,255,136,0.7)", background: t.done ? "#00ff88" : "transparent", color: "#04140a", fontSize: 11, fontWeight: 800, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>{t.done ? "✓" : ""}</button>
               <span style={{ flex: 1, color: t.done ? "#5f7a6b" : "#d8f8e8", fontSize: 12, textDecoration: t.done ? "line-through" : "none" }}>{t.text}</span>
-              {t.stream ? <StreamTag stream={t.stream} onClick={() => cycleStream(t, setGoals)} /> : (
-                <button onClick={e => { e.stopPropagation(); cycleStream(t, setGoals); }}
-                  style={{ background: "none", border: "1px dashed rgba(255,255,255,0.08)", borderRadius: 8, color: "#3a4030", fontSize: 9, padding: "1px 6px", cursor: "pointer", flexShrink: 0 }}>＋напрям</button>
-              )}
               {xpBadge(t, "task")}
               <button onClick={() => setPinnedCascade("task", t.id, !t.pinned)}
                 style={{ background: "none", border: "none", color: "#c9a84c", opacity: t.pinned ? 1 : 0.18, filter: t.pinned ? "drop-shadow(0 0 4px rgba(201,168,76,0.7))" : "none", cursor: "pointer", fontSize: 11, padding: "0 2px", transition: "opacity 0.2s, filter 0.2s" }} title={t.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
@@ -3182,7 +3219,6 @@ export default function AITracker() {
           const renderPlanRow = (p) => {
             const exp = isExp(`plan_${p.id}`);
             const planTasks = goals.filter(t => t.planId === p.id && !t.deletedAt);
-            const isInlining = gpInlineAdd?.parentId === p.id && gpInlineAdd?.type === "task";
             return (
               <div key={p.id}>
                 <div onClick={() => toggleExp(`plan_${p.id}`)} {...dragHandlers(p.id, "plan", "list")} {...rowDropProps("plan", p.id)}
@@ -3195,10 +3231,6 @@ export default function AITracker() {
                     style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid rgba(6,182,212,0.7)", background: p.done ? "#06b6d4" : "transparent", color: "#04140a", fontSize: 11, fontWeight: 800, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>{p.done ? "✓" : ""}</button>
                   <span style={{ flex: 1, color: p.done ? "#5a8090" : "#d0f0fa", fontSize: 12, fontWeight: 500, textDecoration: p.done ? "line-through" : "none" }}>{p.text}</span>
                   {planTasks.length > 0 && <span style={{ fontSize: 10, color: "#3a7a90" }}>{planTasks.length} задач</span>}
-                  {p.stream ? <StreamTag stream={p.stream} onClick={() => cycleStream(p, setPlan)} /> : (
-                    <button onClick={e => { e.stopPropagation(); cycleStream(p, setPlan); }}
-                      style={{ background: "none", border: "1px dashed rgba(255,255,255,0.08)", borderRadius: 8, color: "#3a4050", fontSize: 9, padding: "1px 6px", cursor: "pointer", flexShrink: 0 }}>＋напрям</button>
-                  )}
                   {xpBadge(p, "plan")}
                   <button onClick={e => { e.stopPropagation(); setPinnedCascade("plan", p.id, !p.pinned); }}
                     style={{ background: "none", border: "none", color: "#c9a84c", opacity: p.pinned ? 1 : 0.18, filter: p.pinned ? "drop-shadow(0 0 4px rgba(201,168,76,0.7))" : "none", cursor: "pointer", fontSize: 11, padding: "0 2px", transition: "opacity 0.2s, filter 0.2s" }} title={p.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
@@ -3208,24 +3240,69 @@ export default function AITracker() {
                 {exp && (
                   <div style={{ marginLeft: 22, marginTop: 3, display: "flex", flexDirection: "column", gap: dragItem ? 0 : 3 }}>
                     {renderSection(planTasks, "task", renderTaskRow, 3)}
-                    {!p.done && (isInlining ? (
-                      <div style={{ display: "flex", gap: 6, padding: "7px 10px", background: "rgba(5,14,10,0.9)", border: "1px dashed rgba(0,255,136,0.5)", borderRadius: 4, alignItems: "center" }}>
-                        <input autoFocus value={gpInlineText} onChange={e => setGpInlineText(e.target.value)}
-                          onKeyDown={e => { if (e.key === "Enter") doAddInlineItem(); if (e.key === "Escape") { setGpInlineAdd(null); setGpInlineText(""); } }}
-                          placeholder="Назва задачі..."
-                          style={{ flex: 1, background: "transparent", border: "none", color: "#d8f8e8", fontSize: 12, fontFamily: "'Space Mono',monospace", outline: "none" }} />
-                        <span style={{ fontSize: 10, color: "#3a7a5a" }}>XP</span>
-                        <input type="number" value={gpInlineXP} onChange={e => setGpInlineXP(Math.max(0, parseInt(e.target.value) || 0))}
-                          style={{ width: 40, background: "transparent", border: "none", color: "#00ff88", fontSize: 11, textAlign: "center", outline: "none" }} />
-                        <button onClick={doAddInlineItem} style={{ background: "rgba(0,255,136,0.2)", border: "1px solid rgba(0,255,136,0.5)", color: "#00ff88", borderRadius: 3, padding: "2px 9px", fontSize: 11, cursor: "pointer" }}>+</button>
-                        <button onClick={() => { setGpInlineAdd(null); setGpInlineText(""); }} style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 14, lineHeight: 1 }}>×</button>
+                    {!p.done && renderAddChildren("plan", p.id, ["task"])}
+                  </div>
+                )}
+              </div>
+            );
+          };
+
+          const renderProjectRow = (pr) => {
+            const exp = isExp(`project_${pr.id}`);
+            const projPlans = plan.filter(p => p.projectId === pr.id && !p.deletedAt);
+            const projTasks = goals.filter(t => t.projectId === pr.id && !t.deletedAt);
+            const totalChildCount = projPlans.length + projTasks.length;
+            const doneChildCount = projPlans.filter(p => p.done).length + projTasks.filter(t => t.done).length;
+            const progressPct = totalChildCount > 0 ? Math.round((doneChildCount / totalChildCount) * 100) : 0;
+            const cat = PROJ_CAT[pr.category ?? "other"] ?? PROJ_CAT.other;
+            const paused = pr.status === "paused";
+            return (
+              <div key={pr.id}>
+                <div onClick={() => toggleExp(`project_${pr.id}`)} {...dragHandlers(pr.id, "project", "list")} {...rowDropProps("project", pr.id)}
+                  style={{ display: "flex", flexDirection: "column", background: "rgba(20,14,2,0.95)", border: "1px solid rgba(245,158,11,0.35)", borderLeft: "3px solid #f59e0b", borderRadius: 4, padding: "10px 12px", userSelect: "none", cursor: "grab", opacity: dragItem?.id === pr.id ? 0.4 : (pr.done ? 0.7 : paused ? 0.78 : 1) }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ color: "rgba(245,158,11,0.35)", fontSize: 13, flexShrink: 0, lineHeight: 1, padding: "0 2px", pointerEvents: "none" }}>⠿</span>
+                    <span style={{ color: "#f59e0b", fontSize: 10, flexShrink: 0, width: 14, opacity: totalChildCount ? 1 : 0.3 }}>{exp ? "▼" : "▶"}</span>
+                    <button onClick={e => { e.stopPropagation(); doCompleteProject(pr); }}
+                      style={{ width: 19, height: 19, borderRadius: "50%", border: "2px solid rgba(245,158,11,0.7)", background: pr.done ? "#f59e0b" : "transparent", color: "#1a1000", fontSize: 11, fontWeight: 800, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>{pr.done ? "✓" : ""}</button>
+                    <span title={cat.label} style={{ fontSize: 14, flexShrink: 0 }}>{cat.icon}</span>
+                    <span style={{ flex: 1, color: pr.done ? "#8a7a50" : "#fbe6b0", fontSize: 12.5, fontWeight: 600, textDecoration: pr.done ? "line-through" : "none" }}>{pr.text}</span>
+                    <select value={pr.category ?? "other"} onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}
+                      onChange={e => { e.stopPropagation(); setProjects(prev => prev.map(x => x.id === pr.id ? { ...x, category: e.target.value } : x)); }}
+                      title="Категорія"
+                      style={{ background: "rgba(8,5,2,0.6)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 3, color: "#c9a84c", fontSize: 10, padding: "2px 3px", cursor: "pointer", flexShrink: 0, maxWidth: 54 }}>
+                      {PROJECT_CATEGORIES.map(c => <option key={c.id} value={c.id} style={{ background: "#0c0903", color: "#e0d8c0" }}>{c.icon} {c.label}</option>)}
+                    </select>
+                    {!pr.done && (
+                      <select value={pr.status ?? "active"} onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}
+                        onChange={e => { e.stopPropagation(); setProjects(prev => prev.map(x => x.id === pr.id ? { ...x, status: e.target.value } : x)); }}
+                        title="Статус"
+                        style={{ background: paused ? "rgba(6,182,212,0.12)" : "rgba(245,158,11,0.12)", border: `1px solid ${paused ? "rgba(6,182,212,0.4)" : "rgba(245,158,11,0.4)"}`, borderRadius: 3, color: paused ? "#22d3ee" : "#f59e0b", fontSize: 10, fontWeight: 700, padding: "2px 3px", cursor: "pointer", flexShrink: 0 }}>
+                        <option value="active" style={{ background: "#0c0903", color: "#e0d8c0" }}>🔄 в процесі</option>
+                        <option value="paused" style={{ background: "#0c0903", color: "#e0d8c0" }}>⏸ на паузі</option>
+                      </select>
+                    )}
+                    {totalChildCount > 0 && <span style={{ fontSize: 10, color: "#8a6a40", flexShrink: 0 }}>{doneChildCount}/{totalChildCount}</span>}
+                    {xpBadge(pr, "project")}
+                    <button onClick={e => { e.stopPropagation(); setPinnedCascade("project", pr.id, !pr.pinned); }}
+                      style={{ background: "none", border: "none", color: "#c9a84c", opacity: pr.pinned ? 1 : 0.18, filter: pr.pinned ? "drop-shadow(0 0 4px rgba(201,168,76,0.7))" : "none", cursor: "pointer", fontSize: 12, padding: "0 2px", transition: "opacity 0.2s, filter 0.2s" }} title={pr.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
+                    <button onClick={e => { e.stopPropagation(); softDelete("project", pr.id); }}
+                      style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 16, padding: "0 2px", lineHeight: 1 }}>×</button>
+                  </div>
+                  {totalChildCount > 0 && (
+                    <div style={{ marginTop: 7, marginLeft: 22, display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ flex: 1, height: 3, background: "rgba(245,158,11,0.15)", borderRadius: 2, overflow: "hidden" }}>
+                        <div style={{ width: `${progressPct}%`, height: "100%", background: progressPct === 100 ? "#f59e0b" : "linear-gradient(90deg, #f59e0b, #fbbf24)", borderRadius: 2, transition: "width 0.3s" }} />
                       </div>
-                    ) : (
-                      <button onClick={() => { setGpInlineAdd({ parentId: p.id, type: "task", parentStream: p.stream }); setGpInlineText(""); setGpInlineXP(50); }}
-                        style={{ alignSelf: "flex-start", background: "rgba(0,255,136,0.08)", border: "1px dashed rgba(0,255,136,0.45)", borderRadius: 3, padding: "4px 12px", color: "#00ff88", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-                        + задача
-                      </button>
-                    ))}
+                      <span style={{ fontSize: 9, color: progressPct === 100 ? "#f59e0b" : "#6a5a30", flexShrink: 0 }}>{progressPct}%</span>
+                    </div>
+                  )}
+                </div>
+                {exp && (
+                  <div style={{ marginLeft: 22, marginTop: 3, display: "flex", flexDirection: "column", gap: dragItem ? 0 : 3 }}>
+                    {renderSection(projPlans, "plan", renderPlanRow, 3)}
+                    {renderSection(projTasks, "task", renderTaskRow, 3)}
+                    {!pr.done && renderAddChildren("project", pr.id, ["plan", "task"])}
                   </div>
                 )}
               </div>
@@ -3234,12 +3311,13 @@ export default function AITracker() {
 
           const renderGoalRow = (g) => {
             const exp = isExp(`goal_${g.id}`);
+            const goalProjects = projects.filter(pr => pr.goalId === g.id && !pr.deletedAt)
+              .slice().sort((a, b) => (projOrder[a.status ?? "active"] ?? 0) - (projOrder[b.status ?? "active"] ?? 0));
             const goalPlans = plan.filter(p => p.goalId === g.id && !p.deletedAt);
             const goalTasks = goals.filter(t => t.goalId === g.id && !t.deletedAt);
-            const doneChildCount = goalPlans.filter(p => p.done).length + goalTasks.filter(t => t.done).length;
-            const totalChildCount = goalPlans.length + goalTasks.length;
-            const isInliningPlan = gpInlineAdd?.parentId === g.id && gpInlineAdd?.type === "plan";
-            const isInliningGoalTask = gpInlineAdd?.parentId === g.id && gpInlineAdd?.type === "goalTask";
+            const childItems = [...goalProjects, ...goalPlans, ...goalTasks];
+            const totalChildCount = childItems.length;
+            const doneChildCount = childItems.filter(x => x.done).length;
             const progressPct = totalChildCount > 0 ? Math.round((doneChildCount / totalChildCount) * 100) : 0;
             return (
               <div key={g.id}>
@@ -3247,16 +3325,12 @@ export default function AITracker() {
                   style={{ display: "flex", flexDirection: "column", background: "rgba(20,10,30,0.95)", border: "1px solid rgba(168,85,247,0.35)", borderLeft: "3px solid #a855f7", borderRadius: 4, padding: "10px 12px", userSelect: "none", cursor: "grab", opacity: dragItem?.id === g.id ? 0.4 : (g.done ? 0.7 : 1) }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ color: "rgba(168,85,247,0.35)", fontSize: 13, flexShrink: 0, lineHeight: 1, padding: "0 2px", pointerEvents: "none" }}>⠿</span>
-                    <span style={{ color: "#c084fc", fontSize: 10, flexShrink: 0, width: 14, opacity: (goalPlans.length || goalTasks.length) ? 1 : 0.3 }}>
+                    <span style={{ color: "#c084fc", fontSize: 10, flexShrink: 0, width: 14, opacity: totalChildCount ? 1 : 0.3 }}>
                       {exp ? "▼" : "▶"}
                     </span>
                     <button onClick={e => { e.stopPropagation(); doCompleteGoal(g); }}
                       style={{ width: 20, height: 20, borderRadius: "50%", border: "2px solid rgba(168,85,247,0.7)", background: g.done ? "#a855f7" : "transparent", color: "#fff", fontSize: 12, fontWeight: 800, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>{g.done ? "✓" : ""}</button>
                     <span style={{ flex: 1, color: g.done ? "#8a7a9a" : "#f0e8fa", fontSize: 13, fontWeight: 600, textDecoration: g.done ? "line-through" : "none" }}>{g.text}</span>
-                    {g.stream ? <StreamTag stream={g.stream} onClick={() => cycleStream(g, setLongGoals)} /> : (
-                      <button onClick={e => { e.stopPropagation(); cycleStream(g, setLongGoals); }}
-                        style={{ background: "none", border: "1px dashed rgba(255,255,255,0.08)", borderRadius: 8, color: "#3a3040", fontSize: 9, padding: "1px 6px", cursor: "pointer", flexShrink: 0 }}>＋напрям</button>
-                    )}
                     {totalChildCount > 0 && <span style={{ fontSize: 10, color: "#7a6a90", flexShrink: 0 }}>{doneChildCount}/{totalChildCount}</span>}
                     {xpBadge(g, "goal")}
                     <button onClick={e => { e.stopPropagation(); setPinnedCascade("goal", g.id, !g.pinned); }}
@@ -3275,44 +3349,10 @@ export default function AITracker() {
                 </div>
                 {exp && (
                   <div style={{ marginLeft: 22, marginTop: 3, display: "flex", flexDirection: "column", gap: dragItem ? 0 : 3 }}>
+                    {renderSection(goalProjects, "project", renderProjectRow, 3)}
                     {renderSection(goalPlans, "plan", renderPlanRow, 3)}
                     {renderSection(goalTasks, "task", renderTaskRow, 3)}
-                    {!g.done && (isInliningPlan ? (
-                      <div style={{ display: "flex", gap: 6, padding: "7px 10px", background: "rgba(4,18,24,0.9)", border: "1px dashed rgba(6,182,212,0.5)", borderRadius: 4, alignItems: "center" }}>
-                        <input autoFocus value={gpInlineText} onChange={e => setGpInlineText(e.target.value)}
-                          onKeyDown={e => { if (e.key === "Enter") doAddInlineItem(); if (e.key === "Escape") { setGpInlineAdd(null); setGpInlineText(""); } }}
-                          placeholder="Назва плану дій..."
-                          style={{ flex: 1, background: "transparent", border: "none", color: "#d0f0fa", fontSize: 12, fontFamily: "'Space Mono',monospace", outline: "none" }} />
-                        <span style={{ fontSize: 10, color: "#3a6a80" }}>XP</span>
-                        <input type="number" value={gpInlineXP} onChange={e => setGpInlineXP(Math.max(0, parseInt(e.target.value) || 0))}
-                          style={{ width: 40, background: "transparent", border: "none", color: "#22d3ee", fontSize: 11, textAlign: "center", outline: "none" }} />
-                        <button onClick={doAddInlineItem} style={{ background: "rgba(6,182,212,0.2)", border: "1px solid rgba(6,182,212,0.5)", color: "#22d3ee", borderRadius: 3, padding: "2px 9px", fontSize: 11, cursor: "pointer" }}>+</button>
-                        <button onClick={() => { setGpInlineAdd(null); setGpInlineText(""); }} style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 14, lineHeight: 1 }}>×</button>
-                      </div>
-                    ) : isInliningGoalTask ? (
-                      <div style={{ display: "flex", gap: 6, padding: "7px 10px", background: "rgba(5,14,10,0.9)", border: "1px dashed rgba(0,255,136,0.5)", borderRadius: 4, alignItems: "center" }}>
-                        <input autoFocus value={gpInlineText} onChange={e => setGpInlineText(e.target.value)}
-                          onKeyDown={e => { if (e.key === "Enter") doAddInlineItem(); if (e.key === "Escape") { setGpInlineAdd(null); setGpInlineText(""); } }}
-                          placeholder="Назва задачі..."
-                          style={{ flex: 1, background: "transparent", border: "none", color: "#d8f8e8", fontSize: 12, fontFamily: "'Space Mono',monospace", outline: "none" }} />
-                        <span style={{ fontSize: 10, color: "#3a7a5a" }}>XP</span>
-                        <input type="number" value={gpInlineXP} onChange={e => setGpInlineXP(Math.max(0, parseInt(e.target.value) || 0))}
-                          style={{ width: 40, background: "transparent", border: "none", color: "#00ff88", fontSize: 11, textAlign: "center", outline: "none" }} />
-                        <button onClick={doAddInlineItem} style={{ background: "rgba(0,255,136,0.2)", border: "1px solid rgba(0,255,136,0.5)", color: "#00ff88", borderRadius: 3, padding: "2px 9px", fontSize: 11, cursor: "pointer" }}>+</button>
-                        <button onClick={() => { setGpInlineAdd(null); setGpInlineText(""); }} style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 14, lineHeight: 1 }}>×</button>
-                      </div>
-                    ) : (
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                        <button onClick={() => { setGpInlineAdd({ parentId: g.id, type: "plan", parentStream: g.stream }); setGpInlineText(""); setGpInlineXP(150); }}
-                          style={{ alignSelf: "flex-start", background: "rgba(6,182,212,0.08)", border: "1px dashed rgba(6,182,212,0.45)", borderRadius: 3, padding: "4px 12px", color: "#22d3ee", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-                          + план дій
-                        </button>
-                        <button onClick={() => { setGpInlineAdd({ parentId: g.id, type: "goalTask", parentStream: g.stream }); setGpInlineText(""); setGpInlineXP(50); }}
-                          style={{ alignSelf: "flex-start", background: "rgba(0,255,136,0.08)", border: "1px dashed rgba(0,255,136,0.45)", borderRadius: 3, padding: "4px 12px", color: "#00ff88", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-                          + задача
-                        </button>
-                      </div>
-                    ))}
+                    {!g.done && renderAddChildren("goal", g.id, ["project", "plan", "task"])}
                   </div>
                 )}
               </div>
@@ -3323,13 +3363,15 @@ export default function AITracker() {
           // під-планами/під-задачами). Виконані дочірні — план усередині цілі, задача
           // всередині плану — лишаються закресленими на місці, всередині свого батька.
           const doneGoals = longGoals.filter(g => g.done && !g.deletedAt);
-          const donePlans = plan.filter(p => p.done && !p.deletedAt && !p.goalId);
-          const doneTasks = goals.filter(g => g.done && !g.deletedAt && !g.planId && !g.goalId);
+          const doneProjects = projects.filter(pr => pr.done && !pr.deletedAt && !pr.goalId);
+          const donePlans = plan.filter(p => p.done && !p.deletedAt && !p.goalId && !p.projectId);
+          const doneTasks = goals.filter(g => g.done && !g.deletedAt && !g.planId && !g.projectId && !g.goalId);
           const deletedGoals = longGoals.filter(g => g.deletedAt);
+          const deletedProjects = projects.filter(pr => pr.deletedAt);
           const deletedPlans = plan.filter(p => p.deletedAt);
           const deletedTasks = goals.filter(g => g.deletedAt);
-          const hasDone = doneGoals.length + donePlans.length + doneTasks.length > 0;
-          const hasDeleted = deletedGoals.length + deletedPlans.length + deletedTasks.length > 0;
+          const hasDone = doneGoals.length + doneProjects.length + donePlans.length + doneTasks.length > 0;
+          const hasDeleted = deletedGoals.length + deletedProjects.length + deletedPlans.length + deletedTasks.length > 0;
 
           const renderDeletedSub = (items, color, label, type) => {
             if (!items.length) return null;
@@ -3361,9 +3403,10 @@ export default function AITracker() {
           // Типи: goal (longGoals) · plan (plan) · task (goals). Перетягування
           // між секціями міняє тип елемента (текст/XP/напрям зберігаються).
           const TYPE_META = {
-            goal: { setter: setLongGoals, arr: longGoals, prefix: "lg", color: "#c084fc", label: "🎯 Ціль",   defXP: 500 },
-            plan: { setter: setPlan,      arr: plan,      prefix: "p",  color: "#22d3ee", label: "📋 План",   defXP: 150 },
-            task: { setter: setGoals,     arr: goals,     prefix: "g",  color: "#00ff88", label: "✅ Задача", defXP: 50  },
+            goal:    { setter: setLongGoals, arr: longGoals, prefix: "lg", color: "#c084fc", label: "🎯 Ціль",   defXP: 1000 },
+            project: { setter: setProjects,  arr: projects,  prefix: "pr", color: "#fbbf24", label: "🚀 Проект", defXP: 200  },
+            plan:    { setter: setPlan,      arr: plan,      prefix: "p",  color: "#22d3ee", label: "📋 План",   defXP: 50   },
+            task:    { setter: setGoals,     arr: goals,     prefix: "g",  color: "#00ff88", label: "✅ Задача", defXP: 10   },
           };
           const inboxType = (it) => TYPE_META[it.type] ? it.type : "task";
 
@@ -3378,11 +3421,11 @@ export default function AITracker() {
             const m = TYPE_META[toType];
             const xp = m.defXP; // XP скидається на стандартний для типу (ціль 500 / план 150 / задача 50)
             const base = { id: `${m.prefix}${Date.now()}${Math.floor(Math.random()*1000)}`, text: src.text, createdAt: src.createdAt ?? new Date().toISOString() };
-            if (src.stream) base.stream = src.stream;
             if (src.pinned) base.pinned = true;
             if (keepProgress && src.done) { base.done = true; base.xpAwarded = src.xpAwarded ?? false; base.completedAt = src.completedAt ?? null; }
             else base.done = false;
             if (toType === "goal") return { ...base, period: src.period ?? "month_cur", customXP: xp };
+            if (toType === "project") return { ...base, category: src.category ?? "other", status: src.status ?? "active", customXP: xp };
             if (toType === "plan") return { ...base, type: src.type ?? "other", urgency: src.urgency ?? "now", xp };
             return { ...base, priority: src.priority ?? "important", xp };
           };
@@ -3477,9 +3520,10 @@ export default function AITracker() {
 
           // Заголовок секції — також дропзона (скинути сюди = змінити тип і додати в кінець)
           const SECTION_META = {
-            goal: { label: "🎯 Цілі",            color: "#c084fc", line: "rgba(168,85,247,0.35)", count: activeGoals.length },
-            plan: { label: "📋 Плани без цілі",  color: "#22d3ee", line: "rgba(6,182,212,0.35)",  count: standalonePlans.length },
-            task: { label: "✅ Задачі без плану", color: "#00ff88", line: "rgba(0,255,136,0.35)",  count: standaloneTasks.length },
+            goal:    { label: "🎯 Цілі",     color: "#c084fc", line: "rgba(168,85,247,0.35)", count: activeGoals.length },
+            project: { label: "🚀 Проєкти",  color: "#fbbf24", line: "rgba(245,158,11,0.35)", count: standaloneProjects.length },
+            plan:    { label: "📋 Плани",    color: "#22d3ee", line: "rgba(6,182,212,0.35)",  count: standalonePlans.length },
+            task:    { label: "✅ Задачі",   color: "#00ff88", line: "rgba(0,255,136,0.35)",  count: standaloneTasks.length },
           };
           const SectionHeader = ({ type, marginTop }) => {
             const m = SECTION_META[type];
@@ -3511,14 +3555,18 @@ export default function AITracker() {
           );
 
           const doConvertInboxItem = (item) => {
-            const { type, xp, stream } = gpInboxConvert;
-            const streamProp = stream ? { stream } : {};
+            const { type, xp, parentId, parentType } = gpInboxConvert;
+            const link = parentId ? (parentType === "goal" ? { goalId: parentId } : parentType === "project" ? { projectId: parentId } : { planId: parentId }) : {};
+            const pinnedProp = (parentId && TYPE_META[parentType]?.arr.some(x => x.id === parentId && x.pinned)) ? { pinned: true } : {};
+            const base = { text: item.text, done: false, createdAt: new Date().toISOString(), ...link, ...pinnedProp };
             if (type === "goal") {
-              setLongGoals(prev => [...prev, { id: `lg${Date.now()}`, text: item.text, period: "month_cur", customXP: xp, done: false, createdAt: new Date().toISOString(), ...streamProp }]);
+              setLongGoals(prev => [...prev, { id: `lg${Date.now()}`, period: "month_cur", customXP: xp, ...base }]);
+            } else if (type === "project") {
+              setProjects(prev => [...prev, { id: `pr${Date.now()}`, category: "other", status: "active", customXP: xp, ...base }]);
             } else if (type === "plan") {
-              setPlan(prev => [...prev, { id: `p${Date.now()}`, text: item.text, type: "other", urgency: "now", xp, done: false, createdAt: new Date().toISOString(), ...streamProp }]);
+              setPlan(prev => [...prev, { id: `p${Date.now()}`, type: "other", urgency: "now", xp, ...base }]);
             } else {
-              setGoals(prev => [...prev, { id: `g${Date.now()}`, text: item.text, priority: "important", xp, done: false, createdAt: new Date().toISOString(), ...streamProp }]);
+              setGoals(prev => [...prev, { id: `g${Date.now()}`, priority: "important", xp, ...base }]);
             }
             setInbox(prev => prev.filter(x => x.id !== item.id));
             setGpInboxConvert(null);
@@ -3538,7 +3586,7 @@ export default function AITracker() {
                 </button>
                 <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
                   <div style={{ display: "flex", gap: 3 }}>
-                    {["goal", "plan", "task"].map(tp => {
+                    {["goal", "project", "plan", "task"].map(tp => {
                       const m = TYPE_META[tp];
                       const on = gpInboxType === tp;
                       return (
@@ -3560,7 +3608,7 @@ export default function AITracker() {
               {/* Drag-панель інбоксу: зони типів (при перетягуванні) */}
               {gpInboxOpen && dragItem && (
                 <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-                  {["goal", "plan", "task"].map(tp => {
+                  {["goal", "project", "plan", "task"].map(tp => {
                     const m = TYPE_META[tp];
                     const hot = dragOver === `ibzone_${tp}`;
                     return (
@@ -3593,8 +3641,8 @@ export default function AITracker() {
                           style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", cursor: "grab", userSelect: "none" }}>
                           {(() => {
                             const m = TYPE_META[inboxType(item)];
-                            const order = ["goal", "plan", "task"];
-                            const next = order[(order.indexOf(inboxType(item)) + 1) % 3];
+                            const order = ["goal", "project", "plan", "task"];
+                            const next = order[(order.indexOf(inboxType(item)) + 1) % 4];
                             return (
                               <button onClick={e => { e.stopPropagation(); setInbox(prev => prev.map(x => x.id === item.id ? { ...x, type: next } : x)); }}
                                 title="Змінити тип (клік) або перетягни"
@@ -3605,7 +3653,7 @@ export default function AITracker() {
                           })()}
                           <span style={{ flex: 1, color: "#e8d080", fontSize: 12 }}>{item.text}</span>
                           <span style={{ fontSize: 9, color: "#6a5820", flexShrink: 0 }}>{fmtDate(item.createdAt)}</span>
-                          <button onClick={() => setGpInboxConvert(isConverting ? null : { id: item.id, type: inboxType(item), xp: TYPE_META[inboxType(item)].defXP, stream: gpStreamFilter ?? null })}
+                          <button onClick={() => setGpInboxConvert(isConverting ? null : { id: item.id, type: inboxType(item), xp: TYPE_META[inboxType(item)].defXP, parentId: null, parentType: null })}
                             style={{ background: isConverting ? "rgba(251,191,36,0.2)" : "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.35)", color: "#fbbf24", borderRadius: 3, padding: "3px 9px", fontSize: 10, fontWeight: 700, cursor: "pointer", flexShrink: 0, whiteSpace: "nowrap" }}>
                             {isConverting ? "▲ скасувати" : "→ перенести"}
                           </button>
@@ -3614,33 +3662,42 @@ export default function AITracker() {
                         </div>
                         {isConverting && (
                           <div style={{ padding: "10px 12px", borderTop: "1px solid rgba(251,191,36,0.15)", background: "rgba(20,14,2,0.9)", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                            <div style={{ display: "flex", gap: 3 }}>
+                            <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
                               {[
-                                { id: "goal", label: "🎯 Ціль",     color: "#c084fc", xp: 500 },
-                                { id: "plan", label: "📋 План",     color: "#22d3ee", xp: 150 },
-                                { id: "task", label: "✅ Задача",   color: "#00ff88", xp: 50  },
+                                { id: "goal",    label: "🎯 Ціль",   color: "#c084fc", xp: 1000 },
+                                { id: "project", label: "🚀 Проект", color: "#fbbf24", xp: 200  },
+                                { id: "plan",    label: "📋 План",   color: "#22d3ee", xp: 50   },
+                                { id: "task",    label: "✅ Задача", color: "#00ff88", xp: 10   },
                               ].map(tp => (
-                                <button key={tp.id} onClick={() => setGpInboxConvert(c => ({ ...c, type: tp.id, xp: tp.xp }))}
+                                <button key={tp.id} onClick={() => setGpInboxConvert(c => ({ ...c, type: tp.id, xp: tp.xp, parentId: null, parentType: null }))}
                                   style={{ background: gpInboxConvert.type === tp.id ? `${tp.color}20` : "transparent", border: `1px solid ${gpInboxConvert.type === tp.id ? tp.color + "66" : "rgba(201,168,76,0.15)"}`, borderRadius: 3, padding: "4px 9px", color: gpInboxConvert.type === tp.id ? tp.color : "#6a5f40", fontSize: 11, cursor: "pointer", fontWeight: gpInboxConvert.type === tp.id ? 700 : 400 }}>
                                   {tp.label}
                                 </button>
                               ))}
                             </div>
-                            <div style={{ display: "flex", gap: 3 }}>
-                              {GP_STREAMS.map(s => (
-                                <button key={s.id} onClick={() => setGpInboxConvert(c => ({ ...c, stream: c.stream === s.id ? null : s.id }))}
-                                  style={{ background: gpInboxConvert.stream === s.id ? s.bg : "transparent", border: `1px solid ${gpInboxConvert.stream === s.id ? s.color + "88" : s.color + "30"}`, borderRadius: 3, padding: "4px 8px", color: gpInboxConvert.stream === s.id ? s.color : s.color + "88", fontSize: 10, cursor: "pointer", fontWeight: gpInboxConvert.stream === s.id ? 700 : 400 }}>
-                                  {s.label}
-                                </button>
-                              ))}
-                            </div>
+                            {gpInboxConvert.type !== "goal" && (() => {
+                              const T = gpInboxConvert.type;
+                              const eligible = [];
+                              activeGoals.forEach(g => eligible.push({ id: g.id, type: "goal", label: `🎯 ${g.text}` }));
+                              if (T === "plan" || T === "task") activeProjects.forEach(pr => eligible.push({ id: pr.id, type: "project", label: `🚀 ${pr.text}` }));
+                              if (T === "task") activePlans.forEach(p => eligible.push({ id: p.id, type: "plan", label: `📋 ${p.text}` }));
+                              return (
+                                <select value={gpInboxConvert.parentId ?? ""}
+                                  onChange={e => { const pid = e.target.value || null; const par = eligible.find(x => x.id === pid); setGpInboxConvert(c => ({ ...c, parentId: pid, parentType: par?.type ?? null })); }}
+                                  title="Додати всередину…"
+                                  style={{ background: "rgba(8,5,2,0.6)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 3, color: "#c9a84c", fontSize: 11, padding: "5px 6px", cursor: "pointer", maxWidth: 200 }}>
+                                  <option value="" style={{ background: "#0c0903", color: "#e0d8c0" }}>↳ без батька (верхній рівень)</option>
+                                  {eligible.map(p => <option key={p.id} value={p.id} style={{ background: "#0c0903", color: "#e0d8c0" }}>{p.label}</option>)}
+                                </select>
+                              );
+                            })()}
                             <div style={{ display: "flex", alignItems: "center", gap: 3, background: "rgba(8,5,2,0.5)", border: "1px solid rgba(201,168,76,0.15)", borderRadius: 3, padding: "0 8px" }}>
                               <span style={{ fontSize: 10, color: "#6a5f40" }}>XP</span>
                               <input type="number" min="0" value={gpInboxConvert.xp} onChange={e => setGpInboxConvert(c => ({ ...c, xp: Math.max(0, parseInt(e.target.value) || 0) }))}
                                 style={{ width: 44, background: "transparent", border: "none", color: "#00ff88", fontSize: 11, textAlign: "center", outline: "none", padding: "5px 0" }} />
                             </div>
                             <button onClick={() => doConvertInboxItem(item)}
-                              style={{ background: gpInboxConvert.type === "goal" ? "#a855f7" : gpInboxConvert.type === "plan" ? "#22d3ee" : "#00ff88", color: gpInboxConvert.type === "goal" ? "#fff" : "#000", border: "none", padding: "6px 14px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'Exo 2',sans-serif", marginLeft: "auto" }}>
+                              style={{ background: gpInboxConvert.type === "goal" ? "#a855f7" : gpInboxConvert.type === "project" ? "#f59e0b" : gpInboxConvert.type === "plan" ? "#22d3ee" : "#00ff88", color: gpInboxConvert.type === "goal" ? "#fff" : "#000", border: "none", padding: "6px 14px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'Exo 2',sans-serif", marginLeft: "auto" }}>
                               ✓ Перенести
                             </button>
                           </div>
@@ -3657,11 +3714,12 @@ export default function AITracker() {
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                 <div style={{ display: "flex", gap: 3 }}>
                   {[
-                    { id: "goal", label: "🎯 Ціль",     color: "#c084fc" },
-                    { id: "plan", label: "📋 План дій", color: "#22d3ee" },
-                    { id: "task", label: "✅ Задача",   color: "#00ff88" },
+                    { id: "goal",    label: "🎯 Ціль",     color: "#c084fc" },
+                    { id: "project", label: "🚀 Проект",   color: "#fbbf24" },
+                    { id: "plan",    label: "📋 План дій", color: "#22d3ee" },
+                    { id: "task",    label: "✅ Задача",   color: "#00ff88" },
                   ].map(tp => (
-                    <button key={tp.id} onClick={() => { setGpAddType(tp.id); setGpAddXP(tp.id === "goal" ? 500 : tp.id === "plan" ? 150 : 50); }}
+                    <button key={tp.id} onClick={() => { setGpAddType(tp.id); setGpAddXP(tp.id === "goal" ? 1000 : tp.id === "project" ? 200 : tp.id === "plan" ? 50 : 10); }}
                       style={{ background: gpAddType === tp.id ? `${tp.color}18` : "transparent", border: `1px solid ${gpAddType === tp.id ? tp.color + "55" : "rgba(201,168,76,0.15)"}`, borderRadius: 3, padding: "5px 11px", color: gpAddType === tp.id ? tp.color : "#6a5f40", fontSize: 11, cursor: "pointer", fontWeight: gpAddType === tp.id ? 700 : 400, fontFamily: "'Exo 2',sans-serif" }}>
                       {tp.label}
                     </button>
@@ -3669,52 +3727,47 @@ export default function AITracker() {
                 </div>
                 <input value={gpAddText} onChange={e => setGpAddText(e.target.value)}
                   onKeyDown={e => { if (e.key === "Enter") doAddItem(); }}
-                  placeholder={gpAddType === "goal" ? "Опиши ціль..." : gpAddType === "plan" ? "Опиши план дій..." : "Опиши задачу..."}
+                  placeholder={gpAddType === "goal" ? "Опиши ціль..." : gpAddType === "project" ? "Опиши проект..." : gpAddType === "plan" ? "Опиши план дій..." : "Опиши задачу..."}
                   style={{ flex: 1, minWidth: 150, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.18)", borderRadius: 4, padding: "8px 12px", color: "#fff", fontSize: 12, fontFamily: "'Space Mono',monospace" }} />
+                {gpAddType === "project" && (
+                  <select value={projectCategory} onChange={e => setProjectCategory(e.target.value)}
+                    style={{ background: "rgba(8,5,2,0.68)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 4, padding: "8px 8px", color: "#c9a84c", fontSize: 12, cursor: "pointer" }}>
+                    {PROJECT_CATEGORIES.map(c => <option key={c.id} value={c.id} style={{ background: "#0c0903", color: "#e0d8c0" }}>{c.icon} {c.label}</option>)}
+                  </select>
+                )}
                 <div style={{ display: "flex", alignItems: "center", gap: 3, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.15)", borderRadius: 4, padding: "0 9px" }}>
                   <span style={{ fontSize: 10, color: "#6a5f40" }}>XP</span>
                   <input type="number" min="0" max="99999" value={gpAddXP} onChange={e => setGpAddXP(Math.max(0, parseInt(e.target.value) || 0))}
                     style={{ width: 50, background: "transparent", border: "none", color: "#00ff88", fontSize: 12, fontFamily: "'Space Mono',monospace", textAlign: "center", padding: "8px 0" }} />
                 </div>
                 <button onClick={doAddItem}
-                  style={{ background: gpAddType === "goal" ? "#a855f7" : gpAddType === "plan" ? "#22d3ee" : "#00ff88", color: gpAddType === "goal" ? "#fff" : "#000", border: "none", padding: "8px 16px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'Exo 2',sans-serif" }}>
+                  style={{ background: gpAddType === "goal" ? "#a855f7" : gpAddType === "project" ? "#f59e0b" : gpAddType === "plan" ? "#22d3ee" : "#00ff88", color: gpAddType === "goal" ? "#fff" : "#000", border: "none", padding: "8px 16px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'Exo 2',sans-serif" }}>
                   + Додати
                 </button>
               </div>
             </div>
 
-            {/* Stream filter bar */}
-            <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
-              <button onClick={() => setGpStreamFilter(null)}
-                style={{ background: !gpStreamFilter ? "rgba(201,168,76,0.18)" : "transparent", border: `1px solid ${!gpStreamFilter ? "rgba(201,168,76,0.55)" : "rgba(201,168,76,0.15)"}`, borderRadius: 3, padding: "4px 10px", color: !gpStreamFilter ? "#c9a84c" : "#6a5f40", fontSize: 11, fontWeight: !gpStreamFilter ? 700 : 400, cursor: "pointer", fontFamily: "'Exo 2',sans-serif" }}>
-                Всі напрями
-              </button>
-              {GP_STREAMS.map(s => (
-                <button key={s.id} onClick={() => setGpStreamFilter(gpStreamFilter === s.id ? null : s.id)}
-                  style={{ background: gpStreamFilter === s.id ? s.bg : "transparent", border: `1px solid ${gpStreamFilter === s.id ? s.color + "88" : s.color + "30"}`, borderRadius: 3, padding: "4px 10px", color: gpStreamFilter === s.id ? s.color : s.color + "88", fontSize: 11, fontWeight: gpStreamFilter === s.id ? 700 : 400, cursor: "pointer", fontFamily: "'Exo 2',sans-serif" }}>
-                  {s.label}
-                </button>
-              ))}
-            </div>
-
             {/* Active items — секції завжди присутні під час перетягування (щоб було куди скинути,
                 навіть якщо секція порожня). Перетягування між секціями міняє тип + XP. */}
             <div style={{ display: "flex", flexDirection: "column", gap: dragItem ? 0 : 5 }}>
-              {!dragItem && activeGoals.length === 0 && standalonePlans.length === 0 && standaloneTasks.length === 0 && (
+              {!dragItem && activeGoals.length === 0 && standaloneProjects.length === 0 && standalonePlans.length === 0 && standaloneTasks.length === 0 && (
                 <div style={{ textAlign: "center", padding: "32px 16px", color: "#5a5040", fontSize: 13 }}>
-                  Ще нічого немає. Додай першу ціль, план або задачу!
+                  Ще нічого немає. Додай першу ціль, проект, план або задачу!
                 </div>
               )}
 
               {(activeGoals.length > 0 || dragItem) && <SectionHeader type="goal" />}
               {(activeGoals.length > 0 || dragItem) && renderSection(activeGoals, "goal", renderGoalRow)}
 
+              {(standaloneProjects.length > 0 || dragItem) && <SectionHeader type="project" marginTop={14} />}
+              {(standaloneProjects.length > 0 || dragItem) && renderSection(standaloneProjects, "project", renderProjectRow)}
+
               {(standalonePlans.length > 0 || dragItem) && <SectionHeader type="plan" marginTop={14} />}
               {(standalonePlans.length > 0 || dragItem) && renderSection(standalonePlans, "plan", renderPlanRow)}
 
-              {/* «Задачі без плану» лишається завжди, поки є хоч щось — щоб завжди було куди скинути */}
-              {(activeGoals.length > 0 || standalonePlans.length > 0 || standaloneTasks.length > 0 || dragItem) && <SectionHeader type="task" marginTop={14} />}
-              {(activeGoals.length > 0 || standalonePlans.length > 0 || standaloneTasks.length > 0 || dragItem) && renderSection(standaloneTasks, "task", renderTaskRow)}
+              {/* «Задачі» лишається завжди, поки є хоч щось — щоб завжди було куди скинути */}
+              {(activeGoals.length > 0 || standaloneProjects.length > 0 || standalonePlans.length > 0 || standaloneTasks.length > 0 || dragItem) && <SectionHeader type="task" marginTop={14} />}
+              {(activeGoals.length > 0 || standaloneProjects.length > 0 || standalonePlans.length > 0 || standaloneTasks.length > 0 || dragItem) && renderSection(standaloneTasks, "task", renderTaskRow)}
             </div>
 
             {/* Done section */}
@@ -3724,14 +3777,15 @@ export default function AITracker() {
                   style={{ background: "none", border: "none", color: "rgba(0,153,51,0.6)", cursor: "pointer", fontSize: 12, fontWeight: 700, padding: 0, fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1.5, display: "flex", alignItems: "center", gap: 6, width: "100%" }}>
                   <span style={{ fontSize: 10 }}>{gpDoneGoalsOpen ? "▼" : "▶"}</span>
                   ✓ Досягнуто
-                  <span style={{ fontSize: 10, fontWeight: 400, color: "#4a6040", marginLeft: 4 }}>({doneGoals.length + donePlans.length + doneTasks.length})</span>
+                  <span style={{ fontSize: 10, fontWeight: 400, color: "#4a6040", marginLeft: 4 }}>({doneGoals.length + doneProjects.length + donePlans.length + doneTasks.length})</span>
                 </button>
                 {gpDoneGoalsOpen && (
                   <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 5 }}>
                     <div style={{ fontSize: 10, color: "#4a6040", marginBottom: 2 }}>
-                      Натисни ✓, щоб повернути в роботу · розгорни рядок, щоб побачити під-плани та під-задачі
+                      Натисни ✓, щоб повернути в роботу · розгорни рядок, щоб побачити під-проєкти, під-плани та під-задачі
                     </div>
                     {doneGoals.map(g => renderGoalRow(g))}
+                    {doneProjects.map(pr => renderProjectRow(pr))}
                     {donePlans.map(p => renderPlanRow(p))}
                     {doneTasks.map(t => renderTaskRow(t))}
                   </div>
@@ -3746,11 +3800,12 @@ export default function AITracker() {
                   style={{ background: "none", border: "none", color: "rgba(106,74,48,0.5)", cursor: "pointer", fontSize: 12, fontWeight: 700, padding: 0, fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1.5, display: "flex", alignItems: "center", gap: 6, width: "100%" }}>
                   <span style={{ fontSize: 10 }}>{gpDelOpen ? "▼" : "▶"}</span>
                   ✗ Видалені
-                  <span style={{ fontSize: 10, fontWeight: 400, color: "#4a3020", marginLeft: 4 }}>({deletedGoals.length + deletedPlans.length + deletedTasks.length})</span>
+                  <span style={{ fontSize: 10, fontWeight: 400, color: "#4a3020", marginLeft: 4 }}>({deletedGoals.length + deletedProjects.length + deletedPlans.length + deletedTasks.length})</span>
                 </button>
                 {gpDelOpen && (
                   <div style={{ marginTop: 12 }}>
                     {renderDeletedSub(deletedGoals, "#c96644", "🎯 Цілі", "goal")}
+                    {renderDeletedSub(deletedProjects, "#c9a044", "🚀 Проєкти", "project")}
                     {renderDeletedSub(deletedPlans, "#c97744", "📋 Плани дій", "plan")}
                     {renderDeletedSub(deletedTasks, "#c98844", "✅ Задачі", "task")}
                   </div>
@@ -4558,120 +4613,6 @@ export default function AITracker() {
           </div>
         )}
 
-        {/* Projects */}
-        {activeTab === "projects" && (
-          <div>
-            <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 18, flexWrap: "wrap" }}>
-              <input
-                value={projectInput}
-                onChange={e => setProjectInput(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && addProject()}
-                placeholder="Назва проекту..."
-                style={{ flex: 1, minWidth: 200, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "10px 14px", color: "#fff", fontSize: 13, fontFamily: "'Space Mono',monospace" }}
-              />
-              <select value={projectCategory} onChange={e => setProjectCategory(e.target.value)}
-                style={{ background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.25)", borderRadius: 4, padding: "10px 12px", color: "#c9a84c", fontSize: 12, cursor: "pointer" }}>
-                {PROJECT_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
-              </select>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: "6px 12px" }}>
-                <span style={{ fontSize: 11, color: "#6a5a40", whiteSpace: "nowrap" }}>XP за виконання:</span>
-                <input
-                  type="number" min="0" max="99999"
-                  value={projectCompletionXP}
-                  onChange={e => setProjectCompletionXP(Math.max(0, parseInt(e.target.value) || 0))}
-                  style={{ width: 90, background: "none", border: "none", color: "#c9a84c", fontSize: 13, fontFamily: "'Space Mono',monospace", fontWeight: 700, outline: "none", textAlign: "center", MozAppearance: "textfield", appearance: "textfield" }}
-                />
-              </div>
-              <button className="act-btn" onClick={addProject} style={{ background: "#6366f1", color: "#fff", border: "none", padding: "10px 18px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 13, whiteSpace: "nowrap" }}>+ Додати</button>
-            </div>
-            {/* Active projects grouped by category */}
-            {(() => {
-              const activeProjects = projects.filter(p => (p.status ?? "done") !== "done");
-              const doneProjects = projects.filter(p => (p.status ?? "done") === "done");
-              const projectCard = (p) => {
-                const realIdx = projects.indexOf(p);
-                const status = p.status ?? "done";
-                const cxp = p.completionXP ?? 0;
-                const isDone = status === "done";
-                const changeStatus = (next) => {
-                  setProjects(prev => prev.map((x, idx) => {
-                    if (idx !== realIdx) return x;
-                    const paid = x.completionXPPaid ?? false;
-                    const xcxp = x.completionXP ?? 0;
-                    if (next === "done" && !paid && xcxp > 0) {
-                      gainXP(xcxp, `🚀 ${x.name}`, "project");
-                      return { ...x, status: next, completionXPPaid: true, completedAt: new Date().toISOString() };
-                    }
-                    if (next !== "done" && paid && xcxp > 0) {
-                      loseXP(xcxp, "project", "↩ проект не завершено");
-                      return { ...x, status: next, completionXPPaid: false, completedAt: null };
-                    }
-                    return { ...x, status: next, completedAt: next === "done" ? (x.completedAt ?? new Date().toISOString()) : null };
-                  }));
-                };
-                const cat = PROJECT_CATEGORIES.find(c => c.id === (p.category ?? "other")) ?? PROJECT_CATEGORIES[PROJECT_CATEGORIES.length - 1];
-                const stCfg = PROJECT_STATUSES.find(s => s.id === status) ?? PROJECT_STATUSES[0];
-                const doneDate = p.completedAt ? new Date(p.completedAt).toLocaleDateString("uk-UA", { day: "numeric", month: "short", year: "numeric" }) : p.date;
-                return (
-                  <div key={realIdx} style={{ display: "flex", alignItems: "center", gap: 12, background: "rgba(5,3,1,0.76)", border: `1px solid rgba(201,168,76,0.15)`, borderLeft: `3px solid ${cat.color}`, borderRadius: 4, padding: "12px 16px", opacity: isDone ? 0.62 : 1 }}>
-                    <span style={{ fontSize: 18 }}>{cat.icon}</span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ color: isDone ? "#6a7060" : "#e0d8c0", fontSize: 13, fontFamily: "'Exo 2',sans-serif", fontWeight: 600, textDecoration: isDone ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
-                      {cxp > 0 && (
-                        <div style={{ fontSize: 11, color: isDone ? "#3a5030" : "#5a4a20", fontFamily: "'Space Mono',monospace", marginTop: 2 }}>{isDone ? `✓ +${cxp} XP отримано` : `🔒 +${cxp} XP при завершенні`}</div>
-                      )}
-                    </div>
-                    <span style={{ color: "#6a5a40", fontSize: 11, fontFamily: "'Space Mono',monospace", flexShrink: 0 }}>{isDone ? `✓ ${doneDate}` : p.date}</span>
-                    <select value={status} onChange={e => changeStatus(e.target.value)} title="Статус"
-                      style={{ fontSize: 11, padding: "4px 8px", borderRadius: 3, border: `1px solid ${stCfg.border}`, background: stCfg.bg, color: stCfg.color, cursor: "pointer", fontWeight: 700, fontFamily: "'Exo 2',sans-serif" }}>
-                      {PROJECT_STATUSES.map(s => <option key={s.id} value={s.id} style={{ background: "#0c0903", color: "#e0d8c0" }}>{s.label}</option>)}
-                    </select>
-                    <button onClick={() => setProjectDeleteConfirm(realIdx)} title="Видалити" style={{ background: "none", border: "none", color: "#5a3a30", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "2px 4px" }} onMouseEnter={e => e.target.style.color="#f43f5e"} onMouseLeave={e => e.target.style.color="#5a3a30"}>×</button>
-                  </div>
-                );
-              };
-
-              const catGroups = PROJECT_CATEGORIES.map(cat => ({
-                cat,
-                items: activeProjects.filter(p => (p.category ?? "other") === cat.id),
-              })).filter(g => g.items.length > 0);
-
-              // виконані: найсвіжіші зверху
-              const sortedDone = [...doneProjects].sort((a, b) =>
-                (b.completedAt ? new Date(b.completedAt).getTime() : 0) - (a.completedAt ? new Date(a.completedAt).getTime() : 0));
-
-              return (
-                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                  {catGroups.length === 0 && !doneProjects.length && (
-                    <div style={{ textAlign: "center", padding: 32, color: "#6a5f40", fontSize: 13 }}>Ще немає проектів. Додай перший!</div>
-                  )}
-                  {catGroups.map(({ cat, items }) => (
-                    <div key={cat.id}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                        <span style={{ background: `${cat.color}14`, border: `1px solid ${cat.color}44`, color: cat.color, padding: "3px 12px", borderRadius: 3, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>{cat.icon} {cat.label}</span>
-                        <span style={{ fontSize: 11, color: "#5a4a30" }}>{items.length} {items.length === 1 ? "проект" : "проекти"}</span>
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                        {items.map(projectCard)}
-                      </div>
-                    </div>
-                  ))}
-
-                  {/* Виконані проекти — затухлий список, найсвіжіші зверху */}
-                  {sortedDone.length > 0 && (
-                    <div>
-                      <div style={{ fontSize: 11, color: "#3a6a3a", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 8, marginTop: 4 }}>✓ Виконано · {sortedDone.length}</div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                        {sortedDone.map(projectCard)}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-          </div>
-        )}
-
         {activeTab === "progress" && (() => {
           const PRESET_TAGS = ["AI-інструмент", "проект", "навичка", "дохід", "ідея", "перемога", "урок"];
           const addEntry = () => {
@@ -5103,7 +5044,7 @@ export default function AITracker() {
         const level = Math.floor(Math.sqrt(totalXP / 80));
         const toolCount = Object.values(skillData).reduce((s, v) => s + (v.unlockedTools?.length ?? 0), 0);
         const monthSessions = sessions.dates.filter(d => d.startsWith(new Date().toISOString().slice(0, 7))).length;
-        return `Ти AI-асистент у персональному трекері прогресу Вови у вивченні AI-інструментів та заробітку з AI.\n\nПоточний стан:\n- XP: ${totalXP} → Рівень ${level}\n- Вивчено AI-інструментів: ${toolCount}\n- Дохід загалом: $${totalIncome.toFixed(2)}\n- Стрік: ${streak} днів поспіль\n- Проекти: ${projects.length} всього, ${projects.filter(p => p.status === "done").length} завершено\n- Сесій цього місяця: ${monthSessions}\n\nВеди себе як наставник і мотиватор. Давай конкретні поради, задачки та рекомендації виходячи з реального прогресу. Відповідай українською мовою. Будь стислим але корисним.`;
+        return `Ти AI-асистент у персональному трекері прогресу Вови у вивченні AI-інструментів та заробітку з AI.\n\nПоточний стан:\n- XP: ${totalXP} → Рівень ${level}\n- Вивчено AI-інструментів: ${toolCount}\n- Дохід загалом: $${totalIncome.toFixed(2)}\n- Стрік: ${streak} днів поспіль\n- Проекти: ${projects.length} всього, ${projects.filter(p => p.done).length} завершено\n- Сесій цього місяця: ${monthSessions}\n\nВеди себе як наставник і мотиватор. Давай конкретні поради, задачки та рекомендації виходячи з реального прогресу. Відповідай українською мовою. Будь стислим але корисним.`;
       };
 
       const sendMessage = async () => {
