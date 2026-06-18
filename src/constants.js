@@ -150,10 +150,12 @@ export const ACHIEVEMENTS = [
   { id: "million_dollar", group: "income", tier: "legendary", name: "Мільйонер",     desc: "Зароби $1,000,000 з AI",  xp: 15000,icon: "🤑", check: (t, i) => i >= 1000000, progress: (t, i) => ({ cur: i, max: 1000000 }) },
 
   // ── Проекти ──
-  { id: "first_project",  group: "projects", tier: "common",    name: "Будівничий",       desc: "Заверши перший AI-проект", xp: 200,  icon: "🚀", check: (t, i, p) => p >= 1,  progress: (t, i, p) => ({ cur: p, max: 1 }) },
-  { id: "three_projects", group: "projects", tier: "uncommon",  name: "Серійний творець", desc: "Заверши 3 проекти",        xp: 400,  icon: "🏗️", check: (t, i, p) => p >= 3,  progress: (t, i, p) => ({ cur: p, max: 3 }) },
-  { id: "five_projects",  group: "projects", tier: "epic",      name: "Продуктолог",      desc: "Заверши 5 проектів",       xp: 900,  icon: "🏭", check: (t, i, p) => p >= 5,  progress: (t, i, p) => ({ cur: p, max: 5 }) },
-  { id: "ten_projects",   group: "projects", tier: "legendary", name: "Імперія",          desc: "Заверши 10 проектів",      xp: 2000, icon: "🏛️", check: (t, i, p) => p >= 10, progress: (t, i, p) => ({ cur: p, max: 10 }) },
+  { id: "first_project",      group: "projects", tier: "common",    name: "Будівничий",       desc: "Заверши перший AI-проект", xp: 200,  icon: "🚀", check: (t, i, p) => p >= 1,   progress: (t, i, p) => ({ cur: p, max: 1 }) },
+  { id: "three_projects",     group: "projects", tier: "uncommon",  name: "Серійний творець", desc: "Заверши 3 проекти",        xp: 400,  icon: "🏗️", check: (t, i, p) => p >= 3,   progress: (t, i, p) => ({ cur: p, max: 3 }) },
+  { id: "ten_projects",       group: "projects", tier: "rare",      name: "Продуктолог",      desc: "Заверши 10 проектів",      xp: 900,  icon: "🏭", check: (t, i, p) => p >= 10,  progress: (t, i, p) => ({ cur: p, max: 10 }) },
+  { id: "twentyfive_projects",group: "projects", tier: "epic",      name: "Корпорація",       desc: "Заверши 25 проектів",      xp: 1800, icon: "🏢", check: (t, i, p) => p >= 25,  progress: (t, i, p) => ({ cur: p, max: 25 }) },
+  { id: "fifty_projects",     group: "projects", tier: "prime",     name: "Магнат",           desc: "Заверши 50 проектів",      xp: 3500, icon: "🌆", check: (t, i, p) => p >= 50,  progress: (t, i, p) => ({ cur: p, max: 50 }) },
+  { id: "hundred_projects",   group: "projects", tier: "legendary", name: "Імперія",          desc: "Заверши 100 проектів",     xp: 7000, icon: "🏛️", check: (t, i, p) => p >= 100, progress: (t, i, p) => ({ cur: p, max: 100 }) },
 
   // ── Стріки ──
   { id: "streak_3",   group: "streak", tier: "common",    name: "Розгін",         desc: "3 дні поспіль з AI",    xp: 100,  icon: "✨", check: (t, i, p, sd, streak) => streak >= 3,   progress: (t, i, p, sd, streak) => ({ cur: streak, max: 3 }) },

@@ -1063,7 +1063,7 @@ export default function AITracker() {
       sessionCheckDoneRef.current = true;
       const newStreak = calcStreak(sessions.dates);
       setUnlockedAchievements(ua => {
-        checkAchievements(totalTools, totalIncome, projects.length, skillData, ua, newStreak, sessions.dates.length);
+        checkAchievements(totalTools, totalIncome, projects.filter(pr => pr.done && !pr.deletedAt).length, skillData, ua, newStreak, sessions.dates.length);
         return ua;
       });
     }, delay);
@@ -1427,6 +1427,20 @@ export default function AITracker() {
     }
   }, [showAchievementToast, logXP]);
 
+  // Кількість ВИКОНАНИХ проєктів (галочка done, не видалені) — саме це рахують ачівки
+  // групи "projects". Раніше всюди йшов projects.length (усі проєкти), тож нагорода
+  // зараховувалась за щойно доданий проєкт «в процесі». Тепер — лише реально завершені.
+  const completedProjectsCount = useMemo(() => projects.filter(pr => pr.done && !pr.deletedAt).length, [projects]);
+
+  // Перепровіряємо проєктні ачівки щоразу, коли змінюється кількість виконаних проєктів
+  // (завершення / скасування / видалення в будь-якій вкладці — toggle напряму ачівки не чіпає).
+  useEffect(() => {
+    setUnlockedAchievements(ua => {
+      checkAchievements(totalTools, totalIncome, completedProjectsCount, skillData, ua, streak, sessions.dates.length);
+      return ua;
+    });
+  }, [completedProjectsCount]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const renderDoneSection = (items, { sectionKey, open, setOpen, onUndo, onDelete, labelFn, xpFn }) => {
     if (!items.length) return null;
     const groups = {};
@@ -1491,6 +1505,27 @@ export default function AITracker() {
     setTodayXP(prev => prev.date === todayStr() ? { ...prev, total: Math.max(0, prev.total - amount) } : prev);
     logXP(-amount, source, label);
   }, [logXP]);
+
+  // Одноразове виправлення (міграція): до фіксу лічильника проєктні ачівки могли
+  // розблокуватись помилково — рахувались УСІ проєкти, а не лише виконані. На першому
+  // запуску після оновлення прибираємо ті, що не відповідають реальній кількості
+  // виконаних проєктів, і повертаємо їхній XP — так само, як ручне «🔓 скасувати».
+  const projAchFixRef = useRef(false);
+  useEffect(() => {
+    if (projAchFixRef.current) return;
+    projAchFixRef.current = true;
+    try { if (localStorage.getItem("ai_tracker_projAchFix_v1")) return; } catch { /* ignore */ }
+    const completed = projects.filter(pr => pr.done && !pr.deletedAt).length;
+    const wrong = ACHIEVEMENTS.filter(a => a.group === "projects" && unlockedAchievements.includes(a.id) && !a.check(0, 0, completed, {}, 0, 0, 0, 0));
+    if (wrong.length) {
+      const ids = new Set(wrong.map(a => a.id));
+      setUnlockedAchievements(prev => prev.filter(id => !ids.has(id)));
+      setAchievementDates(prev => { const n = { ...prev }; wrong.forEach(a => delete n[a.id]); return n; });
+      const refund = wrong.reduce((s, a) => s + a.xp, 0);
+      if (refund > 0) loseXP(refund, "achievement", "↩ виправлення проєктних ачівок");
+    }
+    try { localStorage.setItem("ai_tracker_projAchFix_v1", "1"); } catch { /* ignore */ }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Закріплення з каскадом: основа (ціль/план) тягне за собою всі під-плани й під-задачі
   const setPinnedCascade = (type, id, val) => {
@@ -1642,7 +1677,7 @@ export default function AITracker() {
       gainXP(100, `(${tool})`, "skill");
       recordActiveDay();
       setUnlockedAchievements(ua => {
-        checkAchievements(newTotal, totalIncome, projects.length, updated, ua, streak, sessions.dates.length);
+        checkAchievements(newTotal, totalIncome, completedProjectsCount, updated, ua, streak, sessions.dates.length);
         return ua;
       });
       return updated;
@@ -1661,7 +1696,7 @@ export default function AITracker() {
       gainXP(xpPaid, `(+$${amtUSD.toFixed(2)})`, "income");
       recordActiveDay();
       setUnlockedAchievements(ua => {
-        checkAchievements(totalTools, newTotal, projects.length, skillData, ua, streak, sessions.dates.length);
+        checkAchievements(totalTools, newTotal, completedProjectsCount, skillData, ua, streak, sessions.dates.length);
         return ua;
       });
       return next;
@@ -1731,7 +1766,7 @@ export default function AITracker() {
     setProjectCompletionXP(200);
     setProjectInput("");
     setUnlockedAchievements(ua => {
-      checkAchievements(totalTools, totalIncome, newProjects.length, skillData, ua, streak, sessions.dates.length);
+      checkAchievements(totalTools, totalIncome, newProjects.filter(pr => pr.done && !pr.deletedAt).length, skillData, ua, streak, sessions.dates.length);
       return ua;
     });
   }, [projectInput, projects, gainXP, recordActiveDay, checkAchievements, totalTools, totalIncome, skillData, streak, sessions.dates.length]);
@@ -1851,7 +1886,7 @@ export default function AITracker() {
         setProgressiveCount("code", "lines_written", totalNet);
         setGithubSync(prev => ({ ...prev, user, token, lastSync: Date.now(), totalLines: totalNet, repos: perRepo }));
         setUnlockedAchievements(ua => {
-          checkAchievements(totalTools, totalIncome, projects.length, skillData, ua, streak, sessions.dates.length);
+          checkAchievements(totalTools, totalIncome, completedProjectsCount, skillData, ua, streak, sessions.dates.length);
           return ua;
         });
       }
@@ -2941,7 +2976,7 @@ export default function AITracker() {
           const lt = learnTime;
           const learnHours = ((lt.education ?? 0) + (lt.business ?? 0)) * 0.5;
           const codeLines = skillTasksData["code_lines_written"]?.count ?? 0;
-          const achArgs = [totalTools, totalIncome, projects.length, skillData, streak, sessions.dates.length, learnHours, codeLines];
+          const achArgs = [totalTools, totalIncome, completedProjectsCount, skillData, streak, sessions.dates.length, learnHours, codeLines];
           return (
           <div style={{ display: "flex", flexDirection: "column", gap: 26 }}>
             {ACH_GROUPS.map(g => {
@@ -3371,7 +3406,7 @@ export default function AITracker() {
             );
           };
 
-          // У «Досягнуто» переходять лише ВЕРХНЬОРІВНЕВІ виконані елементи (зі своїми
+          // У «Виконано» переходять лише ВЕРХНЬОРІВНЕВІ виконані елементи (зі своїми
           // під-планами/під-задачами). Виконані дочірні — план усередині цілі, задача
           // всередині плану — лишаються закресленими на місці, всередині свого батька.
           const doneGoals = longGoals.filter(g => g.done && !g.deletedAt);
@@ -3839,7 +3874,7 @@ export default function AITracker() {
                 <button onClick={() => setGpDoneGoalsOpen(o => !o)}
                   style={{ background: "none", border: "none", color: "rgba(0,153,51,0.6)", cursor: "pointer", fontSize: 12, fontWeight: 700, padding: 0, fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1.5, display: "flex", alignItems: "center", gap: 6, width: "100%" }}>
                   <span style={{ fontSize: 10 }}>{gpDoneGoalsOpen ? "▼" : "▶"}</span>
-                  ✓ Досягнуто
+                  ✓ Виконано
                   <span style={{ fontSize: 10, fontWeight: 400, color: "#4a6040", marginLeft: 4 }}>({doneGoals.length + doneProjects.length + donePlans.length + doneTasks.length})</span>
                 </button>
                 {gpDoneGoalsOpen && (
