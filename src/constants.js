@@ -123,7 +123,7 @@ export const TIERS = {
 export const ACH_GROUPS = [
   { id: "tools",    label: "🧠 Інструменти" },
   { id: "income",   label: "💰 Дохід" },
-  { id: "projects", label: "🚀 Проекти" },
+  { id: "projects", label: "🚀 Проєкти" },
   { id: "code",     label: "💻 Рядки коду" },
   { id: "streak",   label: "🔥 Стріки" },
   { id: "sessions", label: "⚡ Сесії" },
@@ -150,13 +150,13 @@ export const ACHIEVEMENTS = [
   { id: "hundredk_dollar",group: "income", tier: "prime",     name: "Шестизначний",  desc: "Зароби $100,000 з AI",    xp: 5000, icon: "👑", check: (t, i) => i >= 100000,  progress: (t, i) => ({ cur: i, max: 100000 }) },
   { id: "million_dollar", group: "income", tier: "legendary", name: "Мільйонер",     desc: "Зароби $1,000,000 з AI",  xp: 15000,icon: "🤑", check: (t, i) => i >= 1000000, progress: (t, i) => ({ cur: i, max: 1000000 }) },
 
-  // ── Проекти ──
-  { id: "first_project",      group: "projects", tier: "common",    name: "Будівничий",       desc: "Заверши перший AI-проект", xp: 200,  icon: "🚀", check: (t, i, p) => p >= 1,   progress: (t, i, p) => ({ cur: p, max: 1 }) },
-  { id: "three_projects",     group: "projects", tier: "uncommon",  name: "Серійний творець", desc: "Заверши 3 проекти",        xp: 400,  icon: "🏗️", check: (t, i, p) => p >= 3,   progress: (t, i, p) => ({ cur: p, max: 3 }) },
-  { id: "ten_projects",       group: "projects", tier: "rare",      name: "Продуктолог",      desc: "Заверши 10 проектів",      xp: 900,  icon: "🏭", check: (t, i, p) => p >= 10,  progress: (t, i, p) => ({ cur: p, max: 10 }) },
-  { id: "twentyfive_projects",group: "projects", tier: "epic",      name: "Корпорація",       desc: "Заверши 25 проектів",      xp: 1800, icon: "🏢", check: (t, i, p) => p >= 25,  progress: (t, i, p) => ({ cur: p, max: 25 }) },
-  { id: "fifty_projects",     group: "projects", tier: "prime",     name: "Магнат",           desc: "Заверши 50 проектів",      xp: 3500, icon: "🌆", check: (t, i, p) => p >= 50,  progress: (t, i, p) => ({ cur: p, max: 50 }) },
-  { id: "hundred_projects",   group: "projects", tier: "legendary", name: "Імперія",          desc: "Заверши 100 проектів",     xp: 7000, icon: "🏛️", check: (t, i, p) => p >= 100, progress: (t, i, p) => ({ cur: p, max: 100 }) },
+  // ── Проєкти ──
+  { id: "first_project",      group: "projects", tier: "common",    name: "Будівничий",       desc: "Заверши перший AI-проєкт", xp: 200,  icon: "🚀", check: (t, i, p) => p >= 1,   progress: (t, i, p) => ({ cur: p, max: 1 }) },
+  { id: "three_projects",     group: "projects", tier: "uncommon",  name: "Серійний творець", desc: "Заверши 3 проєкти",        xp: 400,  icon: "🏗️", check: (t, i, p) => p >= 3,   progress: (t, i, p) => ({ cur: p, max: 3 }) },
+  { id: "ten_projects",       group: "projects", tier: "rare",      name: "Продуктолог",      desc: "Заверши 10 проєктів",      xp: 900,  icon: "🏭", check: (t, i, p) => p >= 10,  progress: (t, i, p) => ({ cur: p, max: 10 }) },
+  { id: "twentyfive_projects",group: "projects", tier: "epic",      name: "Корпорація",       desc: "Заверши 25 проєктів",      xp: 1800, icon: "🏢", check: (t, i, p) => p >= 25,  progress: (t, i, p) => ({ cur: p, max: 25 }) },
+  { id: "fifty_projects",     group: "projects", tier: "prime",     name: "Магнат",           desc: "Заверши 50 проєктів",      xp: 3500, icon: "🌆", check: (t, i, p) => p >= 50,  progress: (t, i, p) => ({ cur: p, max: 50 }) },
+  { id: "hundred_projects",   group: "projects", tier: "legendary", name: "Імперія",          desc: "Заверши 100 проєктів",     xp: 7000, icon: "🏛️", check: (t, i, p) => p >= 100, progress: (t, i, p) => ({ cur: p, max: 100 }) },
 
   // ── Стріки ──
   { id: "streak_3",   group: "streak", tier: "common",    name: "Розгін",         desc: "3 дні поспіль з AI",    xp: 100,  icon: "✨", check: (t, i, p, sd, streak) => streak >= 3,   progress: (t, i, p, sd, streak) => ({ cur: streak, max: 3 }) },
@@ -236,7 +236,7 @@ export const ACTIVITY_XP = Object.fromEntries(ACTIVITY_DEFS.map(d => [d.key, d.x
 export const GOAL_CATEGORIES = [
   { id: "income",  label: "Дохід",    color: "#f59e0b", icon: "💰" },
   { id: "skills",  label: "Навички",  color: "#00ff88", icon: "🧠" },
-  { id: "project", label: "Проект",   color: "#6366f1", icon: "🚀" },
+  { id: "project", label: "Проєкт",   color: "#6366f1", icon: "🚀" },
   { id: "other",   label: "Інше",     color: "#6a5f40", icon: "🎯" },
 ];
 
@@ -418,12 +418,12 @@ export const SKILL_TASKS = [
     id: "code", name: "Код / Боти", emoji: "💻", color: "#6366f1",
     progressive: [
       { id: "lines_written",    label: "Рядків коду написано",          milestones: [{count:100,xp:100},{count:1000,xp:400},{count:10000,xp:1500},{count:50000,xp:4000}] },
-      { id: "projects_launched",label: "Запущених проектів / сайтів",   milestones: [{count:1,xp:300},{count:3,xp:700},{count:10,xp:2000},{count:30,xp:5000}] },
+      { id: "projects_launched",label: "Запущених проєктів / сайтів",   milestones: [{count:1,xp:300},{count:3,xp:700},{count:10,xp:2000},{count:30,xp:5000}] },
     ],
     oneTime: [
       { id: "first_deploy",     label: "Перший сайт задеплоєний (Oxford_1000!)", xp: 800  },
       { id: "telegram_bot",     label: "Перший Telegram-бот",                    xp: 1000 },
-      { id: "100_users",        label: "Проект набрав 100 активних користувачів", xp: 2000 },
+      { id: "100_users",        label: "Проєкт набрав 100 активних користувачів", xp: 2000 },
       { id: "paid_client_code", label: "Перший платний клієнт за код",           xp: 2000 },
       { id: "first_saas",       label: "Перший SaaS продукт",                    xp: 3000 },
     ],
@@ -457,7 +457,7 @@ export const SKILL_TASKS = [
   {
     id: "monetize", name: "Монетизація", emoji: "💰", color: "#fbbf24",
     progressive: [
-      { id: "ai_income", label: "Дохід з AI-проектів ($)", milestones: [{count:1,xp:200},{count:100,xp:800},{count:1000,xp:2500},{count:10000,xp:6000}] },
+      { id: "ai_income", label: "Дохід з AI-проєктів ($)", milestones: [{count:1,xp:200},{count:100,xp:800},{count:1000,xp:2500},{count:10000,xp:6000}] },
       { id: "clients",   label: "Клієнтів / продажів",     milestones: [{count:1,xp:300},{count:5,xp:800},{count:20,xp:2000},{count:100,xp:5000}] },
     ],
     oneTime: [

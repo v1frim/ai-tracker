@@ -812,7 +812,7 @@ export default function AITracker() {
   const [projectDeleteConfirm, setProjectDeleteConfirm] = useState(null); // index
   const [projects, setProjects] = useState(() => {
     const raw = saved?.projects ?? DEFAULT_PROJECTS;
-    // Міграція проектів у дерево-сумісний вигляд: id, text, goalId, статус active/paused
+    // Міграція проєктів у дерево-сумісний вигляд: id, text, goalId, статус active/paused
     // (виконання — через прапорець done, а не статус). Старі поля лишаємо сумісними.
     return raw.map((p, i) => {
       if (p.id && p.text !== undefined && (p.status === "active" || p.status === "paused")) return p;
@@ -942,6 +942,7 @@ export default function AITracker() {
   const [gpInboxText, setGpInboxText] = useState("");
   const [gpInboxType, setGpInboxType] = useState("task");
   const [gpInboxConvert, setGpInboxConvert] = useState(null);
+  const [gpInboxEdit, setGpInboxEdit] = useState(null); // { id, val } — інлайн-редагування назви картки інбоксу
   const [dragItem, setDragItem] = useState(null); // { id, fromType, source: "list"|"inbox" }
   const [dragOver, setDragOver] = useState(null);  // ключ цілі під курсором для підсвітки
 
@@ -1029,7 +1030,7 @@ export default function AITracker() {
     localStorage.setItem("ai_tracker_gp_exp", JSON.stringify(expandGP));
   }, [expandGP]);
 
-  // Авто-сесія: будь-яка змістовна дія (XP, фінанси, задачі, цілі, план, проекти,
+  // Авто-сесія: будь-яка змістовна дія (XP, фінанси, задачі, цілі, план, проєкти,
   // навички, активність) автоматично зараховує сьогоднішній день у стрік.
   // Стартовий гард пропускає нормалізацію даних при завантаженні застосунку.
   const sessionAutoRef = useRef(Date.now());
@@ -2180,7 +2181,7 @@ export default function AITracker() {
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "stretch" }}>
               {[
                 { label: "Дохід", val: `$${totalIncome.toFixed(0)}`, color: lc },
-                { label: "Проекти", val: projects.filter(p => p.done && !p.deletedAt).length, color: lc },
+                { label: "Проєкти", val: projects.filter(p => p.done && !p.deletedAt).length, color: lc },
                 { label: "Клієнти", val: (skillTasksData["monetize_clients"]?.count ?? 0), color: "#fbbf24" },
                 { label: "Досягнення", val: `${unlockedAchievements.length}/${ACHIEVEMENTS.length}`, color: "#00ff88" },
                 { label: "Сесій/міс", val: `${monthSessions}/${daysInCurrentMonth}`, color: lc },
@@ -2354,7 +2355,7 @@ export default function AITracker() {
                     const fld = (type === "goal" || type === "project") ? "customXP" : "xp";
                     const def = type === "goal" ? 1000 : type === "project" ? 200 : type === "plan" ? 50 : 10;
                     const cat = type === "project" ? "project" : type === "plan" ? "plan" : "goal";
-                    const lbl = type === "goal" ? "(ціль досягнута)" : type === "project" ? "(проект завершено)" : type === "plan" ? "(план)" : "(задачу виконано)";
+                    const lbl = type === "goal" ? "(ціль досягнута)" : type === "project" ? "(проєкт завершено)" : type === "plan" ? "(план)" : "(задачу виконано)";
                     setter(prev => prev.map(x => {
                       if (x.id !== item.id) return x;
                       if (!x.done) {
@@ -2432,7 +2433,7 @@ export default function AITracker() {
 
                       {isEmpty && (
                         <div style={{ textAlign: "center", padding: "12px 0", fontSize: 12, color: "#5a5040" }}>
-                          Натисни 📌 на цілі, проекті, плані або задачі, щоб закріпити їх тут<br/>
+                          Натисни 📌 на будь-якому квесті (цілі / проєкті / плані / задачі), щоб закріпити його тут<br/>
                           <span onClick={() => setActiveTab("goalsplan")} style={{ color: "#c9a84c", cursor: "pointer", marginTop: 6, display: "inline-block" }}>Відкрити Цілі & проєкти →</span>
                         </div>
                       )}
@@ -3064,9 +3065,9 @@ export default function AITracker() {
           const toggleExp = (key) => setExpandGP(prev => ({ ...prev, [key]: !prev[key] }));
           const isExp = (key) => !!expandGP[key];
 
-          // Ієрархія: Ціль → Проект → План → Задача (гнучка вкладеність)
+          // Ієрархія: Ціль → Проєкт → План → Задача (гнучка вкладеність)
           const activeGoals = longGoals.filter(g => !g.done && !g.deletedAt);
-          // Проекти сортуємо за статусом: спершу «в процесі», потім «на паузі»
+          // Проєкти сортуємо за статусом: спершу «в процесі», потім «на паузі»
           const projOrder = { active: 0, paused: 1 };
           const activeProjects = projects.filter(pr => !pr.done && !pr.deletedAt)
             .slice().sort((a, b) => (projOrder[a.status ?? "active"] ?? 0) - (projOrder[b.status ?? "active"] ?? 0));
@@ -3111,7 +3112,7 @@ export default function AITracker() {
             return { ...x, done: false, xpAwarded: false, completedAt: null };
           }));
           const doCompleteGoal    = makeToggleDone(setLongGoals, "customXP", 1000, "goal",    "(ціль досягнута)");
-          const doCompleteProject = makeToggleDone(setProjects,  "customXP", 200,  "project", "(проект завершено)");
+          const doCompleteProject = makeToggleDone(setProjects,  "customXP", 200,  "project", "(проєкт завершено)");
           const doCompletePlan    = makeToggleDone(setPlan,      "xp",       50,   "plan",    "(план)");
           const doCompleteTask    = makeToggleDone(setGoals,     "xp",       10,   "goal",    "(задачу виконано)");
 
@@ -3231,9 +3232,9 @@ export default function AITracker() {
 
           const PROJ_CAT = Object.fromEntries(PROJECT_CATEGORIES.map(c => [c.id, c]));
 
-          // Інлайн-додавання дитини (проект/план/задача) до батька певного типу
+          // Інлайн-додавання дитини (проєкт/план/задача) до батька певного типу
           const CHILD_META = {
-            project: { color: "#fbbf24", bg: "rgba(245,158,11,0.08)", inputBg: "rgba(20,14,2,0.92)", text: "#fcd34d", ph: "Назва проекту...",   def: 200, label: "+ проект" },
+            project: { color: "#fbbf24", bg: "rgba(245,158,11,0.08)", inputBg: "rgba(20,14,2,0.92)", text: "#fcd34d", ph: "Назва проєкту...",   def: 200, label: "+ проєкт" },
             plan:    { color: "#22d3ee", bg: "rgba(6,182,212,0.08)",  inputBg: "rgba(4,18,24,0.92)",  text: "#d0f0fa", ph: "Назва плану...", def: 50,  label: "+ план" },
             task:    { color: "#00ff88", bg: "rgba(0,255,136,0.08)",  inputBg: "rgba(5,14,10,0.92)",  text: "#d8f8e8", ph: "Назва задачі...",    def: 10,  label: "+ задача" },
           };
@@ -3480,7 +3481,7 @@ export default function AITracker() {
           // між секціями міняє тип елемента (текст/XP/напрям зберігаються).
           const TYPE_META = {
             goal:    { setter: setLongGoals, arr: longGoals, prefix: "lg", color: "#c084fc", label: "🎯 Ціль",   defXP: 1000 },
-            project: { setter: setProjects,  arr: projects,  prefix: "pr", color: "#fbbf24", label: "🚀 Проект", defXP: 200  },
+            project: { setter: setProjects,  arr: projects,  prefix: "pr", color: "#fbbf24", label: "🚀 Проєкт", defXP: 200  },
             plan:    { setter: setPlan,      arr: plan,      prefix: "p",  color: "#22d3ee", label: "📋 План",   defXP: 50   },
             task:    { setter: setGoals,     arr: goals,     prefix: "g",  color: "#00ff88", label: "✅ Задача", defXP: 10   },
           };
@@ -3516,7 +3517,7 @@ export default function AITracker() {
           };
           // При зміні типу елемента (oldId → newId) переносимо його дітей на нового батька,
           // щоб під-плани/під-задачі лишились прив'язаними. Якщо новий тип не може містити
-          // такий тип дитини (напр. проект-у-проекті) — дитина стає самостійною.
+          // такий тип дитини (напр. проєкт-у-проєкті) — дитина стає самостійною.
           const reparentChildren = (fromType, oldId, toType, newId) => {
             const fromField = LINK_FIELD[fromType];
             if (!fromField) return; // задачі не мають дітей
@@ -3536,7 +3537,7 @@ export default function AITracker() {
           };
 
           // Чи можна вкласти елемент, що тягнеться, у батька parentType як валідну дитину
-          // (без зміни типу). Завдяки строгій ієрархії ціль>проект>план>задача цикл неможливий.
+          // (без зміни типу). Завдяки строгій ієрархії ціль>проєкт>план>задача цикл неможливий.
           const canNestInto = (parentType, parentId) =>
             !!dragItem && dragItem.source === "list" && dragItem.id !== parentId &&
             !!CAN_CONTAIN[parentType]?.[dragItem.fromType];
@@ -3594,6 +3595,8 @@ export default function AITracker() {
           const dropToInboxType = (toType, beforeId = null) => {
             const di = dragItem;
             if (!di) { setDragOver(null); return; }
+            // Скидання картки на власну позицію (та сама або вже наступна) → нічого не міняємо.
+            if (di.source === "inbox" && beforeId === di.id) { setDragItem(null); setDragOver(null); return; }
             if (di.source === "inbox") {
               setInbox(prev => {
                 const it = prev.find(x => x.id === di.id);
@@ -3642,6 +3645,20 @@ export default function AITracker() {
                 onDrop={e => { e.preventDefault(); dropToType(type, beforeId); }}
                 style={{ height: hot ? base + 10 : base, borderRadius: 2, transition: "background 0.1s", background: hot ? color : "transparent", boxShadow: hot ? `0 0 8px ${color}` : "none" }}>
               </div>
+            );
+          };
+
+          // Смужка-вставка між картками інбоксу (як GapZone у списку): показує місце, куди впаде картка.
+          // beforeId — вставити перед цією карткою (null → у кінець). Тип елемента зберігається.
+          const InboxGapZone = ({ beforeId, base = 5 }) => {
+            if (!dragItem) return null;
+            const key = `ibgap_${beforeId ?? "end"}`;
+            const hot = dragOver === key;
+            const color = "#fbbf24";
+            return (
+              <div onDragOver={e => { e.preventDefault(); setDragOver(key); }}
+                onDrop={e => { e.preventDefault(); dropToInboxType(dragItem?.fromType, beforeId); }}
+                style={{ height: hot ? base + 10 : base, borderRadius: 2, transition: "background 0.1s", background: hot ? color : "transparent", boxShadow: hot ? `0 0 8px ${color}` : "none" }} />
             );
           };
 
@@ -3697,6 +3714,13 @@ export default function AITracker() {
             }
             setInbox(prev => prev.filter(x => x.id !== item.id));
             setGpInboxConvert(null);
+          };
+
+          // Інлайн-редагування назви картки інбоксу (дзеркало commitTextEdit зі списку).
+          const commitInboxEdit = (id, rawVal) => {
+            const text = (rawVal ?? "").trim();
+            if (text) setInbox(prev => prev.map(x => x.id === id ? { ...x, text } : x));
+            setGpInboxEdit(null);
           };
 
           return (
@@ -3756,15 +3780,16 @@ export default function AITracker() {
                 </div>
               )}
               {gpInboxOpen && inbox.length > 0 && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: dragItem ? 0 : 5 }}>
                   {inbox.map(item => {
                     const isConverting = gpInboxConvert?.id === item.id;
-                    return (
-                      <div key={item.id} style={{ background: "rgba(12,9,2,0.85)", border: `1px solid ${isConverting ? "rgba(251,191,36,0.45)" : "rgba(251,191,36,0.15)"}`, borderLeft: `3px solid ${TYPE_META[inboxType(item)].color}99`, borderRadius: 4, overflow: "hidden", outline: dragOver === `ib_${item.id}` ? "2px dashed #fbbf24" : "none", opacity: dragItem?.id === item.id ? 0.4 : 1 }}>
+                    const isEditingIb = gpInboxEdit?.id === item.id;
+                    return [
+                      <InboxGapZone key={`ibgap_${item.id}`} beforeId={item.id} />,
+                      <div key={item.id} style={{ background: "rgba(12,9,2,0.85)", border: `1px solid ${isConverting ? "rgba(251,191,36,0.45)" : "rgba(251,191,36,0.15)"}`, borderLeft: `3px solid ${TYPE_META[inboxType(item)].color}99`, borderRadius: 4, overflow: "hidden", opacity: dragItem?.id === item.id ? 0.4 : 1 }}>
                         <div {...dragHandlers(item.id, inboxType(item), "inbox")}
-                          onDragOver={e => { e.preventDefault(); setDragOver(`ib_${item.id}`); }}
-                          onDragLeave={() => setDragOver(o => o === `ib_${item.id}` ? null : o)}
-                          onDrop={e => { e.preventDefault(); dropToInboxType(inboxType(item), item.id); }}
+                          onDragOver={e => { e.preventDefault(); setDragOver(`ibgap_${item.id}`); }}
+                          onDrop={e => { e.preventDefault(); dropToInboxType(dragItem?.fromType, item.id); }}
                           style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", cursor: "grab", userSelect: "none" }}>
                           {(() => {
                             const m = TYPE_META[inboxType(item)];
@@ -3778,8 +3803,23 @@ export default function AITracker() {
                               </button>
                             );
                           })()}
-                          <span style={{ flex: 1, color: "#e8d080", fontSize: 12 }}>{item.text}</span>
+                          {isEditingIb ? (
+                            <input autoFocus draggable={false} value={gpInboxEdit.val}
+                              onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}
+                              onDragStart={e => { e.stopPropagation(); e.preventDefault(); }}
+                              onChange={e => setGpInboxEdit(s => ({ ...s, val: e.target.value }))}
+                              onKeyDown={e => { e.stopPropagation(); if (e.key === "Enter") commitInboxEdit(item.id, gpInboxEdit.val); else if (e.key === "Escape") setGpInboxEdit(null); }}
+                              onBlur={() => commitInboxEdit(item.id, gpInboxEdit.val)}
+                              style={{ flex: 1, minWidth: 0, background: "rgba(0,0,0,0.4)", border: "1px solid #fbbf24", borderRadius: 4, color: "#fff", fontSize: 12, padding: "3px 7px", outline: "none", fontFamily: "inherit" }} />
+                          ) : (
+                            <span style={{ flex: 1, color: "#e8d080", fontSize: 12 }}>{item.text}</span>
+                          )}
                           <span style={{ fontSize: 9, color: "#6a5820", flexShrink: 0 }}>{fmtDate(item.createdAt)}</span>
+                          {!isEditingIb && (
+                            <button onClick={e => { e.stopPropagation(); setGpInboxEdit({ id: item.id, val: item.text }); }}
+                              title="Редагувати назву"
+                              style={{ background: "none", border: "none", color: "#9a7820", cursor: "pointer", fontSize: 12, padding: "0 2px", flexShrink: 0, lineHeight: 1 }}>✏️</button>
+                          )}
                           <button onClick={() => setGpInboxConvert(isConverting ? null : { id: item.id, type: inboxType(item), xp: TYPE_META[inboxType(item)].defXP, parentId: null, parentType: null })}
                             style={{ background: isConverting ? "rgba(251,191,36,0.2)" : "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.35)", color: "#fbbf24", borderRadius: 3, padding: "3px 9px", fontSize: 10, fontWeight: 700, cursor: "pointer", flexShrink: 0, whiteSpace: "nowrap" }}>
                             {isConverting ? "▲ скасувати" : "→ перенести"}
@@ -3792,7 +3832,7 @@ export default function AITracker() {
                             <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
                               {[
                                 { id: "goal",    label: "🎯 Ціль",   color: "#c084fc", xp: 1000 },
-                                { id: "project", label: "🚀 Проект", color: "#fbbf24", xp: 200  },
+                                { id: "project", label: "🚀 Проєкт", color: "#fbbf24", xp: 200  },
                                 { id: "plan",    label: "📋 План",   color: "#22d3ee", xp: 50   },
                                 { id: "task",    label: "✅ Задача", color: "#00ff88", xp: 10   },
                               ].map(tp => (
@@ -3829,9 +3869,10 @@ export default function AITracker() {
                             </button>
                           </div>
                         )}
-                      </div>
-                    );
+                      </div>,
+                    ];
                   })}
+                  <InboxGapZone beforeId={null} />
                 </div>
               )}
             </div>
@@ -3842,7 +3883,7 @@ export default function AITracker() {
                 <div style={{ display: "flex", gap: 3 }}>
                   {[
                     { id: "goal",    label: "🎯 Ціль",     color: "#c084fc" },
-                    { id: "project", label: "🚀 Проект",   color: "#fbbf24" },
+                    { id: "project", label: "🚀 Проєкт",   color: "#fbbf24" },
                     { id: "plan",    label: "📋 План", color: "#22d3ee" },
                     { id: "task",    label: "✅ Задача",   color: "#00ff88" },
                   ].map(tp => (
@@ -3854,7 +3895,7 @@ export default function AITracker() {
                 </div>
                 <input value={gpAddText} onChange={e => setGpAddText(e.target.value)}
                   onKeyDown={e => { if (e.key === "Enter") doAddItem(); }}
-                  placeholder={gpAddType === "goal" ? "Опиши ціль..." : gpAddType === "project" ? "Опиши проект..." : gpAddType === "plan" ? "Опиши план..." : "Опиши задачу..."}
+                  placeholder={gpAddType === "goal" ? "Опиши ціль..." : gpAddType === "project" ? "Опиши проєкт..." : gpAddType === "plan" ? "Опиши план..." : "Опиши задачу..."}
                   style={{ flex: 1, minWidth: 150, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.18)", borderRadius: 4, padding: "8px 12px", color: "#fff", fontSize: 12, fontFamily: "'Space Mono',monospace" }} />
                 {gpAddType === "project" && (
                   <select value={projectCategory} onChange={e => setProjectCategory(e.target.value)}
@@ -3879,7 +3920,7 @@ export default function AITracker() {
             <div style={{ display: "flex", flexDirection: "column", gap: dragItem ? 0 : 5 }}>
               {!dragItem && activeGoals.length === 0 && standaloneProjects.length === 0 && standalonePlans.length === 0 && standaloneTasks.length === 0 && (
                 <div style={{ textAlign: "center", padding: "32px 16px", color: "#5a5040", fontSize: 13 }}>
-                  Ще нічого немає. Додай першу ціль, проект, план або задачу!
+                  Ще нічого немає. Додай перший квест (ціль / проєкт / план / задачу)!
                 </div>
               )}
 
@@ -4719,7 +4760,7 @@ export default function AITracker() {
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.80)", zIndex: 9995, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
             <div className="wf-panel" style={{ maxWidth: 380, width: "100%", padding: 24 }}>
               <div style={{ fontSize: 22, marginBottom: 12, textAlign: "center" }}>🗑</div>
-              <div className="wf-sec" style={{ textAlign: "center", marginBottom: 8 }}>Видалити проект?</div>
+              <div className="wf-sec" style={{ textAlign: "center", marginBottom: 8 }}>Видалити проєкт?</div>
               <div style={{ fontSize: 13, color: "#e0d8c0", textAlign: "center", marginBottom: 6, fontFamily: "'Exo 2',sans-serif", fontWeight: 700 }}>«{projects[projectDeleteConfirm]?.name}»</div>
               {(() => {
                 const dp = projects[projectDeleteConfirm];
@@ -4731,7 +4772,7 @@ export default function AITracker() {
                   const dp = projects[projectDeleteConfirm];
                   const totalDeduct = (dp?.creationXP ?? 200) + (dp?.completionXPPaid ? (dp?.completionXP ?? 0) : 0);
                   setProjects(prev => prev.filter((_, idx) => idx !== projectDeleteConfirm));
-                  loseXP(totalDeduct, "project", "↩ проект видалено");
+                  loseXP(totalDeduct, "project", "↩ проєкт видалено");
                   setProjectDeleteConfirm(null);
                 }} style={{ flex: 1, background: "rgba(244,63,94,0.15)", border: "1px solid rgba(244,63,94,0.5)", color: "#f43f5e", padding: "10px", borderRadius: 4, fontWeight: 800, cursor: "pointer", fontSize: 13 }}>Так, видалити</button>
                 <button onClick={() => setProjectDeleteConfirm(null)} style={{ flex: 1, background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.3)", color: "#c9a84c", padding: "10px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>Скасувати</button>
@@ -4741,7 +4782,7 @@ export default function AITracker() {
         )}
 
         {activeTab === "progress" && (() => {
-          const PRESET_TAGS = ["AI-інструмент", "проект", "навичка", "дохід", "ідея", "перемога", "урок"];
+          const PRESET_TAGS = ["AI-інструмент", "проєкт", "навичка", "дохід", "ідея", "перемога", "урок"];
           const addEntry = () => {
             if (!progressInput.trim()) return;
             const entry = { id: `pr_${Date.now()}`, date: progressDate, text: progressInput.trim(), tags: progressTags };
@@ -4903,7 +4944,7 @@ export default function AITracker() {
             { catId: "voice",      emoji: "🎙️", label: "Голос / Аудіо", tasks: [{ id: "audio_files", label: "Аудіо-файлів" }, { id: "audio_minutes", label: "Хвилин" }] },
             { catId: "music",      emoji: "🎵", label: "Музика",         tasks: [{ id: "tracks_created", label: "Треків" }, { id: "tracks_published", label: "Опублікованих" }] },
             { catId: "automation", emoji: "⚙️", label: "Автоматизація", tasks: [{ id: "automations_created", label: "Автоматизацій" }, { id: "hours_saved", label: "Год заощаджено" }] },
-            { catId: "code",       emoji: "💻", label: "Код",            tasks: [{ id: "lines_written", label: "Рядків коду" }, { id: "projects_launched", label: "Проектів" }] },
+            { catId: "code",       emoji: "💻", label: "Код",            tasks: [{ id: "lines_written", label: "Рядків коду" }, { id: "projects_launched", label: "Проєктів" }] },
             { catId: "design",     emoji: "✨", label: "Дизайн",         tasks: [{ id: "mockups_created", label: "Макетів" }, { id: "logos_created", label: "Логотипів" }] },
             { catId: "content",    emoji: "📱", label: "Контент",        tasks: [{ id: "posts_published", label: "Постів" }, { id: "followers_gained", label: "Підписників" }, { id: "content_views", label: "Переглядів" }] },
             { catId: "monetize",   emoji: "💰", label: "Монетизація",    tasks: [{ id: "ai_income", label: "Дохід ($)" }, { id: "clients", label: "Клієнтів" }] },
@@ -4929,7 +4970,7 @@ export default function AITracker() {
             cat.oneTime.forEach(t => { if (skillTasksData[`${cat.id}_${t.id}`] === true) skillTaskXP += t.xp; });
           });
           const derivedSkill = totalTools * 100 + skillTaskXP;
-          // Цілі/план/проекти ведуться журналом (нові, відстежувані)
+          // Цілі/план/проєкти ведуться журналом (нові, відстежувані)
           const totalBySource = xpLog.reduce((acc, e) => { acc[e.source] = (acc[e.source] ?? 0) + e.amount; return acc; }, {});
           const logGoalsProjects = (totalBySource.goal ?? 0) + (totalBySource.plan ?? 0) + (totalBySource.project ?? 0);
           // Активність = решта (поглинає стартові 300 XP та все, що поза іншими джерелами).
@@ -5169,7 +5210,7 @@ export default function AITracker() {
         const level = Math.floor(Math.sqrt(totalXP / 80));
         const toolCount = Object.values(skillData).reduce((s, v) => s + (v.unlockedTools?.length ?? 0), 0);
         const monthSessions = sessions.dates.filter(d => d.startsWith(new Date().toISOString().slice(0, 7))).length;
-        return `Ти AI-асистент у персональному трекері прогресу Вови у вивченні AI-інструментів та заробітку з AI.\n\nПоточний стан:\n- XP: ${totalXP} → Рівень ${level}\n- Вивчено AI-інструментів: ${toolCount}\n- Дохід загалом: $${totalIncome.toFixed(2)}\n- Стрік: ${streak} днів поспіль\n- Проекти: ${projects.length} всього, ${projects.filter(p => p.done).length} завершено\n- Сесій цього місяця: ${monthSessions}\n\nВеди себе як наставник і мотиватор. Давай конкретні поради, задачки та рекомендації виходячи з реального прогресу. Відповідай українською мовою. Будь стислим але корисним.`;
+        return `Ти AI-асистент у персональному трекері прогресу Вови у вивченні AI-інструментів та заробітку з AI.\n\nПоточний стан:\n- XP: ${totalXP} → Рівень ${level}\n- Вивчено AI-інструментів: ${toolCount}\n- Дохід загалом: $${totalIncome.toFixed(2)}\n- Стрік: ${streak} днів поспіль\n- Проєкти: ${projects.length} всього, ${projects.filter(p => p.done).length} завершено\n- Сесій цього місяця: ${monthSessions}\n\nВеди себе як наставник і мотиватор. Давай конкретні поради, задачки та рекомендації виходячи з реального прогресу. Відповідай українською мовою. Будь стислим але корисним.`;
       };
 
       const sendMessage = async () => {
