@@ -2354,7 +2354,7 @@ export default function AITracker() {
                     const fld = (type === "goal" || type === "project") ? "customXP" : "xp";
                     const def = type === "goal" ? 1000 : type === "project" ? 200 : type === "plan" ? 50 : 10;
                     const cat = type === "project" ? "project" : type === "plan" ? "plan" : "goal";
-                    const lbl = type === "goal" ? "(ціль досягнута)" : type === "project" ? "(проект завершено)" : type === "plan" ? "(план дій)" : "(задачу виконано)";
+                    const lbl = type === "goal" ? "(ціль досягнута)" : type === "project" ? "(проект завершено)" : type === "plan" ? "(план)" : "(задачу виконано)";
                     setter(prev => prev.map(x => {
                       if (x.id !== item.id) return x;
                       if (!x.done) {
@@ -3112,7 +3112,7 @@ export default function AITracker() {
           }));
           const doCompleteGoal    = makeToggleDone(setLongGoals, "customXP", 1000, "goal",    "(ціль досягнута)");
           const doCompleteProject = makeToggleDone(setProjects,  "customXP", 200,  "project", "(проект завершено)");
-          const doCompletePlan    = makeToggleDone(setPlan,      "xp",       50,   "plan",    "(план дій)");
+          const doCompletePlan    = makeToggleDone(setPlan,      "xp",       50,   "plan",    "(план)");
           const doCompleteTask    = makeToggleDone(setGoals,     "xp",       10,   "goal",    "(задачу виконано)");
 
           const doAddItem = () => {
@@ -3933,7 +3933,7 @@ export default function AITracker() {
                   <div style={{ marginTop: 12 }}>
                     {renderDeletedSub(deletedGoals, "#c96644", "🎯 Цілі", "goal")}
                     {renderDeletedSub(deletedProjects, "#c9a044", "🚀 Проєкти", "project")}
-                    {renderDeletedSub(deletedPlans, "#c97744", "📋 Плани дій", "plan")}
+                    {renderDeletedSub(deletedPlans, "#c97744", "📋 Плани", "plan")}
                     {renderDeletedSub(deletedTasks, "#c98844", "✅ Задачі", "task")}
                   </div>
                 )}
@@ -4931,19 +4931,17 @@ export default function AITracker() {
           const derivedSkill = totalTools * 100 + skillTaskXP;
           // Цілі/план/проекти ведуться журналом (нові, відстежувані)
           const totalBySource = xpLog.reduce((acc, e) => { acc[e.source] = (acc[e.source] ?? 0) + e.amount; return acc; }, {});
-          const logGoalPlan = (totalBySource.goal ?? 0) + (totalBySource.plan ?? 0);
-          const logProject = totalBySource.project ?? 0;
+          const logGoalsProjects = (totalBySource.goal ?? 0) + (totalBySource.plan ?? 0) + (totalBySource.project ?? 0);
           // Активність = решта (поглинає стартові 300 XP та все, що поза іншими джерелами).
           // AI-сесії формально теж активність → зливаємо у «Активність».
-          const accountedNonActivity = derivedSkill + derivedAch + derivedIncome + derivedSession + logGoalPlan + logProject;
+          const accountedNonActivity = derivedSkill + derivedAch + derivedIncome + derivedSession + logGoalsProjects;
           const derivedActivity = Math.max(0, totalXP - accountedNonActivity);
           const activityTotal = derivedActivity + derivedSession;
 
           const XP_GROUPS = [
             { key: "activity",    emoji: "⚡", label: "Активність",            color: "#00ff88", desc: "дії + AI-сесії",                total: activityTotal, todayKeys: ["activity", "session"] },
-            { key: "goal_plan",   emoji: "🎯", label: "Цілі & задачі",         color: "#06b6d4", desc: "цілі + план дій",               total: logGoalPlan,   todayKeys: ["goal", "plan"] },
+            { key: "goal_plan",   emoji: "🎯", label: "Цілі & проєкти",        color: "#06b6d4", desc: "цілі, проєкти, плани, задачі",  total: logGoalsProjects, todayKeys: ["goal", "plan", "project"] },
             { key: "skill",       emoji: "🧩", label: "Навички + інструменти", color: "#6366f1", desc: `${totalTools} інструментів`,     total: derivedSkill,  todayKeys: ["skill"] },
-            { key: "project",     emoji: "🚀", label: "Проекти",               color: "#a855f7", desc: `${projects.length} проектів`,    total: logProject,    todayKeys: ["project"] },
             { key: "achievement", emoji: "🏆", label: "Досягнення",            color: "#fbbf24", desc: `${unlockedAchievements.length} нагород`, total: derivedAch, todayKeys: ["achievement"] },
             { key: "income",      emoji: "💰", label: "Фінанси",               color: "#10b981", desc: "дохід з AI",                    total: derivedIncome, todayKeys: ["income"] },
           ];
