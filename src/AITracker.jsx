@@ -936,6 +936,7 @@ export default function AITracker() {
   const [gpInlineText, setGpInlineText] = useState("");
   const [gpInlineXP, setGpInlineXP] = useState(75);
   const [gpXpEdit, setGpXpEdit] = useState(null); // { type:"goal"|"plan"|"task", id, val } — інлайн-редагування XP
+  const [gpTextEdit, setGpTextEdit] = useState(null); // { type, id, val } — інлайн-редагування назви елемента
   const [inbox, setInbox] = useState(saved?.inbox ?? []);
   const [gpInboxOpen, setGpInboxOpen] = useState(true);
   const [gpInboxText, setGpInboxText] = useState("");
@@ -3063,7 +3064,7 @@ export default function AITracker() {
           const toggleExp = (key) => setExpandGP(prev => ({ ...prev, [key]: !prev[key] }));
           const isExp = (key) => !!expandGP[key];
 
-          // Ієрархія: Ціль → Проект → План дій → Задача (гнучка вкладеність)
+          // Ієрархія: Ціль → Проект → План → Задача (гнучка вкладеність)
           const activeGoals = longGoals.filter(g => !g.done && !g.deletedAt);
           // Проекти сортуємо за статусом: спершу «в процесі», потім «на паузі»
           const projOrder = { active: 0, paused: 1 };
@@ -3175,6 +3176,12 @@ export default function AITracker() {
             setGpXpEdit(null);
           };
 
+          const commitTextEdit = (type, item, rawVal) => {
+            const text = (rawVal ?? "").trim();
+            if (text) setterOf(type)(prev => prev.map(x => x.id === item.id ? { ...x, text } : x));
+            setGpTextEdit(null);
+          };
+
           // Клікабельна XP-плашка з інлайн-редагуванням. Це ФУНКЦІЯ, що повертає JSX (не
           // окремий компонент) — щоб <input> не перемонтовувався і не губив фокус при наборі.
           const xpBadge = (item, type) => {
@@ -3204,12 +3211,30 @@ export default function AITracker() {
             );
           };
 
+          const EDIT_COLOR = { goal: "#c084fc", project: "#fbbf24", plan: "#22d3ee", task: "#00ff88" };
+          // Інлайн-редагування назви елемента (як xpBadge, але для тексту). ФУНКЦІЯ → JSX,
+          // щоб <input> не перемонтовувався і не губив фокус під час набору.
+          const nameCell = (item, type, spanStyle) => {
+            if (gpTextEdit?.type === type && gpTextEdit?.id === item.id) {
+              return (
+                <input autoFocus draggable={false} value={gpTextEdit.val}
+                  onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}
+                  onDragStart={e => { e.stopPropagation(); e.preventDefault(); }}
+                  onChange={e => setGpTextEdit(s => ({ ...s, val: e.target.value }))}
+                  onKeyDown={e => { e.stopPropagation(); if (e.key === "Enter") commitTextEdit(type, item, gpTextEdit.val); else if (e.key === "Escape") setGpTextEdit(null); }}
+                  onBlur={() => commitTextEdit(type, item, gpTextEdit.val)}
+                  style={{ flex: 1, minWidth: 0, background: "rgba(0,0,0,0.4)", border: `1px solid ${EDIT_COLOR[type]}`, borderRadius: 4, color: "#fff", fontSize: spanStyle.fontSize ?? 12, fontWeight: spanStyle.fontWeight ?? 400, padding: "3px 7px", outline: "none", fontFamily: "inherit" }} />
+              );
+            }
+            return <span style={spanStyle}>{item.text}</span>;
+          };
+
           const PROJ_CAT = Object.fromEntries(PROJECT_CATEGORIES.map(c => [c.id, c]));
 
           // Інлайн-додавання дитини (проект/план/задача) до батька певного типу
           const CHILD_META = {
             project: { color: "#fbbf24", bg: "rgba(245,158,11,0.08)", inputBg: "rgba(20,14,2,0.92)", text: "#fcd34d", ph: "Назва проекту...",   def: 200, label: "+ проект" },
-            plan:    { color: "#22d3ee", bg: "rgba(6,182,212,0.08)",  inputBg: "rgba(4,18,24,0.92)",  text: "#d0f0fa", ph: "Назва плану дій...", def: 50,  label: "+ план дій" },
+            plan:    { color: "#22d3ee", bg: "rgba(6,182,212,0.08)",  inputBg: "rgba(4,18,24,0.92)",  text: "#d0f0fa", ph: "Назва плану...", def: 50,  label: "+ план" },
             task:    { color: "#00ff88", bg: "rgba(0,255,136,0.08)",  inputBg: "rgba(5,14,10,0.92)",  text: "#d8f8e8", ph: "Назва задачі...",    def: 10,  label: "+ задача" },
           };
           const renderAddChildren = (parentType, parentId, childTypes) => {
@@ -3251,8 +3276,9 @@ export default function AITracker() {
               <span style={{ color: "rgba(0,255,136,0.35)", fontSize: 13, flexShrink: 0, lineHeight: 1, padding: "0 2px", pointerEvents: "none" }}>⠿</span>
               <button onClick={() => doCompleteTask(t)}
                 style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid rgba(0,255,136,0.7)", background: t.done ? "#00ff88" : "transparent", color: "#04140a", fontSize: 11, fontWeight: 800, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>{t.done ? "✓" : ""}</button>
-              <span style={{ flex: 1, color: t.done ? "#5f7a6b" : "#d8f8e8", fontSize: 12, textDecoration: t.done ? "line-through" : "none" }}>{t.text}</span>
+              {nameCell(t, "task", { flex: 1, color: t.done ? "#5f7a6b" : "#d8f8e8", fontSize: 12, textDecoration: t.done ? "line-through" : "none" })}
               {xpBadge(t, "task")}
+              <button onClick={() => setGpTextEdit({ type: "task", id: t.id, val: t.text })} title="Редагувати" style={{ background: "none", border: "none", color: "#c9a84c", opacity: 0.3, cursor: "pointer", fontSize: 11, padding: "0 2px" }}>✏️</button>
               <button onClick={() => setPinnedCascade("task", t.id, !t.pinned)}
                 style={{ background: "none", border: "none", color: "#c9a84c", opacity: t.pinned ? 1 : 0.18, filter: t.pinned ? "drop-shadow(0 0 4px rgba(201,168,76,0.7))" : "none", cursor: "pointer", fontSize: 11, padding: "0 2px", transition: "opacity 0.2s, filter 0.2s" }} title={t.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
               <button onClick={() => softDelete("task", t.id)}
@@ -3274,9 +3300,10 @@ export default function AITracker() {
                   </span>
                   <button onClick={e => { e.stopPropagation(); doCompletePlan(p); }}
                     style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid rgba(6,182,212,0.7)", background: p.done ? "#06b6d4" : "transparent", color: "#04140a", fontSize: 11, fontWeight: 800, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>{p.done ? "✓" : ""}</button>
-                  <span style={{ flex: 1, color: p.done ? "#5a8090" : "#d0f0fa", fontSize: 12, fontWeight: 500, textDecoration: p.done ? "line-through" : "none" }}>{p.text}</span>
+                  {nameCell(p, "plan", { flex: 1, color: p.done ? "#5a8090" : "#d0f0fa", fontSize: 12, fontWeight: 500, textDecoration: p.done ? "line-through" : "none" })}
                   {planTasks.length > 0 && <span style={{ fontSize: 10, color: "#3a7a90" }}>{planTasks.length} задач</span>}
                   {xpBadge(p, "plan")}
+                  <button onClick={e => { e.stopPropagation(); setGpTextEdit({ type: "plan", id: p.id, val: p.text }); }} title="Редагувати" style={{ background: "none", border: "none", color: "#c9a84c", opacity: 0.3, cursor: "pointer", fontSize: 11, padding: "0 2px" }}>✏️</button>
                   <button onClick={e => { e.stopPropagation(); setPinnedCascade("plan", p.id, !p.pinned); }}
                     style={{ background: "none", border: "none", color: "#c9a84c", opacity: p.pinned ? 1 : 0.18, filter: p.pinned ? "drop-shadow(0 0 4px rgba(201,168,76,0.7))" : "none", cursor: "pointer", fontSize: 11, padding: "0 2px", transition: "opacity 0.2s, filter 0.2s" }} title={p.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
                   <button onClick={e => { e.stopPropagation(); softDelete("plan", p.id); }}
@@ -3312,7 +3339,7 @@ export default function AITracker() {
                     <button onClick={e => { e.stopPropagation(); doCompleteProject(pr); }}
                       style={{ width: 19, height: 19, borderRadius: "50%", border: "2px solid rgba(245,158,11,0.7)", background: pr.done ? "#f59e0b" : "transparent", color: "#1a1000", fontSize: 11, fontWeight: 800, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>{pr.done ? "✓" : ""}</button>
                     <span title={cat.label} style={{ fontSize: 14, flexShrink: 0 }}>{cat.icon}</span>
-                    <span style={{ flex: 1, color: pr.done ? "#8a7a50" : "#fbe6b0", fontSize: 12.5, fontWeight: 600, textDecoration: pr.done ? "line-through" : "none" }}>{pr.text}</span>
+                    {nameCell(pr, "project", { flex: 1, color: pr.done ? "#8a7a50" : "#fbe6b0", fontSize: 12.5, fontWeight: 600, textDecoration: pr.done ? "line-through" : "none" })}
                     <select value={pr.category ?? "other"} onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}
                       onChange={e => { e.stopPropagation(); setProjects(prev => prev.map(x => x.id === pr.id ? { ...x, category: e.target.value } : x)); }}
                       title="Категорія"
@@ -3330,6 +3357,7 @@ export default function AITracker() {
                     )}
                     {totalChildCount > 0 && <span style={{ fontSize: 10, color: "#8a6a40", flexShrink: 0 }}>{doneChildCount}/{totalChildCount}</span>}
                     {xpBadge(pr, "project")}
+                    <button onClick={e => { e.stopPropagation(); setGpTextEdit({ type: "project", id: pr.id, val: pr.text }); }} title="Редагувати" style={{ background: "none", border: "none", color: "#c9a84c", opacity: 0.3, cursor: "pointer", fontSize: 12, padding: "0 2px" }}>✏️</button>
                     <button onClick={e => { e.stopPropagation(); setPinnedCascade("project", pr.id, !pr.pinned); }}
                       style={{ background: "none", border: "none", color: "#c9a84c", opacity: pr.pinned ? 1 : 0.18, filter: pr.pinned ? "drop-shadow(0 0 4px rgba(201,168,76,0.7))" : "none", cursor: "pointer", fontSize: 12, padding: "0 2px", transition: "opacity 0.2s, filter 0.2s" }} title={pr.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
                     <button onClick={e => { e.stopPropagation(); softDelete("project", pr.id); }}
@@ -3377,9 +3405,10 @@ export default function AITracker() {
                     </span>
                     <button onClick={e => { e.stopPropagation(); doCompleteGoal(g); }}
                       style={{ width: 20, height: 20, borderRadius: "50%", border: "2px solid rgba(168,85,247,0.7)", background: g.done ? "#a855f7" : "transparent", color: "#fff", fontSize: 12, fontWeight: 800, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>{g.done ? "✓" : ""}</button>
-                    <span style={{ flex: 1, color: g.done ? "#8a7a9a" : "#f0e8fa", fontSize: 13, fontWeight: 600, textDecoration: g.done ? "line-through" : "none" }}>{g.text}</span>
+                    {nameCell(g, "goal", { flex: 1, color: g.done ? "#8a7a9a" : "#f0e8fa", fontSize: 13, fontWeight: 600, textDecoration: g.done ? "line-through" : "none" })}
                     {totalChildCount > 0 && <span style={{ fontSize: 10, color: "#7a6a90", flexShrink: 0 }}>{doneChildCount}/{totalChildCount}</span>}
                     {xpBadge(g, "goal")}
+                    <button onClick={e => { e.stopPropagation(); setGpTextEdit({ type: "goal", id: g.id, val: g.text }); }} title="Редагувати" style={{ background: "none", border: "none", color: "#c9a84c", opacity: 0.3, cursor: "pointer", fontSize: 12, padding: "0 2px" }}>✏️</button>
                     <button onClick={e => { e.stopPropagation(); setPinnedCascade("goal", g.id, !g.pinned); }}
                       style={{ background: "none", border: "none", color: "#c9a84c", opacity: g.pinned ? 1 : 0.18, filter: g.pinned ? "drop-shadow(0 0 4px rgba(201,168,76,0.7))" : "none", cursor: "pointer", fontSize: 12, padding: "0 2px", transition: "opacity 0.2s, filter 0.2s" }} title={g.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
                     <button onClick={e => { e.stopPropagation(); softDelete("goal", g.id); }}
@@ -3814,7 +3843,7 @@ export default function AITracker() {
                   {[
                     { id: "goal",    label: "🎯 Ціль",     color: "#c084fc" },
                     { id: "project", label: "🚀 Проект",   color: "#fbbf24" },
-                    { id: "plan",    label: "📋 План дій", color: "#22d3ee" },
+                    { id: "plan",    label: "📋 План", color: "#22d3ee" },
                     { id: "task",    label: "✅ Задача",   color: "#00ff88" },
                   ].map(tp => (
                     <button key={tp.id} onClick={() => { setGpAddType(tp.id); setGpAddXP(tp.id === "goal" ? 1000 : tp.id === "project" ? 200 : tp.id === "plan" ? 50 : 10); }}
@@ -3825,7 +3854,7 @@ export default function AITracker() {
                 </div>
                 <input value={gpAddText} onChange={e => setGpAddText(e.target.value)}
                   onKeyDown={e => { if (e.key === "Enter") doAddItem(); }}
-                  placeholder={gpAddType === "goal" ? "Опиши ціль..." : gpAddType === "project" ? "Опиши проект..." : gpAddType === "plan" ? "Опиши план дій..." : "Опиши задачу..."}
+                  placeholder={gpAddType === "goal" ? "Опиши ціль..." : gpAddType === "project" ? "Опиши проект..." : gpAddType === "plan" ? "Опиши план..." : "Опиши задачу..."}
                   style={{ flex: 1, minWidth: 150, background: "rgba(8,5,2,0.68)", border: "1px solid rgba(201,168,76,0.18)", borderRadius: 4, padding: "8px 12px", color: "#fff", fontSize: 12, fontFamily: "'Space Mono',monospace" }} />
                 {gpAddType === "project" && (
                   <select value={projectCategory} onChange={e => setProjectCategory(e.target.value)}
