@@ -5002,13 +5002,13 @@ export default function AITracker() {
               {/* Джерела XP */}
               <div>
                 <div className="wf-sec" style={{ marginBottom: 16 }}>⭐ Джерела XP</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
                   {allGroups.map(grp => {
                     const tval = grpTodayVal(grp);
                     const aval = grp.total;
                     if (aval === 0 && tval === 0) return null;
                     return (
-                      <div key={grp.key} className="wf-card" style={{ padding: "12px 14px", border: `1px solid ${grp.color}33`, borderTop: `2px solid ${grp.color}` }}>
+                      <div key={grp.key} className="wf-card" style={{ display: "flex", flexDirection: "column", padding: "12px 14px", border: `1px solid ${grp.color}33`, borderTop: `2px solid ${grp.color}` }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 10 }}>
                           <span style={{ fontSize: 18 }}>{grp.emoji}</span>
                           <div>
@@ -5016,14 +5016,14 @@ export default function AITracker() {
                             {grp.desc && <div style={{ fontSize: 9, color: "#5a5040", fontFamily: "'Space Mono',monospace" }}>{grp.desc}</div>}
                           </div>
                         </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                        <div style={{ marginTop: "auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
                           <div style={{ background: "rgba(0,0,0,0.25)", borderRadius: 6, padding: "6px 8px" }}>
                             <div style={{ fontSize: 9, color: "#6a5a38", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 3 }}>Сьогодні</div>
-                            <div style={{ fontSize: 15, fontWeight: 800, color: tval > 0 ? grp.color : "#4a4030", fontFamily: "'Space Mono',monospace" }}>{tval > 0 ? <>+{tval}<span style={{ fontSize: 10, fontWeight: 400, opacity: 0.7, marginLeft: 2 }}>XP</span></> : "—"}</div>
+                            <div style={{ fontSize: 15, fontWeight: 800, color: tval > 0 ? grp.color : "#4a4030", fontFamily: "'Space Mono',monospace", whiteSpace: "nowrap" }}>{tval > 0 ? <>+{tval}<span style={{ fontSize: 10, fontWeight: 400, opacity: 0.7, marginLeft: 2 }}>XP</span></> : "—"}</div>
                           </div>
                           <div style={{ background: "rgba(0,0,0,0.25)", borderRadius: 6, padding: "6px 8px" }}>
                             <div style={{ fontSize: 9, color: "#6a5a38", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 3 }}>Загалом</div>
-                            <div style={{ fontSize: 15, fontWeight: 800, color: grp.color, fontFamily: "'Space Mono',monospace" }}>{aval > 0 ? <>+{aval.toLocaleString()}<span style={{ fontSize: 10, fontWeight: 400, opacity: 0.7, marginLeft: 2 }}>XP</span></> : "—"}</div>
+                            <div style={{ fontSize: 15, fontWeight: 800, color: grp.color, fontFamily: "'Space Mono',monospace", whiteSpace: "nowrap" }}>{aval > 0 ? <>+{aval.toLocaleString()}<span style={{ fontSize: 10, fontWeight: 400, opacity: 0.7, marginLeft: 2 }}>XP</span></> : "—"}</div>
                           </div>
                         </div>
                       </div>
