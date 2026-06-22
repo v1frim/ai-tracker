@@ -124,6 +124,8 @@ export const ACH_GROUPS = [
   { id: "tools",    label: "🧠 Інструменти" },
   { id: "income",   label: "💰 Дохід" },
   { id: "projects", label: "🚀 Проєкти" },
+  { id: "clients",  label: "🤝 Клієнти" },
+  { id: "automation", label: "🤖 Автоматизація" },
   { id: "code",     label: "💻 Рядки коду" },
   { id: "streak",   label: "🔥 Стріки" },
   { id: "sessions", label: "⚡ Сесії" },
@@ -157,6 +159,22 @@ export const ACHIEVEMENTS = [
   { id: "twentyfive_projects",group: "projects", tier: "epic",      name: "Корпорація",       desc: "Заверши 25 проєктів",      xp: 1800, icon: "🏢", check: (t, i, p) => p >= 25,  progress: (t, i, p) => ({ cur: p, max: 25 }) },
   { id: "fifty_projects",     group: "projects", tier: "prime",     name: "Магнат",           desc: "Заверши 50 проєктів",      xp: 3500, icon: "🌆", check: (t, i, p) => p >= 50,  progress: (t, i, p) => ({ cur: p, max: 50 }) },
   { id: "hundred_projects",   group: "projects", tier: "legendary", name: "Імперія",          desc: "Заверши 100 проєктів",     xp: 7000, icon: "🏛️", check: (t, i, p) => p >= 100, progress: (t, i, p) => ({ cur: p, max: 100 }) },
+
+  // ── Клієнти (cli — 9-й аргумент check) ──
+  { id: "clients_1",    group: "clients", tier: "common",    name: "Перший клієнт",      desc: "Перший клієнт з AI",  xp: 300,   icon: "🤝", check: (t,i,p,sd,st,ts,h,cl,cli) => cli >= 1,    progress: (t,i,p,sd,st,ts,h,cl,cli) => ({ cur: cli, max: 1 }) },
+  { id: "clients_5",    group: "clients", tier: "uncommon",  name: "Фрілансер",          desc: "5 клієнтів з AI",     xp: 800,   icon: "💼", check: (t,i,p,sd,st,ts,h,cl,cli) => cli >= 5,    progress: (t,i,p,sd,st,ts,h,cl,cli) => ({ cur: cli, max: 5 }) },
+  { id: "clients_25",   group: "clients", tier: "rare",      name: "Затребуваний",       desc: "25 клієнтів з AI",    xp: 2500,  icon: "⭐", check: (t,i,p,sd,st,ts,h,cl,cli) => cli >= 25,   progress: (t,i,p,sd,st,ts,h,cl,cli) => ({ cur: cli, max: 25 }) },
+  { id: "clients_100",  group: "clients", tier: "epic",      name: "Агенція",            desc: "100 клієнтів з AI",   xp: 6000,  icon: "🏢", check: (t,i,p,sd,st,ts,h,cl,cli) => cli >= 100,  progress: (t,i,p,sd,st,ts,h,cl,cli) => ({ cur: cli, max: 100 }) },
+  { id: "clients_250",  group: "clients", tier: "prime",     name: "Потік клієнтів",     desc: "250 клієнтів з AI",   xp: 15000, icon: "🌊", check: (t,i,p,sd,st,ts,h,cl,cli) => cli >= 250,  progress: (t,i,p,sd,st,ts,h,cl,cli) => ({ cur: cli, max: 250 }) },
+  { id: "clients_1000", group: "clients", tier: "legendary", name: "Клієнтська імперія", desc: "1,000 клієнтів з AI", xp: 50000, icon: "👑", check: (t,i,p,sd,st,ts,h,cl,cli) => cli >= 1000, progress: (t,i,p,sd,st,ts,h,cl,cli) => ({ cur: cli, max: 1000 }) },
+
+  // ── Автоматизація (au — 10-й аргумент check) ──
+  { id: "auto_1",  group: "automation", tier: "common",    name: "Автоматизатор", desc: "Перша AI-автоматизація", xp: 250,   icon: "⚙️", check: (t,i,p,sd,st,ts,h,cl,cli,au) => au >= 1,  progress: (t,i,p,sd,st,ts,h,cl,cli,au) => ({ cur: au, max: 1 }) },
+  { id: "auto_3",  group: "automation", tier: "uncommon",  name: "Конвеєр",       desc: "3 автоматизації",        xp: 600,   icon: "🔁", check: (t,i,p,sd,st,ts,h,cl,cli,au) => au >= 3,  progress: (t,i,p,sd,st,ts,h,cl,cli,au) => ({ cur: au, max: 3 }) },
+  { id: "auto_5",  group: "automation", tier: "rare",      name: "Без рук",       desc: "5 автоматизацій",        xp: 1200,  icon: "🦾", check: (t,i,p,sd,st,ts,h,cl,cli,au) => au >= 5,  progress: (t,i,p,sd,st,ts,h,cl,cli,au) => ({ cur: au, max: 5 }) },
+  { id: "auto_10", group: "automation", tier: "epic",      name: "Армія ботів",   desc: "10 автоматизацій",       xp: 2500,  icon: "🤖", check: (t,i,p,sd,st,ts,h,cl,cli,au) => au >= 10, progress: (t,i,p,sd,st,ts,h,cl,cli,au) => ({ cur: au, max: 10 }) },
+  { id: "auto_25", group: "automation", tier: "prime",     name: "Оркестратор",   desc: "25 автоматизацій",       xp: 6000,  icon: "🎛️", check: (t,i,p,sd,st,ts,h,cl,cli,au) => au >= 25, progress: (t,i,p,sd,st,ts,h,cl,cli,au) => ({ cur: au, max: 25 }) },
+  { id: "auto_50", group: "automation", tier: "legendary", name: "Автопілот",     desc: "50 автоматизацій",       xp: 15000, icon: "🛸", check: (t,i,p,sd,st,ts,h,cl,cli,au) => au >= 50, progress: (t,i,p,sd,st,ts,h,cl,cli,au) => ({ cur: au, max: 50 }) },
 
   // ── Стріки ──
   { id: "streak_3",   group: "streak", tier: "common",    name: "Розгін",         desc: "3 дні поспіль з AI",    xp: 100,  icon: "✨", check: (t, i, p, sd, streak) => streak >= 3,   progress: (t, i, p, sd, streak) => ({ cur: streak, max: 3 }) },
@@ -236,6 +254,9 @@ export const ACTIVITY_DEFS = [
   { kind: "learn", key: "full_videos",          emoji: "🎬", label: "Відео",       color: "#8b5cf6",                  xp: 40 },
   { kind: "learn", key: "full_music",           emoji: "🎵", label: "Музика",      color: "#f472b6",                  xp: 30 },
   { kind: "learn", key: "sites_built",          emoji: "🌐", label: "Сайти",       color: "#38bdf8",                  xp: 500 },
+  // Рядок 4 — бізнес / розробка (спільні лічильники з навичками monetize/automation)
+  { kind: "skill", key: "monetize_clients",               emoji: "🤝", label: "Клієнти",      color: "#fbbf24",      xp: 100 },
+  { kind: "skill", key: "automation_automations_created", emoji: "🤖", label: "Автоматизація", color: "#f59e0b",      xp: 300 },
 ];
 export const ACTIVITY_XP = Object.fromEntries(ACTIVITY_DEFS.map(d => [d.key, d.xp]));
 

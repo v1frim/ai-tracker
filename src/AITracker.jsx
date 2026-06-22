@@ -1401,11 +1401,13 @@ export default function AITracker() {
     const lt = learnTimeRef.current;
     const learnHours = ((lt.education ?? 0) + (lt.business ?? 0)) * 0.5;
     const codeLines = skillTasksRef.current["code_lines_written"]?.count ?? 0;
+    const clientsN = skillTasksRef.current["monetize_clients"]?.count ?? 0;
+    const autosN = skillTasksRef.current["automation_automations_created"]?.count ?? 0;
     const newlyUnlocked = [];
     let bonusXP = 0;
     ACHIEVEMENTS.forEach(a => {
       if (currentUnlocked.includes(a.id)) return;
-      if (a.check(tools, inc, proj, sd, currentStreak, totalSessions, learnHours, codeLines)) {
+      if (a.check(tools, inc, proj, sd, currentStreak, totalSessions, learnHours, codeLines, clientsN, autosN)) {
         newlyUnlocked.push(a.id);
         bonusXP += a.xp;
       }
@@ -1440,6 +1442,16 @@ export default function AITracker() {
       return ua;
     });
   }, [completedProjectsCount]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Те саме для клієнтів / автоматизацій (нові активності на Головній).
+  const clientsCnt = skillTasksData["monetize_clients"]?.count ?? 0;
+  const autoCnt = skillTasksData["automation_automations_created"]?.count ?? 0;
+  useEffect(() => {
+    setUnlockedAchievements(ua => {
+      checkAchievements(totalTools, totalIncome, completedProjectsCount, skillData, ua, streak, sessions.dates.length);
+      return ua;
+    });
+  }, [clientsCnt, autoCnt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const renderDoneSection = (items, { sectionKey, open, setOpen, onUndo, onDelete, labelFn, xpFn }) => {
     if (!items.length) return null;
@@ -2999,7 +3011,9 @@ export default function AITracker() {
           const lt = learnTime;
           const learnHours = ((lt.education ?? 0) + (lt.business ?? 0)) * 0.5;
           const codeLines = skillTasksData["code_lines_written"]?.count ?? 0;
-          const achArgs = [totalTools, totalIncome, completedProjectsCount, skillData, streak, sessions.dates.length, learnHours, codeLines];
+          const clientsN = skillTasksData["monetize_clients"]?.count ?? 0;
+          const autosN = skillTasksData["automation_automations_created"]?.count ?? 0;
+          const achArgs = [totalTools, totalIncome, completedProjectsCount, skillData, streak, sessions.dates.length, learnHours, codeLines, clientsN, autosN];
           return (
           <div style={{ display: "flex", flexDirection: "column", gap: 26 }}>
             {ACH_GROUPS.map(g => {
@@ -4958,18 +4972,21 @@ export default function AITracker() {
         {activeTab === "stats" && (() => {
           const net = totalIncome - totalExpenses;
           const netColor = net >= 0 ? "#00ff88" : "#f43f5e";
-          const SKILL_STAT_ROWS = [
-            { catId: "llm",        emoji: "🧠", label: "LLM",            tasks: [{ id: "prompts", label: "Промптів" }, { id: "real_tasks", label: "Задач вирішено" }] },
-            { catId: "image",      emoji: "🎨", label: "Зображення",     tasks: [{ id: "images_gen", label: "Згенеровано" }, { id: "images_commercial", label: "Комерційних" }] },
-            { catId: "video",      emoji: "🎬", label: "Відео",          tasks: [{ id: "videos_created", label: "Створено" }, { id: "videos_commercial", label: "Для клієнтів" }] },
-            { catId: "voice",      emoji: "🎙️", label: "Голос / Аудіо", tasks: [{ id: "audio_files", label: "Аудіо-файлів" }, { id: "audio_minutes", label: "Хвилин" }] },
-            { catId: "music",      emoji: "🎵", label: "Музика",         tasks: [{ id: "tracks_created", label: "Треків" }, { id: "tracks_published", label: "Опублікованих" }] },
-            { catId: "automation", emoji: "⚙️", label: "Автоматизація", tasks: [{ id: "automations_created", label: "Автоматизацій" }, { id: "hours_saved", label: "Год заощаджено" }] },
-            { catId: "code",       emoji: "💻", label: "Код",            tasks: [{ id: "lines_written", label: "Рядків коду" }, { id: "projects_launched", label: "Проєктів" }] },
-            { catId: "design",     emoji: "✨", label: "Дизайн",         tasks: [{ id: "mockups_created", label: "Макетів" }, { id: "logos_created", label: "Логотипів" }] },
-            { catId: "content",    emoji: "📱", label: "Контент",        tasks: [{ id: "posts_published", label: "Постів" }, { id: "followers_gained", label: "Підписників" }, { id: "content_views", label: "Переглядів" }] },
-            { catId: "monetize",   emoji: "💰", label: "Монетизація",    tasks: [{ id: "ai_income", label: "Дохід ($)" }, { id: "clients", label: "Клієнтів" }] },
+          // Лічильники активностей по категоріях — Сьог/Міс/Рік з metricLog.
+          // Загалом: learn-kind лежить у learnTime, skill-kind — у skillTasksData.
+          const metricTotal = (key) => (learnTime[key] ?? skillTasksData[key]?.count ?? 0);
+          const mkMetric = (label, key, color) => ({ label, color, value: metricTotal(key), entries: metricLog.filter(e => e.key === key) });
+          const CAT_SECTIONS = [
+            { title: "🎨 Контент",  items: [mkMetric("Зображення", "image_images_gen", "#ff6b35"), mkMetric("Кліпи", "video_videos_created", "#a855f7"), mkMetric("Відео", "full_videos", "#8b5cf6")] },
+            { title: "🔊 Звук",     items: [mkMetric("Аудіо", "music_tracks_created", "#ec4899"), mkMetric("Музика", "full_music", "#f472b6")] },
+            { title: "🛠️ Розробка", items: [mkMetric("Сайти", "sites_built", "#38bdf8"), mkMetric("Автоматизації", "automation_automations_created", "#f59e0b"), mkMetric("Рядків коду", "code_lines_written", "#6366f1")] },
           ];
+          // Квести — виконані елементи вкладки «Цілі & проєкти» (розбивка по completedAt).
+          const mkQuest = (label, arr, color) => {
+            const doneItems = arr.filter(x => x.done && !x.deletedAt);
+            return { label, color, value: doneItems.length, entries: doneItems.filter(x => x.completedAt).map(x => ({ date: x.completedAt.slice(0, 10), delta: 1 })) };
+          };
+          const QUEST_SECTION = { title: "🎯 Квести — виконано", items: [mkQuest("Цілі", longGoals, "#c084fc"), mkQuest("Проєкти", projects, "#fbbf24"), mkQuest("Плани", plan, "#22d3ee"), mkQuest("Задачі", goals, "#00ff88")] };
           // XP sources — "Сьогодні" береться з журналу XP, а "Загалом" рахується
           // напряму з поточного стану (точне джерело правди), щоб усі вкладки, з яких
           // приходить XP, мали правильні суми незалежно від моменту старту обліку.
@@ -5102,43 +5119,24 @@ export default function AITracker() {
                   ))}
                 </div>
               </div>
-              {/* Навички */}
-              <div>
-                <div className="wf-sec" style={{ marginBottom: 16 }}>💪 Навички — виконано <span style={{ fontSize: 11, color: "#6a5f40", fontWeight: 400 }}>· ▼ розгорнути періоди</span></div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {SKILL_STAT_ROWS.map(row => {
-                    const cat = SKILL_TASKS.find(c => c.id === row.catId);
-                    const catColor = cat?.color ?? "#c9a84c";
-                    const tasks = row.tasks.map(t => ({
-                      label: t.label,
-                      count: (skillTasksData[`${row.catId}_${t.id}`]?.count ?? 0),
-                      entries: metricLog.filter(e => e.key === `${row.catId}_${t.id}`),
-                    }));
-                    const hasAny = tasks.some(c => c.count > 0);
-                    return (
-                      <div key={row.catId} className="wf-card" style={{ padding: "12px 16px", border: `1px solid ${hasAny ? catColor + "44" : "rgba(201,168,76,0.12)"}`, borderLeft: `3px solid ${hasAny ? catColor : "rgba(201,168,76,0.2)"}` }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: tasks.length ? 4 : 0 }}>
-                          <span style={{ fontSize: 18, flexShrink: 0 }}>{row.emoji}</span>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: "#c8b89a", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 1 }}>{row.label}</span>
-                        </div>
-                        <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fit, minmax(200px, 1fr))`, gap: "8px 18px" }}>
-                          {tasks.map(c => (
-                            <MetricPeriods key={c.label} entries={c.entries} color={catColor} align="flex-start"
-                              cardStyle={{ padding: "6px 8px", borderRadius: 4 }}>
-                              <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 12 }}>
-                                <span style={{ color: "#6a5f40" }}>{c.label}: </span>
-                                <span style={{ color: c.count > 0 ? catColor : "#4a4030", fontWeight: 700 }}>{c.count.toLocaleString()}</span>
-                              </div>
-                            </MetricPeriods>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
+              {/* Активність по категоріях + Квести (Сьог/Міс/Рік, розгортання по місяцях/роках) */}
+              {[...CAT_SECTIONS, QUEST_SECTION].map(section => (
+                <div key={section.title}>
+                  <div className="wf-sec" style={{ marginBottom: 16 }}>{section.title} <span style={{ fontSize: 11, color: "#6a5f40", fontWeight: 400 }}>· ▼ розгорнути періоди</span></div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
+                    {section.items.map(it => (
+                      <MetricPeriods key={it.label} entries={it.entries} color={it.color} fmt={v => v.toLocaleString()}
+                        className="wf-card"
+                        cardStyle={{ padding: "16px 14px", textAlign: "center", border: `1px solid ${it.color}33`, borderTop: `2px solid ${it.color}`, display: "flex", flexDirection: "column", alignItems: "center" }}>
+                        <div style={{ fontSize: 11, color: "#9a8a60", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 2, marginBottom: 8 }}>{it.label}</div>
+                        <div style={{ fontSize: 22, fontWeight: 800, color: it.value > 0 ? it.color : "#4a4030", fontFamily: "'Space Mono',monospace" }}>{it.value.toLocaleString()}</div>
+                      </MetricPeriods>
+                    ))}
+                  </div>
                 </div>
-                <div style={{ marginTop: 10, fontSize: 10, color: "#5a5040", fontFamily: "'Space Mono',monospace" }}>
-                  Загальні лічильники — за весь час. Розбивка «Сьог/Міс/Рік» та по періодах рахується з цього оновлення (для фінансів — за всю історію записів).
-                </div>
+              ))}
+              <div style={{ fontSize: 10, color: "#5a5040", fontFamily: "'Space Mono',monospace" }}>
+                Загальні лічильники — за весь час. Розбивка «Сьог/Міс/Рік» та по періодах рахується з моменту, коли з'явився облік (код — з GitHub-синку; квести — по даті виконання).
               </div>
             </div>
           );
