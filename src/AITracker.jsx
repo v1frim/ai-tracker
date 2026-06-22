@@ -1181,7 +1181,6 @@ export default function AITracker() {
 
   const streak = useMemo(() => calcStreak(sessions.dates), [sessions.dates]);
   const longestStreak = useMemo(() => calcLongestStreak(sessions.dates), [sessions.dates]);
-  const monthSessions = useMemo(() => sessionsThisMonth(sessions.dates), [sessions.dates]);
   const doneToday = sessions.dates.includes(todayStr());
 
   // XP за сьогодні — рахуємо з журналу XP + активності (єдине джерело правди),
@@ -1199,8 +1198,6 @@ export default function AITracker() {
     const diff = new Date(todayStr()) - new Date(APP_START_DATE);
     return Math.max(1, Math.floor(diff / 86400000) + 1);
   }, []);
-  const daysPassedThisMonth = new Date().getDate();
-  const daysInCurrentMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
 
   const showNotif = useCallback((msg, type = "xp") => {
     setNotification({ msg, type, id: Date.now() });
@@ -2184,7 +2181,7 @@ export default function AITracker() {
                 { label: "Проєкти", val: projects.filter(p => p.done && !p.deletedAt).length, color: lc },
                 { label: "Клієнти", val: (skillTasksData["monetize_clients"]?.count ?? 0), color: "#fbbf24" },
                 { label: "Досягнення", val: `${unlockedAchievements.length}/${ACHIEVEMENTS.length}`, color: "#00ff88" },
-                { label: "Сесій/міс", val: `${monthSessions}/${daysInCurrentMonth}`, color: lc },
+                { label: "Днів з ШІ", val: daysSinceStart, color: lc },
               ].map(s => (
                 <div key={s.label} style={{ textAlign: "center", padding: "10px 14px", minWidth: 84, background: "rgba(8,5,2,0.55)", border: `1px solid ${lc}28`, borderTop: `2px solid ${lc}60`, borderRadius: 4, boxShadow: `0 0 12px ${lglow}` }}>
                   <div style={{ fontSize: 11, color: `${lc}88`, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>{s.label}</div>
@@ -2699,37 +2696,48 @@ export default function AITracker() {
               )}
             </div>
 
-            {/* Stats row */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))", gap: 12 }}>
-              {[
-                { label: "Стрік", val: `${streak} дн.`, icon: "🔥", color: "#f59e0b", sub: streak >= 7 ? "Топ!" : "Тримай!" },
-                { label: "Цього місяця", val: `${monthSessions}/${daysInCurrentMonth}`, icon: "📅", color: "#00ff88", sub: `${daysPassedThisMonth} дн. пройшло` },
-                { label: "Активних днів", val: totalActiveDays, icon: "📆", color: "#6366f1", sub: `з ${daysSinceStart} дн.` },
-                { label: "Найдовший стрік", val: `${longestStreak} дн.`, icon: "🏅", color: "#ec4899", sub: "особистий рекорд" },
-              ].map(s => (
-                <div key={s.label} style={{ background: "rgba(5,3,1,0.76)", border: `1px solid ${s.color}22`, borderRadius: 4, padding: "14px 16px", textAlign: "center" }}>
-                  <div style={{ fontSize: 22, marginBottom: 6 }}>{s.icon}</div>
-                  <div style={{ fontSize: 26, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif" }}>{s.val}</div>
-                  <div style={{ fontSize: 12, color: "#9a8a60", marginTop: 3, textTransform: "uppercase", letterSpacing: 1 }}>{s.label}</div>
-                  <div style={{ fontSize: 12, color: s.color, marginTop: 2 }}>{s.sub}</div>
+            {/* Game-style streak bar — натхнення з рейтингового бару в грі.
+                Сегменти: стрік · календарні дні з ШІ · активні дні · рекорд. */}
+            {(() => {
+              const STREAK_TIERS = [
+                { min: 365, tier: "legendary" }, { min: 180, tier: "prime" },
+                { min: 90, tier: "rare" }, { min: 30, tier: "epic" },
+                { min: 7, tier: "uncommon" }, { min: 3, tier: "common" },
+              ];
+              const m = STREAK_TIERS.find(t => streak >= t.min);
+              const sc = m ? TIERS[m.tier].color : "#f59e0b";
+              const segs = [
+                { label: "Стрік",     icon: "🔥", val: streak,          unit: "дн.", color: sc,        glow: `${sc}66` },
+                { label: "Днів з ШІ", icon: "📆", val: daysSinceStart,  unit: "дн.", color: "#c9a84c", glow: "rgba(201,168,76,0.45)" },
+                { label: "Активних",  icon: "📈", val: totalActiveDays, unit: "дн.", color: "#06b6d4", glow: "rgba(6,182,212,0.45)" },
+                { label: "Рекорд",    icon: "🏅", val: longestStreak,   unit: "дн.", color: "#ec4899", glow: "rgba(236,72,153,0.45)" },
+              ];
+              return (
+                <div style={{
+                  display: "flex", alignItems: "stretch",
+                  background: "linear-gradient(180deg, rgba(22,15,7,0.92) 0%, rgba(9,6,3,0.94) 100%)",
+                  border: "1px solid rgba(201,168,76,0.28)", borderTop: "2px solid rgba(201,168,76,0.55)",
+                  borderRadius: 10, overflow: "hidden",
+                  boxShadow: `0 4px 22px rgba(0,0,0,0.5), 0 0 26px ${sc}1a, inset 0 1px 0 rgba(255,255,255,0.05)`,
+                }}>
+                  {segs.map((s, i) => (
+                    <div key={s.label} style={{
+                      flex: 1, position: "relative", padding: "16px 8px 13px",
+                      display: "flex", flexDirection: "column", alignItems: "center", gap: 5,
+                      borderRight: i < segs.length - 1 ? "1px solid rgba(201,168,76,0.16)" : "none",
+                      background: i === 0 ? `linear-gradient(180deg, ${sc}14, transparent 72%)` : "transparent",
+                    }}>
+                      <span style={{ fontSize: 17, lineHeight: 1, filter: `drop-shadow(0 0 6px ${s.glow})` }}>{s.icon}</span>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 3 }}>
+                        <span style={{ fontSize: 27, fontWeight: 900, color: s.color, fontFamily: "'Exo 2',sans-serif", textShadow: `0 0 14px ${s.glow}`, lineHeight: 1 }}>{s.val}</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: `${s.color}aa`, fontFamily: "'Space Mono',monospace" }}>{s.unit}</span>
+                      </div>
+                      <span style={{ fontSize: 9.5, fontWeight: 800, color: "#9a8a60", textTransform: "uppercase", letterSpacing: 1.8, fontFamily: "'Exo 2',sans-serif", whiteSpace: "nowrap" }}>{s.label}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-
-            {/* Monthly progress bar */}
-            <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 14, fontWeight: 700, color: "#fff" }}>📅 Ціль місяця</div>
-                <div style={{ fontSize: 12, color: "#6a5f40" }}>ціль: <span style={{ color: "#c9a84c", fontWeight: 700 }}>{daysInCurrentMonth} сесій</span></div>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 8 }}>
-                <span style={{ color: "#6a5f40" }}>{monthSessions} виконано</span>
-                <span style={{ color: "#00ff88", fontWeight: 700 }}>{Math.min(100, Math.round(monthSessions / daysInCurrentMonth * 100))}%</span>
-              </div>
-              <div style={{ height: 10, background: "rgba(201,168,76,0.12)", borderRadius: 5, overflow: "hidden" }}>
-                <div style={{ width: `${Math.min(100, (monthSessions / daysInCurrentMonth) * 100)}%`, height: "100%", background: monthSessions >= daysInCurrentMonth ? "#c9a84c" : "linear-gradient(90deg,#f43f5e,#f59e0b)", borderRadius: 5, transition: "width 0.5s" }} />
-              </div>
-            </div>
+              );
+            })()}
 
             {/* Heatmap */}
             <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18 }}>
