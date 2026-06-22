@@ -2162,8 +2162,8 @@ export default function AITracker() {
           return (
         <div className={levelGlow ? "level-up-glow" : undefined} style={{ marginBottom: 24, padding: levelGlow ? 14 : 0, paddingBottom: 20, border: levelGlow ? `1px solid ${lc}44` : "none", borderBottom: `1px solid ${lc}44`, borderRadius: 6, transition: "padding 0.4s ease", "--lu-color": lc, "--lu-border": `${lc}80`, "--lu-bright": lc }}>
 
-          {/* Top row: avatar + name + stats */}
-          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>
+          {/* Top row: avatar + name */}
+          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginBottom: 14 }}>
             <div style={{ position: "relative", flexShrink: 0 }}>
               <div style={{ width: 58, height: 58, borderRadius: 4, background: "linear-gradient(145deg,#1a1210,#2a1e14)", border: `2px solid ${lc}`, boxShadow: `0 0 22px ${lglow}, inset 0 0 16px ${lc}14`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 800, color: lc, fontFamily: "'Exo 2',sans-serif", letterSpacing: -1 }}>Vi</div>
               <div style={{ position: "absolute", bottom: -8, right: -10 }}><LeagueBadge level={totalLevel} size={30} /></div>
@@ -2175,41 +2175,53 @@ export default function AITracker() {
               </div>
               <div style={{ fontSize: 11, color: `${lc}80`, marginTop: 4, textTransform: "uppercase", letterSpacing: 3 }}>AI Progress Tracker</div>
             </div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "stretch" }}>
-              {[
-                { label: "Дохід", val: `$${totalIncome.toFixed(0)}`, color: lc },
-                { label: "Проєкти", val: projects.filter(p => p.done && !p.deletedAt).length, color: lc },
-                { label: "Клієнти", val: (skillTasksData["monetize_clients"]?.count ?? 0), color: "#fbbf24" },
-                { label: "Досягнення", val: `${unlockedAchievements.length}/${ACHIEVEMENTS.length}`, color: "#00ff88" },
-                { label: "Днів з ШІ", val: daysSinceStart, color: lc },
-              ].map(s => (
-                <div key={s.label} style={{ textAlign: "center", padding: "10px 14px", minWidth: 84, background: "rgba(8,5,2,0.55)", border: `1px solid ${lc}28`, borderTop: `2px solid ${lc}60`, borderRadius: 4, boxShadow: `0 0 12px ${lglow}` }}>
-                  <div style={{ fontSize: 11, color: `${lc}88`, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>{s.label}</div>
-                  <div style={{ fontSize: 24, fontWeight: 800, color: s.color, fontFamily: "'Exo 2',sans-serif" }}>{s.val}</div>
-                </div>
-              ))}
-              {/* Streak badge — tier color matches streak achievements */}
-              {(() => {
-                const STREAK_TIERS = [
-                  { min: 365, tier: "legendary" },
-                  { min: 180, tier: "prime" },
-                  { min: 90,  tier: "rare" },
-                  { min: 30,  tier: "epic" },
-                  { min: 7,   tier: "uncommon" },
-                  { min: 3,   tier: "common" },
-                ];
-                const match = STREAK_TIERS.find(t => totalActiveDays >= t.min);
-                const sc = match ? TIERS[match.tier].color : "#6a5f40";
-                const sglow = match ? TIERS[match.tier].glow : "rgba(106,95,64,0.35)";
-                return (
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "10px 14px", minWidth: 84, background: `${sc}12`, border: `1px solid ${sc}40`, borderTop: `2px solid ${sc}80`, borderRadius: 4, boxShadow: `0 0 12px ${sglow}` }}>
-                    <div style={{ fontSize: 11, color: `${sc}aa`, textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>🔥 Стрік</div>
-                    <div style={{ fontSize: 24, fontWeight: 800, color: sc, fontFamily: "'Exo 2',sans-serif" }}>{streak} <span style={{ fontSize: 13 }}>дн.</span></div>
-                  </div>
-                );
-              })()}
-            </div>
           </div>
+
+          {/* Stats — ігровий бар у стилі вкладки «Сесії»: іконка → число → підпис */}
+          {(() => {
+            const STREAK_TIERS = [
+              { min: 365, tier: "legendary" }, { min: 180, tier: "prime" },
+              { min: 90, tier: "rare" }, { min: 30, tier: "epic" },
+              { min: 7, tier: "uncommon" }, { min: 3, tier: "common" },
+            ];
+            const sm = STREAK_TIERS.find(t => streak >= t.min);
+            const sc = sm ? TIERS[sm.tier].color : "#6a5f40";
+            const sglow = sm ? TIERS[sm.tier].glow : "rgba(106,95,64,0.4)";
+            const segs = [
+              { icon: "💰", label: "Дохід",      val: `$${totalIncome.toFixed(0)}`,                            color: "#10b981", glow: "rgba(16,185,129,0.45)" },
+              { icon: "🚀", label: "Проєкти",    val: projects.filter(p => p.done && !p.deletedAt).length,    color: "#6366f1", glow: "rgba(99,102,241,0.45)" },
+              { icon: "🤝", label: "Клієнти",    val: (skillTasksData["monetize_clients"]?.count ?? 0),        color: "#fbbf24", glow: "rgba(251,191,36,0.45)" },
+              { icon: "🏆", label: "Досягнення", val: `${unlockedAchievements.length}/${ACHIEVEMENTS.length}`, color: "#00ff88", glow: "rgba(0,255,136,0.45)" },
+              { icon: "📆", label: "Днів з ШІ",  val: daysSinceStart,  unit: "дн.", color: "#c9a84c", glow: "rgba(201,168,76,0.45)" },
+              { icon: "📈", label: "Активних",   val: totalActiveDays, unit: "дн.", color: "#06b6d4", glow: "rgba(6,182,212,0.45)" },
+              { icon: "🔥", label: "Стрік",      val: streak,          unit: "дн.", color: sc, glow: sglow, hot: true },
+            ];
+            return (
+              <div style={{
+                display: "flex", alignItems: "stretch", flexWrap: "wrap", marginBottom: 16,
+                background: "linear-gradient(180deg, rgba(22,15,7,0.92) 0%, rgba(9,6,3,0.94) 100%)",
+                border: "1px solid rgba(201,168,76,0.28)", borderTop: "2px solid rgba(201,168,76,0.55)",
+                borderRadius: 10, overflow: "hidden",
+                boxShadow: `0 4px 22px rgba(0,0,0,0.5), 0 0 26px ${sc}1a, inset 0 1px 0 rgba(255,255,255,0.05)`,
+              }}>
+                {segs.map((s, i) => (
+                  <div key={s.label} style={{
+                    flex: "1 1 0", minWidth: 80, position: "relative", padding: "13px 6px 11px",
+                    display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+                    borderRight: i < segs.length - 1 ? "1px solid rgba(201,168,76,0.16)" : "none",
+                    background: s.hot ? `linear-gradient(180deg, ${s.color}18, transparent 70%)` : "transparent",
+                  }}>
+                    <span style={{ fontSize: 15, lineHeight: 1, filter: `drop-shadow(0 0 6px ${s.glow})` }}>{s.icon}</span>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 2 }}>
+                      <span style={{ fontSize: 22, fontWeight: 900, color: s.color, fontFamily: "'Exo 2',sans-serif", textShadow: `0 0 14px ${s.glow}`, lineHeight: 1, whiteSpace: "nowrap" }}>{s.val}</span>
+                      {s.unit && <span style={{ fontSize: 10, fontWeight: 700, color: `${s.color}aa`, fontFamily: "'Space Mono',monospace" }}>{s.unit}</span>}
+                    </div>
+                    <span style={{ fontSize: 9, fontWeight: 800, color: "#9a8a60", textTransform: "uppercase", letterSpacing: 1.2, fontFamily: "'Exo 2',sans-serif", whiteSpace: "nowrap" }}>{s.label}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
 
           {/* XP Bar */}
           <div className={levelGlow ? "level-up-glow" : undefined} style={{ padding: "12px 16px", background: "rgba(8,5,2,0.55)", border: `1px solid ${lc}28`, borderTop: `2px solid ${lc}60`, borderRadius: 4, boxShadow: `0 0 12px ${lglow}`, "--lu-color": lc, "--lu-border": `${lc}90`, "--lu-bright": lc }}>
