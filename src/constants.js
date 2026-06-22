@@ -229,13 +229,13 @@ export const ACTIVITY_DEFS = [
   { kind: "learn", key: "business",             emoji: "💼", label: "Бізнес",      color: "#f59e0b", note: "30хв/раз", unit: "30 хв", xp: 4 },
   { kind: "learn", key: "edu_videos",           emoji: "📺", label: "Навч. відео", color: "#a855f7", note: "1 відео",  unit: "відео",  xp: 3 },
   // Рядок 2 — сирі AI-покоління (уривки на кілька секунд)
-  { kind: "skill", key: "image_images_gen",     emoji: "🎨", label: "Зображення",  color: "#ff6b35",                  xp: 2 },
+  { kind: "skill", key: "image_images_gen",     emoji: "🎨", label: "Зображення",  color: "#ff6b35",                  xp: 1 },
   { kind: "skill", key: "video_videos_created", emoji: "🎞", label: "Кліпи",       color: "#a855f7",                  xp: 8 },
   { kind: "skill", key: "music_tracks_created", emoji: "🎧", label: "Аудіо",       color: "#ec4899",                  xp: 6 },
   // Рядок 3 — готові твори, зібрані з уривків (монтаж / зведення / реалізація)
-  { kind: "learn", key: "full_videos",          emoji: "🎬", label: "Відео",       color: "#8b5cf6",                  xp: 20 },
-  { kind: "learn", key: "full_music",           emoji: "🎵", label: "Музика",      color: "#f472b6",                  xp: 15 },
-  { kind: "learn", key: "sites_built",          emoji: "🌐", label: "Сайти",       color: "#38bdf8",                  xp: 50 },
+  { kind: "learn", key: "full_videos",          emoji: "🎬", label: "Відео",       color: "#8b5cf6",                  xp: 40 },
+  { kind: "learn", key: "full_music",           emoji: "🎵", label: "Музика",      color: "#f472b6",                  xp: 30 },
+  { kind: "learn", key: "sites_built",          emoji: "🌐", label: "Сайти",       color: "#38bdf8",                  xp: 500 },
 ];
 export const ACTIVITY_XP = Object.fromEntries(ACTIVITY_DEFS.map(d => [d.key, d.xp]));
 
