@@ -3247,6 +3247,44 @@ export default function AITracker() {
             );
           };
 
+          // Сумарний XP усіх підзадач (рекурсивно, без видалених) — для блідої «+N»-плашки
+          // поряд із власним XP. Поля goalId/projectId/planId взаємовиключні (nestUnder чистить
+          // усі parent-поля перед призначенням), тож кожен елемент має одного батька → без подвоєнь.
+          const xpVal = (it, tp) => it[XP_THEME[tp].field] ?? XP_THEME[tp].def;
+          const xpChildren = (it, tp) => {
+            if (tp === "goal") return [
+              ...projects.filter(x => x.goalId === it.id && !x.deletedAt).map(x => [x, "project"]),
+              ...plan.filter(x => x.goalId === it.id && !x.deletedAt).map(x => [x, "plan"]),
+              ...goals.filter(x => x.goalId === it.id && !x.deletedAt).map(x => [x, "task"]),
+            ];
+            if (tp === "project") return [
+              ...plan.filter(x => x.projectId === it.id && !x.deletedAt).map(x => [x, "plan"]),
+              ...goals.filter(x => x.projectId === it.id && !x.deletedAt).map(x => [x, "task"]),
+            ];
+            if (tp === "plan") return goals.filter(x => x.planId === it.id && !x.deletedAt).map(x => [x, "task"]);
+            return [];
+          };
+          const subtaskXP = (it, tp) => xpChildren(it, tp).reduce((s, [x, t]) => s + xpVal(x, t) + subtaskXP(x, t), 0);
+
+          // Власна XP-плашка + бліда «+N» = сумарний XP підзадач (щоб бачити повну вагу квесту).
+          // Для задач (листя) і порожніх контейнерів — лише власна плашка.
+          const xpCell = (item, type) => {
+            const extra = subtaskXP(item, type);
+            if (extra <= 0) return xpBadge(item, type);
+            const m = XP_THEME[type];
+            const own = item[m.field] ?? m.def;
+            return (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                {xpBadge(item, type)}
+                <span onClick={e => e.stopPropagation()}
+                  title={`Разом ${own + extra} XP — власний +${own} та +${extra} з підзадач`}
+                  style={{ fontSize: m.fs, fontWeight: 700, color: m.color, opacity: 0.4, fontFamily: "'Space Mono',monospace", whiteSpace: "nowrap", cursor: "help" }}>
+                  +{extra}
+                </span>
+              </span>
+            );
+          };
+
           const EDIT_COLOR = { goal: "#c084fc", project: "#fbbf24", plan: "#22d3ee", task: "#00ff88" };
           // Інлайн-редагування назви елемента (як xpBadge, але для тексту). ФУНКЦІЯ → JSX,
           // щоб <input> не перемонтовувався і не губив фокус під час набору.
@@ -3338,7 +3376,7 @@ export default function AITracker() {
                     style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid rgba(6,182,212,0.7)", background: p.done ? "#06b6d4" : "transparent", color: "#04140a", fontSize: 11, fontWeight: 800, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>{p.done ? "✓" : ""}</button>
                   {nameCell(p, "plan", { flex: 1, color: p.done ? "#5a8090" : "#d0f0fa", fontSize: 12, fontWeight: 500, textDecoration: p.done ? "line-through" : "none" })}
                   {planTasks.length > 0 && <span style={{ fontSize: 10, color: "#3a7a90" }}>{planTasks.length} задач</span>}
-                  {xpBadge(p, "plan")}
+                  {xpCell(p, "plan")}
                   <button onClick={e => { e.stopPropagation(); setGpTextEdit({ type: "plan", id: p.id, val: p.text }); }} title="Редагувати" style={{ background: "none", border: "none", color: "#c9a84c", opacity: 0.3, cursor: "pointer", fontSize: 11, padding: "0 2px" }}>✏️</button>
                   <button onClick={e => { e.stopPropagation(); setPinnedCascade("plan", p.id, !p.pinned); }}
                     style={{ background: "none", border: "none", color: "#c9a84c", opacity: p.pinned ? 1 : 0.18, filter: p.pinned ? "drop-shadow(0 0 4px rgba(201,168,76,0.7))" : "none", cursor: "pointer", fontSize: 11, padding: "0 2px", transition: "opacity 0.2s, filter 0.2s" }} title={p.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
@@ -3392,7 +3430,7 @@ export default function AITracker() {
                       </select>
                     )}
                     {totalChildCount > 0 && <span style={{ fontSize: 10, color: "#8a6a40", flexShrink: 0 }}>{doneChildCount}/{totalChildCount}</span>}
-                    {xpBadge(pr, "project")}
+                    {xpCell(pr, "project")}
                     <button onClick={e => { e.stopPropagation(); setGpTextEdit({ type: "project", id: pr.id, val: pr.text }); }} title="Редагувати" style={{ background: "none", border: "none", color: "#c9a84c", opacity: 0.3, cursor: "pointer", fontSize: 12, padding: "0 2px" }}>✏️</button>
                     <button onClick={e => { e.stopPropagation(); setPinnedCascade("project", pr.id, !pr.pinned); }}
                       style={{ background: "none", border: "none", color: "#c9a84c", opacity: pr.pinned ? 1 : 0.18, filter: pr.pinned ? "drop-shadow(0 0 4px rgba(201,168,76,0.7))" : "none", cursor: "pointer", fontSize: 12, padding: "0 2px", transition: "opacity 0.2s, filter 0.2s" }} title={pr.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
@@ -3443,7 +3481,7 @@ export default function AITracker() {
                       style={{ width: 20, height: 20, borderRadius: "50%", border: "2px solid rgba(168,85,247,0.7)", background: g.done ? "#a855f7" : "transparent", color: "#fff", fontSize: 12, fontWeight: 800, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>{g.done ? "✓" : ""}</button>
                     {nameCell(g, "goal", { flex: 1, color: g.done ? "#8a7a9a" : "#f0e8fa", fontSize: 13, fontWeight: 600, textDecoration: g.done ? "line-through" : "none" })}
                     {totalChildCount > 0 && <span style={{ fontSize: 10, color: "#7a6a90", flexShrink: 0 }}>{doneChildCount}/{totalChildCount}</span>}
-                    {xpBadge(g, "goal")}
+                    {xpCell(g, "goal")}
                     <button onClick={e => { e.stopPropagation(); setGpTextEdit({ type: "goal", id: g.id, val: g.text }); }} title="Редагувати" style={{ background: "none", border: "none", color: "#c9a84c", opacity: 0.3, cursor: "pointer", fontSize: 12, padding: "0 2px" }}>✏️</button>
                     <button onClick={e => { e.stopPropagation(); setPinnedCascade("goal", g.id, !g.pinned); }}
                       style={{ background: "none", border: "none", color: "#c9a84c", opacity: g.pinned ? 1 : 0.18, filter: g.pinned ? "drop-shadow(0 0 4px rgba(201,168,76,0.7))" : "none", cursor: "pointer", fontSize: 12, padding: "0 2px", transition: "opacity 0.2s, filter 0.2s" }} title={g.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
