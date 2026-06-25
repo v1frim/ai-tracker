@@ -1177,7 +1177,10 @@ export default function AITracker() {
   }, [xpLog, todayActivity]);
   const heatmapDays = useMemo(() => lastNDays(56), []);
   const sessionSet = useMemo(() => new Set(sessions.dates), [sessions.dates]);
-  const totalActiveDays = activeDays.length;
+  // «Активних» = к-сть днів із ШІ-активністю. Єдине джерело правди — sessions.dates
+  // (ним же рахуються стрік, хітмапа й досягнення), щоб числа не розходились.
+  // (Старий масив activeDays поповнювався лише на частині дій → відставав; більше не показуємо.)
+  const totalActiveDays = sessions.dates.length;
   const daysSinceStart = useMemo(() => {
     const diff = new Date(todayStr()) - new Date(APP_START_DATE);
     return Math.max(1, Math.floor(diff / 86400000) + 1);
