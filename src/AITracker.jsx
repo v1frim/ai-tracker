@@ -938,6 +938,7 @@ export default function AITracker() {
   const [gpInlineXP, setGpInlineXP] = useState(75);
   const [gpXpEdit, setGpXpEdit] = useState(null); // { type:"goal"|"plan"|"task", id, val } — інлайн-редагування XP
   const [gpTextEdit, setGpTextEdit] = useState(null); // { type, id, val } — інлайн-редагування назви елемента
+  const [gpDeadlineEdit, setGpDeadlineEdit] = useState(null); // { type, id } — інлайн-редагування дедлайну (ціль/проєкт)
   const [inbox, setInbox] = useState(saved?.inbox ?? []);
   const [gpInboxOpen, setGpInboxOpen] = useState(true);
   const [gpInboxText, setGpInboxText] = useState("");
@@ -3119,14 +3120,21 @@ export default function AITracker() {
           const restoreItem = (type, id) => setterOf(type)(prev => prev.map(x => x.id === id ? { ...x, deletedAt: null } : x));
           const permanentDelete = (type, id) => setterOf(type)(prev => prev.filter(x => x.id !== id));
 
+          // Дедлайн «виконано вчасно» = дата завершення ≤ дедлайн (ISO-рядки порівнюються лексикографічно).
+          const deadlineMet = (x) => !!x.deadline && new Date().toISOString().slice(0, 10) <= x.deadline;
           const makeToggleDone = (setter, field, def, cat, label) => (item) => setter(prev => prev.map(x => {
             if (x.id !== item.id) return x;
+            const base = x[field] ?? def;
             if (!x.done) {
-              if (!x.xpAwarded) { gainXP(x[field] ?? def, label, cat); return { ...x, done: true, xpAwarded: true, completedAt: new Date().toISOString() }; }
+              if (!x.xpAwarded) {
+                const bonus = deadlineMet(x); // ×2 за вчасне виконання (лише власний XP цілі/проєкту)
+                gainXP(bonus ? base * 2 : base, bonus ? `${label} ⚡×2` : label, cat);
+                return { ...x, done: true, xpAwarded: true, completedAt: new Date().toISOString(), ...(bonus ? { deadlineBonus: true } : {}) };
+              }
               return { ...x, done: true, completedAt: new Date().toISOString() };
             }
-            if (x.xpAwarded) loseXP(x[field] ?? def, cat, "↩ скасовано");
-            return { ...x, done: false, xpAwarded: false, completedAt: null };
+            if (x.xpAwarded) loseXP(x.deadlineBonus ? base * 2 : base, cat, "↩ скасовано");
+            return { ...x, done: false, xpAwarded: false, deadlineBonus: false, completedAt: null };
           }));
           const doCompleteGoal    = makeToggleDone(setLongGoals, "customXP", 1000, "goal",    "(ціль досягнута)");
           const doCompleteProject = makeToggleDone(setProjects,  "customXP", 200,  "project", "(проєкт завершено)");
@@ -3184,9 +3192,9 @@ export default function AITracker() {
             const m = XP_THEME[type];
             const newXP = Math.max(0, parseInt(rawVal) || 0);
             const oldXP = item[m.field] ?? m.def;
-            // якщо елемент уже виконано — коригуємо загальний XP на різницю, щоб облік не «поплив»
+            // якщо елемент уже виконано — коригуємо загальний XP на різницю (×2, якщо діяв бонус за дедлайн)
             if (newXP !== oldXP && item.done && item.xpAwarded) {
-              const d = newXP - oldXP;
+              const d = (newXP - oldXP) * (item.deadlineBonus ? 2 : 1);
               if (d > 0) gainXP(d, "(XP змінено)", m.cat);
               else loseXP(-d, m.cat, "(XP змінено)");
             }
@@ -3261,8 +3269,45 @@ export default function AITracker() {
                 <span onClick={e => e.stopPropagation()}
                   title={`Разом ${own + extra} XP — власний +${own} та +${extra} з підзадач`}
                   style={{ fontSize: m.fs, fontWeight: 700, color: m.color, opacity: 0.4, fontFamily: "'Space Mono',monospace", whiteSpace: "nowrap", cursor: "help" }}>
-                  +{extra}
+                  +{extra} XP
                 </span>
+              </span>
+            );
+          };
+
+          // ── Дедлайни (лише ціль/проєкт): дата + скільки днів лишилось; виконати вчасно = ×2 XP ──
+          const setDeadline = (type, id, val) => setterOf(type)(prev => prev.map(x => x.id === id ? { ...x, deadline: val || null } : x));
+          const daysLeftOf = (deadline) => {
+            const t = new Date(); t.setHours(0, 0, 0, 0);
+            return Math.round((new Date(deadline + "T00:00:00") - t) / 86400000);
+          };
+          const renderDeadline = (item, type, accent) => {
+            if (gpDeadlineEdit?.id === item.id) {
+              return (
+                <input type="date" autoFocus value={item.deadline ?? ""}
+                  onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}
+                  onChange={e => setDeadline(type, item.id, e.target.value)}
+                  onBlur={() => setGpDeadlineEdit(null)}
+                  onKeyDown={e => { e.stopPropagation(); if (e.key === "Enter" || e.key === "Escape") setGpDeadlineEdit(null); }}
+                  style={{ background: "rgba(8,5,2,0.85)", border: `1px solid ${accent}`, borderRadius: 4, color: "#e0d8c0", fontSize: 10, padding: "2px 6px", outline: "none", colorScheme: "dark", fontFamily: "'Space Mono',monospace", flexShrink: 0 }} />
+              );
+            }
+            if (!item.deadline) return null;
+            const dl = daysLeftOf(item.deadline);
+            const dateStr = new Date(item.deadline + "T00:00:00").toLocaleDateString("uk-UA", { day: "2-digit", month: "2-digit" });
+            let col, txt;
+            if (item.done) { col = item.deadlineBonus ? "#00ff88" : "#7a7060"; txt = item.deadlineBonus ? "вчасно" : "після терміну"; }
+            else if (dl < 0) { col = "#f43f5e"; txt = `−${-dl} дн`; }
+            else if (dl === 0) { col = "#fbbf24"; txt = "сьогодні"; }
+            else { col = dl <= 3 ? "#fbbf24" : dl <= 7 ? accent : "#6a9a78"; txt = `ще ${dl} дн`; }
+            const showX2 = (!item.done && dl >= 0) || (item.done && item.deadlineBonus);
+            return (
+              <span onClick={e => { e.stopPropagation(); setGpDeadlineEdit({ type, id: item.id }); }}
+                title={`Дедлайн ${new Date(item.deadline + "T00:00:00").toLocaleDateString("uk-UA")} · виконати вчасно = ×2 XP за ${type === "goal" ? "ціль" : "проєкт"}. Клік — змінити.`}
+                style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 9.5, color: col, background: `${col}1a`, border: `1px solid ${col}55`, borderRadius: 4, padding: "1px 6px", cursor: "pointer", whiteSpace: "nowrap", fontFamily: "'Space Mono',monospace", flexShrink: 0 }}>
+                <span>📅 {dateStr} · {txt}</span>
+                {showX2 && <span style={{ fontWeight: 700, color: item.done ? "#00ff88" : "#fbbf24" }}>⚡×2</span>}
+                <span onClick={e => { e.stopPropagation(); setDeadline(type, item.id, null); setGpDeadlineEdit(null); }} title="Прибрати дедлайн" style={{ color: `${col}cc`, fontSize: 12, lineHeight: 1, marginLeft: 1 }}>×</span>
               </span>
             );
           };
@@ -3399,7 +3444,7 @@ export default function AITracker() {
                     <select value={pr.category ?? "other"} onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}
                       onChange={e => { e.stopPropagation(); setProjects(prev => prev.map(x => x.id === pr.id ? { ...x, category: e.target.value } : x)); }}
                       title="Категорія"
-                      style={{ background: "rgba(8,5,2,0.6)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 3, color: "#c9a84c", fontSize: 10, padding: "2px 3px", cursor: "pointer", flexShrink: 0, maxWidth: 54 }}>
+                      style={{ background: "rgba(8,5,2,0.6)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 3, color: "#c9a84c", fontSize: 10, padding: "2px 4px", cursor: "pointer", flexShrink: 0, maxWidth: 124 }}>
                       {PROJECT_CATEGORIES.map(c => <option key={c.id} value={c.id} style={{ background: "#0c0903", color: "#e0d8c0" }}>{c.icon} {c.label}</option>)}
                     </select>
                     {!pr.done && (
@@ -3413,18 +3458,22 @@ export default function AITracker() {
                     )}
                     {totalChildCount > 0 && <span style={{ fontSize: 10, color: "#8a6a40", flexShrink: 0 }}>{doneChildCount}/{totalChildCount}</span>}
                     {xpCell(pr, "project")}
+                    {!pr.deadline && <button onClick={e => { e.stopPropagation(); setGpDeadlineEdit(gpDeadlineEdit?.id === pr.id ? null : { type: "project", id: pr.id }); }} title="Додати дедлайн (×2 XP за вчасне виконання)" style={{ background: "none", border: "none", color: "#c9a84c", opacity: 0.3, cursor: "pointer", fontSize: 12, padding: "0 2px" }}>📅</button>}
                     <button onClick={e => { e.stopPropagation(); setGpTextEdit({ type: "project", id: pr.id, val: pr.text }); }} title="Редагувати" style={{ background: "none", border: "none", color: "#c9a84c", opacity: 0.3, cursor: "pointer", fontSize: 12, padding: "0 2px" }}>✏️</button>
                     <button onClick={e => { e.stopPropagation(); setPinnedCascade("project", pr.id, !pr.pinned); }}
                       style={{ background: "none", border: "none", color: "#c9a84c", opacity: pr.pinned ? 1 : 0.18, filter: pr.pinned ? "drop-shadow(0 0 4px rgba(201,168,76,0.7))" : "none", cursor: "pointer", fontSize: 12, padding: "0 2px", transition: "opacity 0.2s, filter 0.2s" }} title={pr.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
                     <button onClick={e => { e.stopPropagation(); softDelete("project", pr.id); }}
                       style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 16, padding: "0 2px", lineHeight: 1 }}>×</button>
                   </div>
-                  {totalChildCount > 0 && (
+                  {(totalChildCount > 0 || pr.deadline || gpDeadlineEdit?.id === pr.id) && (
                     <div style={{ marginTop: 7, marginLeft: 22, display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ flex: 1, height: 3, background: "rgba(245,158,11,0.15)", borderRadius: 2, overflow: "hidden" }}>
-                        <div style={{ width: `${progressPct}%`, height: "100%", background: progressPct === 100 ? "#f59e0b" : "linear-gradient(90deg, #f59e0b, #fbbf24)", borderRadius: 2, transition: "width 0.3s" }} />
-                      </div>
-                      <span style={{ fontSize: 9, color: progressPct === 100 ? "#f59e0b" : "#6a5a30", flexShrink: 0 }}>{progressPct}%</span>
+                      {renderDeadline(pr, "project", "#fbbf24")}
+                      {totalChildCount > 0 && (<>
+                        <div style={{ flex: 1, height: 3, background: "rgba(245,158,11,0.15)", borderRadius: 2, overflow: "hidden" }}>
+                          <div style={{ width: `${progressPct}%`, height: "100%", background: progressPct === 100 ? "#f59e0b" : "linear-gradient(90deg, #f59e0b, #fbbf24)", borderRadius: 2, transition: "width 0.3s" }} />
+                        </div>
+                        <span style={{ fontSize: 9, color: progressPct === 100 ? "#f59e0b" : "#6a5a30", flexShrink: 0 }}>{progressPct}%</span>
+                      </>)}
                     </div>
                   )}
                 </div>
@@ -3464,18 +3513,22 @@ export default function AITracker() {
                     {nameCell(g, "goal", { flex: 1, color: g.done ? "#8a7a9a" : "#f0e8fa", fontSize: 13, fontWeight: 600, textDecoration: g.done ? "line-through" : "none" })}
                     {totalChildCount > 0 && <span style={{ fontSize: 10, color: "#7a6a90", flexShrink: 0 }}>{doneChildCount}/{totalChildCount}</span>}
                     {xpCell(g, "goal")}
+                    {!g.deadline && <button onClick={e => { e.stopPropagation(); setGpDeadlineEdit(gpDeadlineEdit?.id === g.id ? null : { type: "goal", id: g.id }); }} title="Додати дедлайн (×2 XP за вчасне виконання)" style={{ background: "none", border: "none", color: "#c9a84c", opacity: 0.3, cursor: "pointer", fontSize: 12, padding: "0 2px" }}>📅</button>}
                     <button onClick={e => { e.stopPropagation(); setGpTextEdit({ type: "goal", id: g.id, val: g.text }); }} title="Редагувати" style={{ background: "none", border: "none", color: "#c9a84c", opacity: 0.3, cursor: "pointer", fontSize: 12, padding: "0 2px" }}>✏️</button>
                     <button onClick={e => { e.stopPropagation(); setPinnedCascade("goal", g.id, !g.pinned); }}
                       style={{ background: "none", border: "none", color: "#c9a84c", opacity: g.pinned ? 1 : 0.18, filter: g.pinned ? "drop-shadow(0 0 4px rgba(201,168,76,0.7))" : "none", cursor: "pointer", fontSize: 12, padding: "0 2px", transition: "opacity 0.2s, filter 0.2s" }} title={g.pinned ? "Прибрати з Головної" : "Закріпити"}>📌</button>
                     <button onClick={e => { e.stopPropagation(); softDelete("goal", g.id); }}
                       style={{ background: "none", border: "none", color: "#5a4a30", cursor: "pointer", fontSize: 16, padding: "0 2px", lineHeight: 1 }}>×</button>
                   </div>
-                  {totalChildCount > 0 && (
+                  {(totalChildCount > 0 || g.deadline || gpDeadlineEdit?.id === g.id) && (
                     <div style={{ marginTop: 7, marginLeft: 22, display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ flex: 1, height: 3, background: "rgba(168,85,247,0.15)", borderRadius: 2, overflow: "hidden" }}>
-                        <div style={{ width: `${progressPct}%`, height: "100%", background: progressPct === 100 ? "#a855f7" : "linear-gradient(90deg, #a855f7, #c084fc)", borderRadius: 2, transition: "width 0.3s" }} />
-                      </div>
-                      <span style={{ fontSize: 9, color: progressPct === 100 ? "#a855f7" : "#5a4a70", flexShrink: 0 }}>{progressPct}%</span>
+                      {renderDeadline(g, "goal", "#c084fc")}
+                      {totalChildCount > 0 && (<>
+                        <div style={{ flex: 1, height: 3, background: "rgba(168,85,247,0.15)", borderRadius: 2, overflow: "hidden" }}>
+                          <div style={{ width: `${progressPct}%`, height: "100%", background: progressPct === 100 ? "#a855f7" : "linear-gradient(90deg, #a855f7, #c084fc)", borderRadius: 2, transition: "width 0.3s" }} />
+                        </div>
+                        <span style={{ fontSize: 9, color: progressPct === 100 ? "#a855f7" : "#5a4a70", flexShrink: 0 }}>{progressPct}%</span>
+                      </>)}
                     </div>
                   )}
                 </div>
