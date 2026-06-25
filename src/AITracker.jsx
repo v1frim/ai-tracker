@@ -956,23 +956,11 @@ export default function AITracker() {
   const [radioTitle, setRadioTitle] = useState("");
   const [radioGenre, setRadioGenre] = useState("");
 
-  // AI Chat Widget state
-  const [aiOpen, setAiOpen] = useState(false);
-  const [aiMessages, setAiMessages] = useState(saved?.aiMessages ?? []);
-  const [aiInput, setAiInput] = useState("");
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiModel, setAiModel] = useState(saved?.aiModel ?? "gpt-4o-mini");
-  const [aiApiKeys, setAiApiKeys] = useState(saved?.aiApiKeys ?? { openai: "", anthropic: "", gemini: "" });
+  // GitHub sync state (лічильник «Рядків коду» у Статистиці)
   const [githubSync, setGithubSync] = useState(saved?.githubSync ?? { user: "", token: "", lastSync: null, totalLines: 0, repos: [] });
   const [ghPanelOpen, setGhPanelOpen] = useState(false);
   const [ghSyncing, setGhSyncing] = useState(false);
   const [ghSyncMsg, setGhSyncMsg] = useState("");
-  const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
-  const [aiAttachments, setAiAttachments] = useState([]);
-  const [aiModelOpen, setAiModelOpen] = useState(false);
-  const [aiDropPos, setAiDropPos] = useState(null);
-  const [aiAvailModels, setAiAvailModels] = useState(null);
-  const aiMsgsRef = useRef(null);
   const dragRef = useRef({});
   const progressEditRef = useRef(null);
 
@@ -1017,10 +1005,10 @@ export default function AITracker() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    const state = { skillData, totalXP, levelUpAt, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, longGoalEpoch, plan, aiMessages, aiModel, aiApiKeys, githubSync, progressLog, metricLog, todayXP, skillTasksData, learnTime, inbox, radioStations };
+    const state = { skillData, totalXP, levelUpAt, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, longGoalEpoch, plan, githubSync, progressLog, metricLog, todayXP, skillTasksData, learnTime, inbox, radioStations };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     setSaveTick(t => t + 1);
-  }, [skillData, totalXP, levelUpAt, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, longGoalEpoch, plan, aiMessages, aiModel, aiApiKeys, githubSync, progressLog, metricLog, todayXP, skillTasksData, learnTime, inbox, radioStations]);
+  }, [skillData, totalXP, levelUpAt, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, longGoalEpoch, plan, githubSync, progressLog, metricLog, todayXP, skillTasksData, learnTime, inbox, radioStations]);
 
   useEffect(() => {
     localStorage.setItem("ai_tracker_today_act", JSON.stringify({ date: todayStr(), data: todayActivity }));
@@ -1142,12 +1130,6 @@ export default function AITracker() {
   }, []);
 
   useEffect(() => { sessionStorage.setItem("ai_tracker_tab", activeTab); }, [activeTab]);
-
-  useEffect(() => {
-    if (aiOpen && aiMsgsRef.current) {
-      aiMsgsRef.current.scrollTop = aiMsgsRef.current.scrollHeight;
-    }
-  }, [aiOpen, aiMessages]);
 
   // On mount: clean up any data before APP_START_DATE (reset to fresh start)
   useEffect(() => {
@@ -5240,300 +5222,6 @@ export default function AITracker() {
           );
         })()}
       </div>
-
-      {/* ── AI Chat Widget ── */}
-    {(() => {
-      const AI_MODELS = [
-        { id: "gpt-4o-mini",              label: "GPT-4o mini",    provider: "openai",    icon: "🟢" },
-        { id: "gpt-4o",                   label: "GPT-4o",         provider: "openai",    icon: "🟢" },
-        { id: "gpt-4.5-preview",          label: "GPT-4.5",        provider: "openai",    icon: "🟢" },
-        { id: "gpt-4.1",                  label: "GPT-4.1",        provider: "openai",    icon: "🟢" },
-        { id: "gpt-4.1-mini",             label: "GPT-4.1 mini",   provider: "openai",    icon: "🟢" },
-        { id: "o3",                       label: "o3",             provider: "openai",    icon: "🟢" },
-        { id: "o3-mini",                  label: "o3-mini",        provider: "openai",    icon: "🟢" },
-        { id: "o4-mini",                  label: "o4-mini",        provider: "openai",    icon: "🟢" },
-        { id: "claude-haiku-4-5-20251001",label: "Claude Haiku",   provider: "anthropic", icon: "🟠" },
-        { id: "claude-sonnet-4-6",        label: "Claude Sonnet",  provider: "anthropic", icon: "🟠" },
-        { id: "claude-opus-4-8",          label: "Claude Opus",    provider: "anthropic", icon: "🟠" },
-        { id: "gemini-2.5-flash",         label: "Gemini 2.5 Flash", provider: "gemini",  icon: "🔵" },
-        { id: "gemini-2.0-flash",         label: "Gemini 2.0 Flash", provider: "gemini",  icon: "🔵" },
-        { id: "gemini-1.5-flash",         label: "Gemini 1.5 Flash", provider: "gemini",  icon: "🔵" },
-        { id: "gemini-2.5-pro",           label: "Gemini 2.5 Pro",   provider: "gemini",  icon: "🔵" },
-      ];
-      const isCustomModel = !AI_MODELS.find(m => m.id === aiModel);
-      const curModel = AI_MODELS.find(m => m.id === aiModel) ?? { id: aiModel, label: aiModel, provider: "openai", icon: "🟢" };
-
-      const buildSystemPrompt = () => {
-        const level = Math.floor(Math.sqrt(totalXP / 80));
-        const toolCount = Object.values(skillData).reduce((s, v) => s + (v.unlockedTools?.length ?? 0), 0);
-        const monthSessions = sessions.dates.filter(d => d.startsWith(new Date().toISOString().slice(0, 7))).length;
-        return `Ти AI-асистент у персональному трекері прогресу Вови у вивченні AI-інструментів та заробітку з AI.\n\nПоточний стан:\n- XP: ${totalXP} → Рівень ${level}\n- Вивчено AI-інструментів: ${toolCount}\n- Дохід загалом: $${totalIncome.toFixed(2)}\n- Стрік: ${streak} днів поспіль\n- Проєкти: ${projects.length} всього, ${projects.filter(p => p.done).length} завершено\n- Сесій цього місяця: ${monthSessions}\n\nВеди себе як наставник і мотиватор. Давай конкретні поради, задачки та рекомендації виходячи з реального прогресу. Відповідай українською мовою. Будь стислим але корисним.`;
-      };
-
-      const sendMessage = async () => {
-        if (!aiInput.trim() && aiAttachments.length === 0) return;
-        const provider = curModel.provider;
-        const key = aiApiKeys[provider];
-        if (!key) { setAiSettingsOpen(true); return; }
-
-        const userMsg = { role: "user", content: aiInput.trim(), attachments: aiAttachments.length ? [...aiAttachments] : undefined, ts: Date.now() };
-        const newMsgs = [...aiMessages, userMsg];
-        setAiMessages(newMsgs);
-        setAiInput("");
-        setAiAttachments([]);
-        setAiLoading(true);
-
-        try {
-          const sys = buildSystemPrompt();
-          if (provider === "openai") {
-            const msgs = [
-              { role: "system", content: sys },
-              ...newMsgs.map(m => ({
-                role: m.role,
-                content: m.attachments?.length
-                  ? [{ type: "text", text: m.content || "" }, ...m.attachments.map(a => ({ type: "image_url", image_url: { url: `data:${a.type};base64,${a.data}` } }))]
-                  : (m.content || "")
-              }))
-            ];
-            const res = await fetch("https://api.openai.com/v1/chat/completions", {
-              method: "POST",
-              headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" },
-              body: JSON.stringify({ model: aiModel, messages: msgs, stream: true })
-            });
-            if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message ?? res.statusText); }
-            const reader = res.body.getReader();
-            const dec = new TextDecoder();
-            let acc = "";
-            setAiMessages(prev => [...prev, { role: "assistant", content: "", ts: Date.now() }]);
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              for (const line of dec.decode(value).split("\n")) {
-                if (!line.startsWith("data: ") || line.includes("[DONE]")) continue;
-                try { const d = JSON.parse(line.slice(6)); acc += d.choices?.[0]?.delta?.content ?? ""; } catch (_) {}
-              }
-              setAiMessages(prev => prev.map((m, i) => i === prev.length - 1 ? { ...m, content: acc } : m));
-            }
-          } else if (provider === "anthropic") {
-            const msgs = newMsgs.map(m => ({
-              role: m.role,
-              content: m.attachments?.length
-                ? [...m.attachments.map(a => ({ type: "image", source: { type: "base64", media_type: a.type, data: a.data } })), { type: "text", text: m.content || "" }]
-                : (m.content || "")
-            }));
-            const res = await fetch("https://api.anthropic.com/v1/messages", {
-              method: "POST",
-              headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json", "anthropic-dangerous-allow-browser": "true" },
-              body: JSON.stringify({ model: aiModel, max_tokens: 2048, system: sys, messages: msgs })
-            });
-            if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message ?? res.statusText); }
-            const data = await res.json();
-            setAiMessages(prev => [...prev, { role: "assistant", content: data.content?.[0]?.text ?? "Порожня відповідь", ts: Date.now() }]);
-          } else if (provider === "gemini") {
-            const contents = newMsgs
-              .map(m => ({
-                role: m.role === "assistant" ? "model" : "user",
-                parts: [
-                  ...(m.attachments ?? []).filter(a => a.type && a.data).map(a => ({ inlineData: { mimeType: a.type, data: a.data } })),
-                  ...(m.content?.trim() ? [{ text: m.content }] : [])
-                ]
-              }))
-              .filter(m => m.parts.length > 0);
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${aiModel}:generateContent?key=${key}`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ system_instruction: { parts: [{ text: sys }] }, contents })
-            });
-            if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message ?? res.statusText); }
-            const data = await res.json();
-            setAiMessages(prev => [...prev, { role: "assistant", content: data.candidates?.[0]?.content?.parts?.[0]?.text ?? "Порожня відповідь", ts: Date.now() }]);
-          }
-        } catch (err) {
-          setAiMessages(prev => [...prev, { role: "assistant", content: `❌ Помилка: ${err.message}`, ts: Date.now() }]);
-        }
-        setAiLoading(false);
-      };
-
-      const handlePaste = (e) => {
-        for (const item of e.clipboardData?.items ?? []) {
-          if (item.type.startsWith("image/")) {
-            const file = item.getAsFile();
-            const reader = new FileReader();
-            reader.onload = ev => setAiAttachments(prev => [...prev, { type: item.type, data: ev.target.result.split(",")[1] }]);
-            reader.readAsDataURL(file);
-          }
-        }
-      };
-
-      const handleFileInput = (e) => {
-        for (const file of e.target.files ?? []) {
-          if (!file.type.startsWith("image/")) continue;
-          const reader = new FileReader();
-          reader.onload = ev => setAiAttachments(prev => [...prev, { type: file.type, data: ev.target.result.split(",")[1] }]);
-          reader.readAsDataURL(file);
-        }
-        e.target.value = "";
-      };
-
-      const renderMsg = (text) => text.split("\n").map((line, i, arr) => (
-        <span key={i}>{line}{i < arr.length - 1 && <br />}</span>
-      ));
-
-      return (
-        <div data-ai-chat style={{ position: "fixed", bottom: 20, right: 20, zIndex: 9999, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 10 }}>
-          {aiOpen && (
-            <div style={{ width: 290, maxWidth: "calc(100vw - 40px)", maxHeight: "min(520px, calc(100vh - 110px))", background: "linear-gradient(180deg,rgba(12,8,3,0.97),rgba(7,5,1,0.98))", border: "1px solid rgba(201,168,76,0.3)", borderTop: "2px solid rgba(201,168,76,0.55)", borderRadius: 8, boxShadow: "0 12px 48px rgba(0,0,0,0.8)", display: "flex", flexDirection: "column", fontFamily: "'Exo 2',sans-serif" }}>
-
-              {/* Header */}
-              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderBottom: "1px solid rgba(201,168,76,0.15)", background: "rgba(201,168,76,0.04)" }}>
-                <span style={{ fontSize: 15 }}>🤖</span>
-                <span style={{ fontSize: 12, color: "#c9a84c", fontWeight: 700, letterSpacing: 1 }}>AI АСИСТЕНТ</span>
-                <div style={{ marginLeft: "auto" }}>
-                  <button onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setAiDropPos({ bottom: window.innerHeight - r.top + 6, right: window.innerWidth - r.right }); setAiModelOpen(v => !v); }} style={{ background: "rgba(201,168,76,0.08)", border: "1px solid rgba(201,168,76,0.22)", color: "#9a8a60", padding: "3px 8px", borderRadius: 3, cursor: "pointer", fontSize: 10, fontFamily: "'Space Mono',monospace" }}>
-                    {curModel.icon} {curModel.label} ▾
-                  </button>
-                </div>
-                <button onClick={() => setAiSettingsOpen(v => !v)} title="API ключі" style={{ background: aiSettingsOpen ? "rgba(201,168,76,0.12)" : "none", border: "none", color: "#6a5840", cursor: "pointer", fontSize: 14, padding: "2px 5px", borderRadius: 3 }}>⚙</button>
-                <button onClick={() => setAiMessages([])} title="Очистити" style={{ background: "none", border: "none", color: "#5a3a30", cursor: "pointer", fontSize: 13, padding: "2px 4px" }}>🗑</button>
-                <button onClick={() => setAiOpen(false)} style={{ background: "none", border: "none", color: "#6a5840", cursor: "pointer", fontSize: 18, padding: "2px 4px", lineHeight: 1 }}>×</button>
-              </div>
-
-              {/* Settings */}
-              {aiSettingsOpen && (
-                <div style={{ padding: "12px 14px", borderBottom: "1px solid rgba(201,168,76,0.12)", background: "rgba(0,0,0,0.3)", display: "flex", flexDirection: "column", gap: 8 }}>
-                  <div style={{ fontSize: 10, color: "#6a5840", textTransform: "uppercase", letterSpacing: 1 }}>API Ключі (зберігаються локально)</div>
-                  {[{k:"openai",label:"OpenAI",ph:"sk-..."},{k:"anthropic",label:"Anthropic",ph:"sk-ant-..."},{k:"gemini",label:"Google Gemini",ph:"AIza..."}].map(({k,label,ph}) => (
-                    <div key={k} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                      <label style={{ fontSize: 10, color: "#8a7a50" }}>{label}</label>
-                      <input type="password" value={aiApiKeys[k]} onChange={e => setAiApiKeys(p => ({...p,[k]:e.target.value}))} placeholder={ph}
-                        style={{ background: "rgba(8,5,2,0.8)", border: "1px solid rgba(201,168,76,0.2)", color: "#c9a84c", padding: "5px 8px", borderRadius: 3, fontSize: 11, fontFamily: "'Space Mono',monospace", outline: "none" }} />
-                    </div>
-                  ))}
-                  {/* Check available Gemini models */}
-                  <button onClick={async () => {
-                    if (!aiApiKeys.gemini) { setAiAvailModels(["⚠ спочатку введи Gemini ключ"]); return; }
-                    setAiAvailModels(["⏳ завантаження…"]);
-                    try {
-                      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${aiApiKeys.gemini}`);
-                      const d = await r.json();
-                      if (d.error) { setAiAvailModels([`❌ ${d.error.message}`]); return; }
-                      const list = (d.models ?? [])
-                        .filter(m => m.supportedGenerationMethods?.includes("generateContent"))
-                        .map(m => m.name.replace("models/", ""))
-                        .filter(n => n.startsWith("gemini"));
-                      setAiAvailModels(list.length ? list : ["(порожньо)"]);
-                    } catch (e) { setAiAvailModels([`❌ ${e.message}`]); }
-                  }} style={{ background: "rgba(70,90,201,0.12)", border: "1px solid rgba(100,120,220,0.35)", color: "#8ea0e0", padding: "6px", borderRadius: 3, cursor: "pointer", fontSize: 10, fontFamily: "'Space Mono',monospace", marginTop: 2 }}>
-                    🔵 Перевірити доступні Gemini-моделі
-                  </button>
-                  {aiAvailModels && (
-                    <div style={{ fontSize: 10, color: "#8a7a50", fontFamily: "'Space Mono',monospace", background: "rgba(8,5,2,0.6)", border: "1px solid rgba(201,168,76,0.15)", borderRadius: 3, padding: "6px 8px", maxHeight: 110, overflowY: "auto", lineHeight: 1.5 }}>
-                      {aiAvailModels.map((m, i) => (
-                        <div key={i} onClick={() => { if (m.startsWith("gemini")) { setAiModel(m); setAiAvailModels(null); } }}
-                          style={{ cursor: m.startsWith("gemini") ? "pointer" : "default", color: m === aiModel ? "#c9a84c" : undefined, padding: "1px 0" }}>
-                          {m.startsWith("gemini") ? `• ${m}${m === aiModel ? " ✓" : ""}` : m}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Messages */}
-              <div ref={aiMsgsRef} style={{ flex: 1, maxHeight: 380, overflowY: "auto", padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
-                {aiMessages.length === 0 ? (
-                  <div style={{ fontSize: 12, color: "#4a3a20", textAlign: "center", padding: "24px 0" }}>
-                    Привіт! Я знаю твій прогрес і готовий допомогти.<br />
-                    <span style={{ fontSize: 11, color: "#3a2a15" }}>Запитай щось або попроси задачку 🎯</span>
-                  </div>
-                ) : aiMessages.map((msg, i) => {
-                  const isUser = msg.role === "user";
-                  return (
-                    <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: isUser ? "flex-end" : "flex-start", gap: 3 }}>
-                      {msg.attachments?.length > 0 && (
-                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: isUser ? "flex-end" : "flex-start" }}>
-                          {msg.attachments.map((a, ai) => <img key={ai} src={`data:${a.type};base64,${a.data}`} alt="" style={{ maxWidth: 120, maxHeight: 80, borderRadius: 4, border: "1px solid rgba(201,168,76,0.25)" }} />)}
-                        </div>
-                      )}
-                      {msg.content && (
-                        <div style={{ maxWidth: "85%", padding: "7px 11px", borderRadius: isUser ? "10px 10px 2px 10px" : "10px 10px 10px 2px", background: isUser ? "rgba(201,168,76,0.13)" : "rgba(255,255,255,0.04)", border: `1px solid ${isUser ? "rgba(201,168,76,0.28)" : "rgba(255,255,255,0.07)"}`, fontSize: 12, lineHeight: 1.55, color: isUser ? "#e0d8c0" : "#b8b0a0", wordBreak: "break-word" }}>
-                          {renderMsg(msg.content)}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-                {aiLoading && (
-                  <div style={{ display: "flex" }}>
-                    <div style={{ padding: "8px 14px", borderRadius: "10px 10px 10px 2px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", fontSize: 16, color: "#5a4830", letterSpacing: 3 }}>···</div>
-                  </div>
-                )}
-              </div>
-
-              {/* Attachment previews */}
-              {aiAttachments.length > 0 && (
-                <div style={{ display: "flex", gap: 6, padding: "6px 12px", borderTop: "1px solid rgba(201,168,76,0.1)", flexWrap: "wrap" }}>
-                  {aiAttachments.map((a, i) => (
-                    <div key={i} style={{ position: "relative" }}>
-                      <img src={`data:${a.type};base64,${a.data}`} alt="" style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 4, border: "1px solid rgba(201,168,76,0.3)" }} />
-                      <button onClick={() => setAiAttachments(p => p.filter((_,j)=>j!==i))} style={{ position: "absolute", top: -4, right: -4, background: "#f43f5e", border: "none", color: "#fff", borderRadius: "50%", width: 15, height: 15, fontSize: 9, cursor: "pointer", lineHeight: 1, padding: 0 }}>×</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Input */}
-              <div style={{ padding: "10px 12px", borderTop: "1px solid rgba(201,168,76,0.15)", display: "flex", gap: 6, alignItems: "flex-end" }}>
-                <label title="Прикріпити зображення" style={{ cursor: "pointer", color: "#5a4a30", fontSize: 18, flexShrink: 0, paddingBottom: 3 }}>
-                  📎<input type="file" accept="image/*" multiple onChange={handleFileInput} style={{ display: "none" }} />
-                </label>
-                <textarea value={aiInput} onChange={e => setAiInput(e.target.value)} onPaste={handlePaste}
-                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-                  placeholder="Повідомлення… (Enter — надіслати)"
-                  rows={1} style={{ flex: 1, background: "rgba(8,5,2,0.7)", border: "1px solid rgba(201,168,76,0.2)", color: "#e0d8c0", padding: "7px 10px", borderRadius: 4, fontSize: 12, fontFamily: "'Exo 2',sans-serif", resize: "none", outline: "none", maxHeight: 100, overflowY: "auto", lineHeight: 1.45, colorScheme: "dark" }} />
-                <button onClick={sendMessage} disabled={aiLoading || (!aiInput.trim() && aiAttachments.length === 0)}
-                  style={{ background: "rgba(201,168,76,0.18)", border: "1px solid rgba(201,168,76,0.4)", color: aiLoading ? "#4a3a20" : "#c9a84c", padding: "7px 12px", borderRadius: 4, cursor: aiLoading ? "default" : "pointer", fontSize: 14, flexShrink: 0 }}>
-                  ▶
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Model dropdown — fixed, outside panel so it's never clipped */}
-          {aiModelOpen && aiDropPos && (
-            <div style={{ position: "fixed", bottom: aiDropPos.bottom, right: aiDropPos.right, background: "rgba(10,7,2,0.99)", border: "1px solid rgba(201,168,76,0.35)", borderRadius: 6, overflowY: "auto", maxHeight: "min(280px, calc(100vh - 140px))", minWidth: 165, zIndex: 10001, boxShadow: "0 -6px 28px rgba(0,0,0,0.85)" }}
-              onMouseLeave={() => setAiModelOpen(false)}>
-              {["gemini","openai","anthropic"].map(prov => (
-                <div key={prov}>
-                  <div style={{ fontSize: 9, color: "#5a4a30", padding: "6px 12px 2px", textTransform: "uppercase", letterSpacing: 1.5 }}>{{ openai:"OpenAI", anthropic:"Anthropic", gemini:"Google" }[prov]}</div>
-                  {AI_MODELS.filter(m => m.provider === prov).map(m => (
-                    <button key={m.id} onClick={() => { setAiModel(m.id); setAiModelOpen(false); }}
-                      style={{ display: "block", width: "100%", textAlign: "left", padding: "7px 14px", background: m.id === aiModel ? "rgba(201,168,76,0.14)" : "none", border: "none", color: m.id === aiModel ? "#c9a84c" : "#9a8a60", cursor: "pointer", fontSize: 11, fontFamily: "'Space Mono',monospace" }}>
-                      {m.icon} {m.label}{m.id === aiModel ? " ✓" : ""}
-                    </button>
-                  ))}
-                </div>
-              ))}
-              <div style={{ borderTop: "1px solid rgba(201,168,76,0.15)", padding: "6px 10px 8px" }}>
-                <div style={{ fontSize: 9, color: "#5a4a30", marginBottom: 4, textTransform: "uppercase", letterSpacing: 1 }}>Свій model ID</div>
-                <input
-                  placeholder="напр. gpt-5, chatgpt-4o-latest…"
-                  defaultValue={isCustomModel ? aiModel : ""}
-                  onKeyDown={e => { if (e.key === "Enter" && e.target.value.trim()) { setAiModel(e.target.value.trim()); setAiModelOpen(false); } }}
-                  onBlur={e => { if (e.target.value.trim()) { setAiModel(e.target.value.trim()); } }}
-                  style={{ width: "100%", background: "rgba(8,5,2,0.9)", border: "1px solid rgba(201,168,76,0.25)", color: "#c9a84c", padding: "4px 8px", borderRadius: 3, fontSize: 10, fontFamily: "'Space Mono',monospace", outline: "none", boxSizing: "border-box" }} />
-              </div>
-            </div>
-          )}
-
-          {/* FAB button */}
-          <button onClick={() => { setAiOpen(v => !v); setAiModelOpen(false); }}
-            style={{ width: 52, height: 52, borderRadius: "50%", background: aiOpen ? "rgba(201,168,76,0.22)" : "linear-gradient(135deg,rgba(201,168,76,0.22),rgba(120,80,20,0.22))", border: `2px solid ${aiOpen ? "rgba(201,168,76,0.65)" : "rgba(201,168,76,0.35)"}`, color: "#c9a84c", fontSize: 22, cursor: "pointer", boxShadow: "0 4px 20px rgba(0,0,0,0.65), 0 0 14px rgba(201,168,76,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            {aiOpen ? "×" : "🤖"}
-          </button>
-        </div>
-      );
-    })()}
     </div>
   );
 }
