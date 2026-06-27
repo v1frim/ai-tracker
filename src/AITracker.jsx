@@ -2430,11 +2430,11 @@ export default function AITracker() {
                     const exp = expKey && !!expandGP[expKey];
                     return (
                       <div key={`${type}_${item.id}`} onClick={hasChildren ? () => fToggleExp(expKey) : undefined}
-                        style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: depth * 18, background: m.bg, border: `1px solid ${m.border}`, borderLeft: `3px solid ${m.color}`, borderRadius: 4, padding: "7px 10px", cursor: hasChildren ? "pointer" : "default", userSelect: "none" }}>
-                        <span style={{ color: m.color, fontSize: 9, width: 12, flexShrink: 0, textAlign: "center", opacity: hasChildren ? 1 : 0 }}>{exp ? "▼" : "▶"}</span>
+                        style={{ display: "flex", alignItems: "flex-start", gap: 8, marginLeft: depth * 18, background: m.bg, border: `1px solid ${m.border}`, borderLeft: `3px solid ${m.color}`, borderRadius: 4, padding: "7px 10px", cursor: hasChildren ? "pointer" : "default", userSelect: "none" }}>
+                        <span style={{ color: m.color, fontSize: 9, width: 12, flexShrink: 0, textAlign: "center", opacity: hasChildren ? 1 : 0, lineHeight: "18px" }}>{exp ? "▼" : "▶"}</span>
                         <button onClick={e => { e.stopPropagation(); fToggleDone(type, item); }}
-                          style={{ width: 16, height: 16, borderRadius: "50%", border: `2px solid ${m.color}aa`, background: item.done ? m.color : "transparent", color: "#04140a", fontSize: 10, fontWeight: 800, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>{item.done ? "✓" : ""}</button>
-                        <span style={{ flex: 1, fontSize: 12, color: item.done ? "#6a6a55" : m.text, textDecoration: item.done ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.text}</span>
+                          style={{ width: 16, height: 16, borderRadius: "50%", border: `2px solid ${m.color}aa`, background: item.done ? m.color : "transparent", color: "#04140a", fontSize: 10, fontWeight: 800, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, marginTop: 1 }}>{item.done ? "✓" : ""}</button>
+                        <span style={{ flex: 1, minWidth: 0, fontSize: 12, lineHeight: 1.4, color: item.done ? "#6a6a55" : m.text, textDecoration: item.done ? "line-through" : "none", wordBreak: "break-word" }}>{item.text}</span>
                         <button onClick={e => { e.stopPropagation(); setPinnedCascade(type, item.id, false); }} title="Відкріпити"
                           style={{ background: "none", border: "none", color: "#c9a84c", filter: "drop-shadow(0 0 4px rgba(201,168,76,0.7))", cursor: "pointer", fontSize: 12, padding: "0 2px", flexShrink: 0 }}>📌</button>
                       </div>
