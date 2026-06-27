@@ -107,7 +107,7 @@ function todayStr() {
 
 // Розгортувані періоди для метрики: Сьогодні / Місяць / Рік + повна розбивка.
 // entries: [{ date: "YYYY-MM-DD", delta: number }] — лише для цієї метрики.
-function MetricPeriods({ entries = [], color = "#c9a84c", fmt = (n) => n.toLocaleString(), align = "center", children, cardStyle, className }) {
+function MetricPeriods({ entries = [], color = "#c9a84c", fmt = (n) => n.toLocaleString(), align = "center", children, cardStyle, className, total }) {
   const [open, setOpen] = useState(false);
   const today = todayStr();
   const curMonth = today.slice(0, 7);
@@ -125,7 +125,12 @@ function MetricPeriods({ entries = [], color = "#c9a84c", fmt = (n) => n.toLocal
   });
   const monthRows = Object.entries(byMonth).filter(([, v]) => v).sort((a, b) => b[0].localeCompare(a[0]));
   const yearRows = Object.entries(byYear).filter(([, v]) => v).sort((a, b) => b[0].localeCompare(a[0]));
-  const hasHist = entries.length > 0;
+  // «До» — нерозподілений залишок: загальний лічильник мінус усе датоване в журналі
+  // (активність до старту обліку / перенесена в «раніше»).
+  const entriesSum = entries.reduce((s, e) => s + e.delta, 0);
+  const before = typeof total === "number" ? total - entriesSum : 0;
+  const showBefore = before > 0.0001;
+  const hasHist = entries.length > 0 || showBefore;
 
   const monthName = (mk) => { const [y, m] = mk.split("-"); return `${MONTH_NAMES_UA[+m - 1]} ${y}`; };
   const Cell = ({ lbl, val }) => (
@@ -158,25 +163,39 @@ function MetricPeriods({ entries = [], color = "#c9a84c", fmt = (n) => n.toLocal
           <div>
             <div style={colTitle}>По місяцях</div>
             <div style={listBox}>
-              {monthRows.length === 0 ? <span style={{ fontSize: 10, color: "#4a4030" }}>—</span> :
-                monthRows.map(([mk, v]) => (
+              {monthRows.length === 0 && !showBefore ? <span style={{ fontSize: 10, color: "#4a4030" }}>—</span> : <>
+                {monthRows.map(([mk, v]) => (
                   <div key={mk} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 10, fontFamily: "'Space Mono',monospace" }}>
                     <span style={{ color: mk === curMonth ? color : "#8a7850" }}>{monthName(mk)}</span>
                     <b style={{ color }}>{fmt(v)}</b>
                   </div>
                 ))}
+                {showBefore && (
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 10, fontFamily: "'Space Mono',monospace", fontStyle: "italic" }}>
+                    <span style={{ color: "#8a7850" }}>До</span>
+                    <b style={{ color }}>{fmt(before)}</b>
+                  </div>
+                )}
+              </>}
             </div>
           </div>
           <div>
             <div style={colTitle}>По роках</div>
             <div style={listBox}>
-              {yearRows.length === 0 ? <span style={{ fontSize: 10, color: "#4a4030" }}>—</span> :
-                yearRows.map(([yk, v]) => (
+              {yearRows.length === 0 && !showBefore ? <span style={{ fontSize: 10, color: "#4a4030" }}>—</span> : <>
+                {yearRows.map(([yk, v]) => (
                   <div key={yk} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 10, fontFamily: "'Space Mono',monospace" }}>
                     <span style={{ color: yk === curYear ? color : "#8a7850" }}>{yk}</span>
                     <b style={{ color }}>{fmt(v)}</b>
                   </div>
                 ))}
+                {showBefore && (
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 10, fontFamily: "'Space Mono',monospace", fontStyle: "italic" }}>
+                    <span style={{ color: "#8a7850" }}>До</span>
+                    <b style={{ color }}>{fmt(before)}</b>
+                  </div>
+                )}
+              </>}
             </div>
           </div>
         </div>
@@ -1523,6 +1542,31 @@ export default function AITracker() {
       if (refund > 0) loseXP(refund, "achievement", "↩ виправлення проєктних ачівок");
     }
     try { localStorage.setItem("ai_tracker_projAchFix_v1", "1"); } catch { /* ignore */ }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Одноразова міграція: частину активностей Вова залогував у червні, але робив їх
+  // раніше. Переносимо в «До» (раніше): зменшуємо датований metricLog на ці кількості,
+  // НЕ чіпаючи загальні лічильники → різниця (total − журнал) сама йде в «До» всюди.
+  const beforeMoveRef = useRef(false);
+  useEffect(() => {
+    if (beforeMoveRef.current) return;
+    beforeMoveRef.current = true;
+    try { if (localStorage.getItem("ai_tracker_beforeMove_v1")) return; } catch { return; }
+    const MOVES = { video_videos_created: 20, full_videos: 2, sites_built: 1 };
+    setMetricLog(prev => {
+      const log = prev.map(e => ({ ...e }));
+      for (const [key, amt] of Object.entries(MOVES)) {
+        let rem = amt;
+        for (const e of log) {
+          if (rem <= 0) break;
+          if (e.key !== key || e.delta <= 0) continue;
+          const take = Math.min(e.delta, rem);
+          e.delta -= take; rem -= take;
+        }
+      }
+      return log.filter(e => e.delta !== 0);
+    });
+    try { localStorage.setItem("ai_tracker_beforeMove_v1", "1"); } catch { /* ignore */ }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Закріплення з каскадом: основа (ціль/план) тягне за собою всі під-плани й під-задачі
@@ -5268,13 +5312,13 @@ export default function AITracker() {
                     const logFor = (...keys) => metricLog.filter(e => keys.includes(e.key));
                     const hoursFmt = v => `${(v % 1 === 0 ? v : v.toFixed(1))} год`;
                     return [
-                      { label: "Навчання",     emoji: "📚", hours: eduH,   sub: `${learnTime.education ?? 0} × 30хв`, color: "#06b6d4", entries: logFor("education").map(e => ({ date: e.date, delta: e.delta * 0.5 })), fmt: hoursFmt },
-                      { label: "Бізнес",       emoji: "💼", hours: bizH,   sub: `${learnTime.business ?? 0} × 30хв`,  color: "#f59e0b", entries: logFor("business").map(e => ({ date: e.date, delta: e.delta * 0.5 })), fmt: hoursFmt },
-                      { label: "Навч. відео",  emoji: "📺", hours: null, count: vidCount, sub: `${vidCount} відео`,    color: "#a855f7", entries: logFor("edu_videos"), fmt: v => v.toLocaleString() },
-                      { label: "Всього годин", emoji: "🎯", hours: totalH, sub: `edu+biz`,                            color: "#00ff88", entries: logFor("education", "business").map(e => ({ date: e.date, delta: e.delta * 0.5 })), fmt: hoursFmt },
+                      { label: "Навчання",     emoji: "📚", hours: eduH,   sub: `${learnTime.education ?? 0} × 30хв`, color: "#06b6d4", entries: logFor("education").map(e => ({ date: e.date, delta: e.delta * 0.5 })), fmt: hoursFmt, total: eduH },
+                      { label: "Бізнес",       emoji: "💼", hours: bizH,   sub: `${learnTime.business ?? 0} × 30хв`,  color: "#f59e0b", entries: logFor("business").map(e => ({ date: e.date, delta: e.delta * 0.5 })), fmt: hoursFmt, total: bizH },
+                      { label: "Навч. відео",  emoji: "📺", hours: null, count: vidCount, sub: `${vidCount} відео`,    color: "#a855f7", entries: logFor("edu_videos"), fmt: v => v.toLocaleString(), total: vidCount },
+                      { label: "Всього годин", emoji: "🎯", hours: totalH, sub: `edu+biz`,                            color: "#00ff88", entries: logFor("education", "business").map(e => ({ date: e.date, delta: e.delta * 0.5 })), fmt: hoursFmt, total: totalH },
                     ];
                   })().map(s => (
-                    <MetricPeriods key={s.label} entries={s.entries} color={s.color} fmt={s.fmt}
+                    <MetricPeriods key={s.label} entries={s.entries} color={s.color} fmt={s.fmt} total={s.total}
                       className="wf-card"
                       cardStyle={{ padding: "16px 14px", textAlign: "center", border: `1px solid ${s.color}33`, borderTop: `2px solid ${s.color}`, display: "flex", flexDirection: "column", alignItems: "center" }}>
                       <div style={{ fontSize: 11, color: "#9a8a60", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 2, marginBottom: 8 }}>{s.emoji} {s.label}</div>
@@ -5292,7 +5336,7 @@ export default function AITracker() {
                   <div className="wf-sec" style={{ marginBottom: 16 }}>{section.title} <span style={{ fontSize: 11, color: "#6a5f40", fontWeight: 400 }}>· ▼ розгорнути періоди</span></div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
                     {section.items.map(it => (
-                      <MetricPeriods key={it.label} entries={it.entries} color={it.color} fmt={v => v.toLocaleString()}
+                      <MetricPeriods key={it.label} entries={it.entries} color={it.color} fmt={v => v.toLocaleString()} total={it.value}
                         className="wf-card"
                         cardStyle={{ padding: "16px 14px", textAlign: "center", border: `1px solid ${it.color}33`, borderTop: `2px solid ${it.color}`, display: "flex", flexDirection: "column", alignItems: "center" }}>
                         <div style={{ fontSize: 11, color: "#9a8a60", fontFamily: "'Exo 2',sans-serif", textTransform: "uppercase", letterSpacing: 2, marginBottom: 8 }}>{it.label}</div>
