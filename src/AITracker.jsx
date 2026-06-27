@@ -5142,6 +5142,77 @@ export default function AITracker() {
                   <span style={{ color: "#5a5040" }}>= рівень ({totalXP.toLocaleString()} XP)</span>
                 </div>
               </div>
+              {/* Помісячна зведена таблиця */}
+              <div>
+                <div className="wf-sec" style={{ marginBottom: 6 }}>📅 Помісячна зведена</div>
+                <div style={{ fontSize: 11, color: "#6a5f40", fontFamily: "'Space Mono',monospace", marginBottom: 14 }}>
+                  Уся активність, чистий дохід і години навчання — по місяцях в одній таблиці. Активність рахується з моменту, коли зʼявився облік; дохід — за всі датовані записи.
+                </div>
+                {(() => {
+                  const agg = {};
+                  const ens = (mk) => (agg[mk] ??= {});
+                  metricLog.forEach(e => { const m = ens(e.date.slice(0, 7)); m[e.key] = (m[e.key] ?? 0) + e.delta; });
+                  incomeEntries.forEach(e => { const m = ens(e.date.slice(0, 7)); m._inc = (m._inc ?? 0) + toUSD(e.amount, e.currency); });
+                  expenseEntries.forEach(e => { const m = ens(e.date.slice(0, 7)); m._inc = (m._inc ?? 0) - toUSD(e.amount, e.currency); });
+                  const startMk = [APP_START_DATE.slice(0, 7), ...Object.keys(agg)].reduce((a, b) => a < b ? a : b);
+                  const endMk = todayStr().slice(0, 7);
+                  const months = [];
+                  let yy = +startMk.split("-")[0], mm = +startMk.split("-")[1];
+                  const ey = +endMk.split("-")[0], em = +endMk.split("-")[1];
+                  let guard = 0;
+                  while ((yy < ey || (yy === ey && mm <= em)) && guard++ < 600) { months.push(`${yy}-${String(mm).padStart(2, "0")}`); mm++; if (mm > 12) { mm = 1; yy++; } }
+                  const cur = endMk;
+                  const th = { padding: "7px 5px", fontSize: 10, fontWeight: 700, textAlign: "center", whiteSpace: "nowrap", borderBottom: "1px solid rgba(201,168,76,0.22)" };
+                  const td = { padding: "6px 5px", textAlign: "right", whiteSpace: "nowrap", fontSize: 11 };
+                  const num = (v, c) => v ? <span style={{ color: c, fontWeight: 700 }}>{v.toLocaleString()}</span> : <span style={{ color: "#3a3528" }}>·</span>;
+                  const money = (v) => v ? <span style={{ color: v >= 0 ? "#10b981" : "#f43f5e", fontWeight: 700 }}>{v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(2)}</span> : <span style={{ color: "#3a3528" }}>·</span>;
+                  const hoursOf = (m) => ((m.education ?? 0) + (m.business ?? 0)) * 0.5;
+                  const hr = (h) => h ? <span style={{ color: "#00ff88", fontWeight: 700 }}>{h % 1 === 0 ? h : h.toFixed(1)}</span> : <span style={{ color: "#3a3528" }}>·</span>;
+                  const sumKey = (k) => months.reduce((s, mk) => s + ((agg[mk]?.[k]) ?? 0), 0);
+                  let prevY = null;
+                  return (
+                    <div style={{ overflowX: "auto", border: "1px solid rgba(201,168,76,0.16)", borderRadius: 8 }}>
+                      <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 760, fontFamily: "'Space Mono',monospace" }}>
+                        <thead>
+                          <tr style={{ background: "rgba(201,168,76,0.06)" }}>
+                            <th style={{ ...th, color: "#6a5f40" }}>№</th>
+                            {ACTIVITY_DEFS.map(d => <th key={d.key} title={d.label} style={{ ...th, color: d.color, cursor: "help" }}>{d.emoji}</th>)}
+                            <th title="Час на вивчення (навчання + бізнес), год" style={{ ...th, color: "#00ff88", cursor: "help" }}>⏱</th>
+                            <th title="Чистий дохід (дохід − витрати)" style={{ ...th, color: "#10b981", cursor: "help" }}>💰</th>
+                            <th style={{ ...th, color: "#9a8a60", textAlign: "left" }}>Місяць</th>
+                            <th style={{ ...th, color: "#9a8a60" }}>Рік</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {months.map((mk, i) => {
+                            const m = agg[mk] ?? {};
+                            const mo = mk.split("-")[1], y = mk.split("-")[0];
+                            const isCur = mk === cur;
+                            const showY = y !== prevY; prevY = y;
+                            return (
+                              <tr key={mk} style={{ background: isCur ? "rgba(0,255,136,0.06)" : (i % 2 ? "rgba(255,255,255,0.015)" : "transparent"), borderTop: "1px solid rgba(201,168,76,0.06)" }}>
+                                <td style={{ ...td, textAlign: "center", color: "#6a5f40" }}>{i + 1}</td>
+                                {ACTIVITY_DEFS.map(d => <td key={d.key} style={td}>{num(m[d.key], d.color)}</td>)}
+                                <td style={td}>{hr(hoursOf(m))}</td>
+                                <td style={td}>{money(m._inc ?? 0)}</td>
+                                <td style={{ ...td, textAlign: "left", color: isCur ? "#00ff88" : "#c9b890", fontWeight: isCur ? 700 : 400 }}>{MONTH_NAMES_UA[+mo - 1]}</td>
+                                <td style={{ ...td, textAlign: "center", color: "#8a7850", fontWeight: showY ? 700 : 400 }}>{showY ? y : ""}</td>
+                              </tr>
+                            );
+                          })}
+                          <tr style={{ borderTop: "2px solid rgba(201,168,76,0.3)", background: "rgba(201,168,76,0.05)" }}>
+                            <td style={{ ...td, textAlign: "center", color: "#c9a84c", fontWeight: 700 }}>Σ</td>
+                            {ACTIVITY_DEFS.map(d => <td key={d.key} style={td}>{num(sumKey(d.key), d.color)}</td>)}
+                            <td style={td}>{hr(months.reduce((s, mk) => s + hoursOf(agg[mk] ?? {}), 0))}</td>
+                            <td style={td}>{money(sumKey("_inc"))}</td>
+                            <td colSpan={2} style={{ ...td, textAlign: "left", color: "#c9a84c", fontWeight: 700 }}>Разом</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()}
+              </div>
               {/* Фінанси */}
               <div>
                 <div className="wf-sec" style={{ marginBottom: 16 }}>💸 Фінанси <span style={{ fontSize: 11, color: "#6a5f40", fontWeight: 400 }}>· ▼ розгорнути періоди</span></div>
