@@ -4690,6 +4690,23 @@ export default function AITracker() {
                     const lastDate = lastEntry
                       ? new Date(lastEntry.date).toLocaleDateString("uk-UA", { day: "numeric", month: "short" })
                       : null;
+                    // Наступне списання = повторення дня білінгу (число зі startDate) після останнього білінгу.
+                    const nextBill = (() => {
+                      const billDay = sub.billingDay ?? (sub.startDate ? new Date(sub.startDate + "T00:00:00").getDate() : 1);
+                      const t = new Date();
+                      let y, m;
+                      if (sub.lastBilledYM) {
+                        const p = sub.lastBilledYM.split("-").map(Number); // [рік, місяць 1-12]
+                        y = p[0]; m = p[1]; // місяць після останнього білінгу (p[1] як 0-index = наступний)
+                        if (m > 11) { m = 0; y += 1; }
+                      } else {
+                        y = t.getFullYear(); m = t.getMonth();
+                        if (t.getDate() > billDay) { m += 1; if (m > 11) { m = 0; y += 1; } }
+                      }
+                      const dim = new Date(y, m + 1, 0).getDate();
+                      return new Date(y, m, Math.min(billDay, dim));
+                    })();
+                    const nextLabel = nextBill.toLocaleDateString("uk-UA", { day: "numeric", month: "short" });
                     return (
                       <div key={sub.id} style={{ display: "flex", alignItems: "center", gap: 10, background: isActive ? "rgba(8,5,2,0.55)" : "rgba(20,15,5,0.4)", border: `1px solid ${isActive ? "rgba(201,168,76,0.22)" : "rgba(201,168,76,0.08)"}`, borderRadius: 4, padding: "9px 12px", opacity: isActive ? 1 : 0.55 }}>
                         {cat && <span style={{ fontSize: 14 }}>{cat.icon}</span>}
@@ -4702,8 +4719,10 @@ export default function AITracker() {
                                 ? `з ${new Date(sub.startDate + "T00:00:00").toLocaleDateString("uk-UA", { day: "numeric", month: "short", year: "numeric" })}`
                                 : `${sub.billingDay ?? 1}-го числа`}
                             </span>
-                            {lastDate ? (
-                              <span style={{ fontSize: 10, color: "#5a5030", fontFamily: "'Space Mono',monospace" }}>· списано {lastDate}</span>
+                            {isActive ? (
+                              <span style={{ fontSize: 10, color: "#7a8a55", fontFamily: "'Space Mono',monospace" }}>· наступне списання {nextLabel}</span>
+                            ) : lastDate ? (
+                              <span style={{ fontSize: 10, color: "#5a5030", fontFamily: "'Space Mono',monospace" }}>· останнє {lastDate}</span>
                             ) : (
                               <span style={{ fontSize: 10, color: "#4a3a25", fontFamily: "'Space Mono',monospace" }}>· ще не списувалось</span>
                             )}
