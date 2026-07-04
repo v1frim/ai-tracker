@@ -4197,7 +4197,7 @@ export default function AITracker() {
                   <div className="wf-sec" style={{ marginBottom: 16 }}>
                     📅 Щомісячні витрати — {monthLabel(new Date().toISOString().slice(0,7))} {new Date().getFullYear()}
                   </div>
-                  <div style={{ fontSize: 12, color: "#9a8a60", marginBottom: 14 }}>Додати ці підписки за поточний місяць?</div>
+                  <div style={{ fontSize: 12, color: "#9a8a60", marginBottom: 14 }}>Додати ці підписки за поточний місяць? <span style={{ color: "#6a5f40" }}>Суму можна виправити, якщо списалось інакше.</span></div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
                     {subPrompt.items.map((item, idx) => {
                       const amtUSD = item.currency === "UAH" ? item.amount / uahRate : item.amount;
@@ -4205,9 +4205,15 @@ export default function AITracker() {
                         <label key={item.id} style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(8,5,2,0.6)", border: `1px solid ${item.checked ? "rgba(201,168,76,0.35)" : "rgba(201,168,76,0.12)"}`, borderRadius: 4, padding: "10px 14px", cursor: "pointer" }}>
                           <input type="checkbox" checked={item.checked} onChange={e => setSubPrompt(p => ({ ...p, items: p.items.map((x,i) => i===idx ? {...x, checked: e.target.checked} : x) }))} style={{ accentColor: "#c9a84c", width: 16, height: 16 }} />
                           <span style={{ flex: 1, color: "#e0d8c0", fontFamily: "'Exo 2',sans-serif", fontWeight: 600 }}>{item.name}</span>
-                          <span style={{ color: "#f43f5e", fontFamily: "'Space Mono',monospace", fontSize: 13, fontWeight: 700 }}>
-                            {item.currency === "UAH" ? `${item.amount} грн` : `$${item.amount}`}
-                            {item.currency === "UAH" && <span style={{ color: "#5a4a30", fontSize: 10, marginLeft: 4 }}>(${amtUSD.toFixed(2)})</span>}
+                          <span onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()} style={{ display: "inline-flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                            {item.currency !== "UAH" && <span style={{ color: "#f43f5e", fontFamily: "'Space Mono',monospace", fontSize: 13, fontWeight: 700 }}>$</span>}
+                            <input type="number" min="0" step="0.01" value={item.amount}
+                              onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}
+                              onChange={e => setSubPrompt(p => ({ ...p, items: p.items.map((x, i) => i === idx ? { ...x, amount: e.target.value === "" ? "" : Math.max(0, parseFloat(e.target.value) || 0) } : x) }))}
+                              title="Реально списана сума за цей місяць"
+                              style={{ width: 76, background: "rgba(0,0,0,0.45)", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 3, color: "#f43f5e", fontFamily: "'Space Mono',monospace", fontSize: 13, fontWeight: 700, textAlign: "right", padding: "3px 6px", outline: "none" }} />
+                            {item.currency === "UAH" && <span style={{ color: "#f43f5e", fontFamily: "'Space Mono',monospace", fontSize: 12, fontWeight: 700 }}>грн</span>}
+                            {item.currency === "UAH" && <span style={{ color: "#5a4a30", fontSize: 10 }}>(${amtUSD.toFixed(2)})</span>}
                           </span>
                         </label>
                       );
@@ -4219,7 +4225,7 @@ export default function AITracker() {
                       const today = new Date().toISOString().slice(0, 10);
                       const checkedIds = new Set(subPrompt.items.filter(s => s.checked).map(s => s.id));
                       subPrompt.items.filter(s => s.checked).forEach(s => {
-                        const entry = { id: `exp_${Date.now()}_${s.id}`, catId: s.catId, amount: s.amount, currency: s.currency, date: today, note: s.name, recurring: true, subId: s.id };
+                        const entry = { id: `exp_${Date.now()}_${s.id}`, catId: s.catId, amount: parseFloat(s.amount) || 0, currency: s.currency, date: today, note: s.name, recurring: true, subId: s.id };
                         setExpenseEntries(prev => [...prev, entry]);
                       });
                       setSubscriptions(prev => prev.map(s =>
