@@ -1523,25 +1523,30 @@ export default function AITracker() {
     logXP(-amount, source, label);
   }, [logXP]);
 
-  // Одноразове виправлення (міграція): до фіксу лічильника проєктні ачівки могли
-  // розблокуватись помилково — рахувались УСІ проєкти, а не лише виконані. На першому
-  // запуску після оновлення прибираємо ті, що не відповідають реальній кількості
-  // виконаних проєктів, і повертаємо їхній XP — так само, як ручне «🔓 скасувати».
+  // Одноразове виправлення (міграція v2): 11.07.2026 сайт тимчасово відкотився до
+  // старої версії, яка рахувала УСІ проєкти (не лише виконані) і знову помилково
+  // розблокувала проєктні ачівки — включно зі старою «five_projects» (+900 XP),
+  // якої в новій шкалі вже немає. Прапорець v1 на той момент був уже спожитий,
+  // тому потрібен новий прохід: прибираємо ачівки, що не відповідають реальній
+  // кількості виконаних проєктів, і повертаємо їхній XP.
   const projAchFixRef = useRef(false);
   useEffect(() => {
     if (projAchFixRef.current) return;
     projAchFixRef.current = true;
-    try { if (localStorage.getItem("ai_tracker_projAchFix_v1")) return; } catch { /* ignore */ }
+    try { if (localStorage.getItem("ai_tracker_projAchFix_v2")) return; } catch { /* ignore */ }
     const completed = projects.filter(pr => pr.done && !pr.deletedAt).length;
     const wrong = ACHIEVEMENTS.filter(a => a.group === "projects" && unlockedAchievements.includes(a.id) && !a.check(0, 0, completed, {}, 0, 0, 0, 0));
-    if (wrong.length) {
-      const ids = new Set(wrong.map(a => a.id));
+    // XP ачівок старої шкали, яких немає в ACHIEVEMENTS — повертаємо за старим номіналом
+    const LEGACY_XP = { five_projects: 900 };
+    const legacy = Object.keys(LEGACY_XP).filter(id => unlockedAchievements.includes(id));
+    if (wrong.length || legacy.length) {
+      const ids = new Set([...wrong.map(a => a.id), ...legacy]);
       setUnlockedAchievements(prev => prev.filter(id => !ids.has(id)));
-      setAchievementDates(prev => { const n = { ...prev }; wrong.forEach(a => delete n[a.id]); return n; });
-      const refund = wrong.reduce((s, a) => s + a.xp, 0);
+      setAchievementDates(prev => { const n = { ...prev }; ids.forEach(id => delete n[id]); return n; });
+      const refund = wrong.reduce((s, a) => s + a.xp, 0) + legacy.reduce((s, id) => s + LEGACY_XP[id], 0);
       if (refund > 0) loseXP(refund, "achievement", "↩ виправлення проєктних ачівок");
     }
-    try { localStorage.setItem("ai_tracker_projAchFix_v1", "1"); } catch { /* ignore */ }
+    try { localStorage.setItem("ai_tracker_projAchFix_v2", "1"); } catch { /* ignore */ }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Одноразова міграція: частину активностей Вова залогував у червні, але робив їх
