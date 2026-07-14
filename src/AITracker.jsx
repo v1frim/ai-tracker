@@ -789,7 +789,9 @@ function FloatingBg() {
 export default function AITracker() {
   const saved = loadState();
 
-  const [skillData, setSkillData] = useState(saved?.skillData ?? DEFAULT_SKILL_DATA);
+  // Злиття з дефолтами: нові категорії SKILLS отримують порожній запис,
+  // інакше learnTool впаде на skillData[новийId].unlockedTools зі старим збереженням.
+  const [skillData, setSkillData] = useState({ ...DEFAULT_SKILL_DATA, ...(saved?.skillData ?? {}) });
   const [totalXP, setTotalXP] = useState(saved?.totalXP ?? 300);
   const [levelUpAt, setLevelUpAt] = useState(saved?.levelUpAt ?? 0);
   const [activityXP, setActivityXP] = useState(saved?.activityXP);
