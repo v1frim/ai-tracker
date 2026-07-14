@@ -237,7 +237,7 @@ export const YT_CHANNELS = [
   { handle: "mikhail.timochko", name: "Михаил Тимочко", channelId: "UCudUZhJR8BUTiJ_njlAqr_w" },
   { handle: "RusanovSasha",     name: "AlexRusanov AI" },
   { handle: "aishny",           name: "ИИШНЫЙ",         channelId: "UCRArIk56Yl7ui2WUAKS3NGA" },
-  { handle: "syntxai",          name: "SYNTX.AI" },
+  { handle: "syntxai",          name: "SYNTX.AI",       channelId: "UCmxeYVU2qMS-w5G3QQpQ1tA" },
 ];
 
 // Радіо-станції (YouTube live-стріми) для вкладки «🎵 Радіо».

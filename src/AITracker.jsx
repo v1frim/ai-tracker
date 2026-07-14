@@ -1281,8 +1281,9 @@ export default function AITracker() {
     setYtLoading(true);
     let ids = {};
     try { ids = JSON.parse(localStorage.getItem(YT_IDS_KEY) ?? "{}"); } catch {}
-    // Підставляємо захардкожені channelId в кеш, якщо їх ще немає
-    YT_CHANNELS.forEach(ch => { if (ch.channelId && !ids[ch.handle]) ids[ch.handle] = ch.channelId; });
+    // Захардкожений channelId — авторитетний: перебиває кеш, бо туди могло
+    // потрапити сміття від resolveChannelId (перший UC-id зі сторінки каналу).
+    YT_CHANNELS.forEach(ch => { if (ch.channelId) ids[ch.handle] = ch.channelId; });
     const next = { ...ytData };
     const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
