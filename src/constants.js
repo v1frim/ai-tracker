@@ -264,9 +264,10 @@ export const ACTIVITY_DEFS = [
   { kind: "learn", key: "full_videos",          emoji: "🎬", label: "Відео",       color: "#8b5cf6",                  xp: 40 },
   { kind: "learn", key: "full_music",           emoji: "🎵", label: "Музика",      color: "#f472b6",                  xp: 30 },
   { kind: "learn", key: "sites_built",          emoji: "🌐", label: "Сайти",       color: "#38bdf8",                  xp: 500 },
-  // Рядок 4 — бізнес / розробка (спільні лічильники з навичками monetize/automation)
+  // Рядок 4 — бізнес / розробка (спільні лічильники з навичками monetize/automation/content)
   { kind: "skill", key: "monetize_clients",               emoji: "🤝", label: "Клієнти",      color: "#fbbf24",      xp: 100 },
   { kind: "skill", key: "automation_automations_created", emoji: "🤖", label: "Автоматизація", color: "#f59e0b",      xp: 300 },
+  { kind: "skill", key: "content_posts_published",        emoji: "📝", label: "Пости",        color: "#10b981",      xp: 15 },
 ];
 export const ACTIVITY_XP = Object.fromEntries(ACTIVITY_DEFS.map(d => [d.key, d.xp]));
 
