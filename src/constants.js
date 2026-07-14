@@ -87,6 +87,7 @@ export const SKILLS = [
       { name: "Uizard",        url: "https://uizard.io/",             active: false },
       { name: "Brandmark",     url: "https://brandmark.io/",          active: false },
       { name: "Mobbin",        url: "https://mobbin.com/discover/apps/ios/latest", active: true },
+      { name: "Eyecandy",      url: "https://eyecannndy.com/",        active: true },
     ],
   },
   { id: "content", name: "Контент / Публікації", emoji: "📱", color: "#10b981",
