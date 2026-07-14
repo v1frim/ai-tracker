@@ -21,6 +21,7 @@ export const SKILLS = [
       { name: "Grok",       url: "https://grok.com/",                                                                  active: true  },
       { name: "Higgsfield", url: "https://higgsfield.ai/ai/image",                                                     active: true  },
       { name: "Syntx",      url: "https://syntx.ai/ru/image/banana",             active: true  },
+      { name: "Reve",       url: "https://app.reve.com/",                                                              active: true  },
       { name: "Midjourney", url: "https://www.midjourney.com/",                                                        active: false },
       { name: "DALL-E",     url: "https://chatgpt.com/",                                                               active: false },
       { name: "Ideogram",   url: "https://ideogram.ai/",                                                               active: false },
