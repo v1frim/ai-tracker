@@ -1,5 +1,16 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { SKILLS, TOTAL_TOOLS, SKILL_TASKS, TIERS, ACH_GROUPS, ACHIEVEMENTS, DEFAULT_SKILL_DATA, DEFAULT_PROJECTS, DEFAULT_SESSIONS, STORAGE_KEY, APP_START_DATE, ACTIVITY_DEFS, ACTIVITY_XP, GOAL_CATEGORIES, PLAN_TYPES, PROJECT_CATEGORIES, PROJECT_STATUSES, PLAN_URGENCIES, DEFAULT_GOALS, TASK_PRIORITIES, MONTH_NAMES_UA, LEAGUES, DEFAULT_INCOME_CATS, DEFAULT_EXPENSE_CATS, DEFAULT_LONG_GOALS, DEFAULT_PLAN, YT_CHANNELS, DEFAULT_RADIO } from "./constants.js";
+import { SKILLS, TOTAL_TOOLS, SKILL_TASKS, TIERS, ACH_GROUPS, ACHIEVEMENTS, DEFAULT_SKILL_DATA, DEFAULT_PROJECTS, DEFAULT_SESSIONS, STORAGE_KEY, APP_START_DATE, ACTIVITY_DEFS, ACTIVITY_XP, GOAL_CATEGORIES, PLAN_TYPES, PROJECT_CATEGORIES, PROJECT_STATUSES, PLAN_URGENCIES, DEFAULT_GOALS, TASK_PRIORITIES, MONTH_NAMES_UA, LEAGUES, DEFAULT_INCOME_CATS, DEFAULT_EXPENSE_CATS, DEFAULT_LONG_GOALS, DEFAULT_PLAN, YT_CHANNELS, DEFAULT_RADIO, INCOME_XP_TIERS, SESSION_XP_BASE, SESSION_XP_STEP } from "./constants.js";
+
+// Скільки XP «коштує» кумулятивний дохід totalUSD за спадною шкалою INCOME_XP_TIERS.
+// XP за новий запис = різниця цієї функції до/після (маржинальне нарахування).
+function incomeXPUpTo(totalUSD) {
+  let prev = 0, xp = 0;
+  for (const t of INCOME_XP_TIERS) {
+    xp += Math.max(0, Math.min(totalUSD, t.upto) - prev) * t.rate;
+    prev = t.upto;
+  }
+  return xp;
+}
 
 const getItemPeriod = (completedAt) => {
   if (!completedAt) return { key: "p9_old", label: "Раніше" };
@@ -1051,8 +1062,12 @@ export default function AITracker() {
   useEffect(() => {
     if (Date.now() - sessionAutoRef.current < 2500) return;
     const today = todayStr();
+    if (sessions.dates.includes(today)) return;
     setSessions(prev => prev.dates.includes(today) ? prev : { ...prev, dates: [...prev.dates, today] });
-  }, [incomeEntries, expenseEntries, subscriptions, projects, goals, longGoals, plan, skillData, skillTasksData, learnTime, todayActivity]);
+    // XP за зарахований день: день N стріку дає BASE + STEP × ⌊N/10⌋ (зрив скидає до бази).
+    const n = calcStreak([...sessions.dates, today]);
+    gainXP(SESSION_XP_BASE + SESSION_XP_STEP * Math.floor(n / 10), `(день ${n} стріку)`, "session");
+  }, [incomeEntries, expenseEntries, subscriptions, projects, goals, longGoals, plan, skillData, skillTasksData, learnTime, todayActivity]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Зміна доби, поки вкладка відкрита: скидаємо сьогоднішні лічильники,
   // щоб опівночі бейджі "+N сьогодні" обнулялися без перезавантаження.
@@ -1741,12 +1756,14 @@ export default function AITracker() {
     const amt = parseFloat(incForm.amount);
     if (!amt || amt <= 0) return;
     const amtUSD = incForm.currency === "UAH" ? amt / uahRate : amt;
-    const xpPaid = Math.ceil(amtUSD * 3);
+    // Спадна шкала: XP = приріст incomeXPUpTo між старою і новою кумулятивною сумою.
+    const totalBefore = incomeEntries.reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
+    const xpPaid = Math.max(0, Math.ceil(incomeXPUpTo(totalBefore + amtUSD) - incomeXPUpTo(totalBefore)));
     const entry = { id: `inc_${Date.now()}`, catId: incForm.catId, amount: amt, currency: incForm.currency, date: incForm.date || todayStr(), note: incForm.note, xpPaid };
     setIncomeEntries(prev => {
       const next = [...prev, entry];
       const newTotal = next.reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
-      gainXP(xpPaid, `(+$${amtUSD.toFixed(2)})`, "income");
+      if (xpPaid > 0) gainXP(xpPaid, `(+$${amtUSD.toFixed(2)})`, "income");
       recordActiveDay();
       setUnlockedAchievements(ua => {
         checkAchievements(totalTools, newTotal, completedProjectsCount, skillData, ua, streak, sessions.dates.length);
@@ -1755,7 +1772,7 @@ export default function AITracker() {
       return next;
     });
     setIncForm(f => ({ ...f, amount: "", note: "", date: todayStr() }));
-  }, [incForm, uahRate, toUSD, gainXP, recordActiveDay, checkAchievements, totalTools, projects, skillData, streak, sessions.dates.length]);
+  }, [incForm, uahRate, toUSD, gainXP, recordActiveDay, checkAchievements, totalTools, projects, skillData, streak, sessions.dates.length, incomeEntries]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Delete entry with 5s undo window
   const startDelete = useCallback((id, type) => {
@@ -2422,11 +2439,17 @@ export default function AITracker() {
                     setter(prev => prev.map(x => {
                       if (x.id !== item.id) return x;
                       if (!x.done) {
-                        if (!x.xpAwarded) { gainXP(x[fld] ?? def, lbl, cat); return { ...x, done: true, xpAwarded: true, completedAt: new Date().toISOString() }; }
+                        if (!x.xpAwarded) {
+                          // Той самий ×2 за вчасне виконання, що й у «Цілі & план» (makeToggleDone)
+                          const base = x[fld] ?? def;
+                          const bonus = !!x.deadline && new Date().toISOString().slice(0, 10) <= x.deadline;
+                          gainXP(bonus ? base * 2 : base, bonus ? `${lbl} ⚡×2` : lbl, cat);
+                          return { ...x, done: true, xpAwarded: true, deadlineBonus: bonus, completedAt: new Date().toISOString() };
+                        }
                         return { ...x, done: true, completedAt: new Date().toISOString() };
                       }
-                      if (x.xpAwarded) loseXP(x[fld] ?? def, cat, "↩ скасовано");
-                      return { ...x, done: false, xpAwarded: false, completedAt: null };
+                      if (x.xpAwarded) loseXP((x[fld] ?? def) * (x.deadlineBonus ? 2 : 1), cat, "↩ скасовано");
+                      return { ...x, done: false, xpAwarded: false, deadlineBonus: false, completedAt: null };
                     }));
                   };
 
@@ -2760,6 +2783,9 @@ export default function AITracker() {
                   <div style={{ fontSize: 12, color: "#9a8a60", maxWidth: 360, margin: "0 auto" }}>Зроби будь-яку дію — додай активність, дохід/витрату, задачу чи ціль — і день зарахується у стрік автоматично.</div>
                 </div>
               )}
+              <div style={{ fontSize: 11, color: "#8a7850", marginTop: 14, paddingTop: 12, borderTop: "1px solid rgba(201,168,76,0.15)", fontFamily: "'Space Mono',monospace", lineHeight: 1.7 }}>
+                ⚡ XP за день: {SESSION_XP_BASE} + {SESSION_XP_STEP} за кожен повний десяток стріку · дні 1–9 → <span style={{ color: "#38bdf8", fontWeight: 700 }}>{SESSION_XP_BASE} XP</span> · 10–19 → <span style={{ color: "#38bdf8", fontWeight: 700 }}>{SESSION_XP_BASE + SESSION_XP_STEP}</span> · 20–29 → <span style={{ color: "#38bdf8", fontWeight: 700 }}>{SESSION_XP_BASE + 2 * SESSION_XP_STEP}</span> · далі більше, без капу. Зрив стріку скидає до {SESSION_XP_BASE}.
+              </div>
             </div>
 
             {/* Game-style streak bar — натхнення з рейтингового бару в грі.
@@ -4446,7 +4472,12 @@ export default function AITracker() {
 
             {/* Income table */}
             <div className="wf-panel" style={{ padding: 16, borderLeft: "3px solid #00ff88", borderTop: "1px solid rgba(0,255,136,0.25)", background: "linear-gradient(rgba(0,255,136,0.04), rgba(0,255,136,0.04)), rgba(5,3,1,0.92)" }}>
-              <span className="wf-sec" style={{ display: "block", marginBottom: 12, color: "#00ff88", borderBottomColor: "rgba(0,255,136,0.25)" }}>📈 Дохід</span>
+              <span className="wf-sec" style={{ display: "block", marginBottom: 6, color: "#00ff88", borderBottomColor: "rgba(0,255,136,0.25)" }}>📈 Дохід</span>
+              <div style={{ fontSize: 11, color: "#8a7850", marginBottom: 12, fontFamily: "'Space Mono',monospace", lineHeight: 1.7 }}>
+                ⚡ XP за дохід (від загальної суми, спадна шкала): {INCOME_XP_TIERS.map((t, i) => (
+                  <span key={i}>{i === 0 ? "перші " : "до "}<span style={{ color: "#fbbf24", fontWeight: 700 }}>${t.upto.toLocaleString("uk-UA")}</span> → <span style={{ color: "#fbbf24", fontWeight: 700 }}>{t.rate} XP/$</span>{" · "}</span>
+                ))}понад ${INCOME_XP_TIERS[INCOME_XP_TIERS.length - 1].upto.toLocaleString("uk-UA")} → 0 XP.
+              </div>
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'Space Mono',monospace" }}>
                   <thead>
@@ -5154,7 +5185,6 @@ export default function AITracker() {
           // Точні «Загалом» з поточного стану:
           const derivedAch = ACHIEVEMENTS.filter(a => unlockedAchievements.includes(a.id)).reduce((s, a) => s + a.xp, 0);
           const derivedIncome = incomeEntries.reduce((s, e) => s + (e.xpPaid ?? 0), 0);
-          const derivedSession = sessions.dates.length * 5;
           let skillTaskXP = 0;
           SKILL_TASKS.forEach(cat => {
             cat.progressive.forEach(t => {
@@ -5167,6 +5197,8 @@ export default function AITracker() {
           // Цілі/план/проєкти ведуться журналом (нові, відстежувані)
           const totalBySource = xpLog.reduce((acc, e) => { acc[e.source] = (acc[e.source] ?? 0) + e.amount; return acc; }, {});
           const logGoalsProjects = (totalBySource.goal ?? 0) + (totalBySource.plan ?? 0) + (totalBySource.project ?? 0);
+          // Сесії тепер дають реальний XP (журнал, source "session"); старі дні до цієї зміни XP не мали.
+          const derivedSession = totalBySource.session ?? 0;
           // Активність = решта (поглинає стартові 300 XP та все, що поза іншими джерелами).
           // AI-сесії формально теж активність → зливаємо у «Активність».
           const accountedNonActivity = derivedSkill + derivedAch + derivedIncome + derivedSession + logGoalsProjects;

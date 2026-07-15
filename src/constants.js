@@ -271,6 +271,17 @@ export const ACTIVITY_DEFS = [
 ];
 export const ACTIVITY_XP = Object.fromEntries(ACTIVITY_DEFS.map(d => [d.key, d.xp]));
 
+// ── XP-правила, погоджені у XP-планері (15.07.2026) ─────────────────────────
+// Дохід: спадна шкала за КУМУЛЯТИВНОЮ сумою доходу (у $). Понад останню межу — 0 XP/$.
+export const INCOME_XP_TIERS = [
+  { upto: 1000,   rate: 5 },
+  { upto: 20000,  rate: 3 },
+  { upto: 300000, rate: 1 },
+];
+// Сесії: день N безперервного стріку дає BASE + STEP × ⌊N/10⌋ XP (без капу).
+export const SESSION_XP_BASE = 10;
+export const SESSION_XP_STEP = 2;
+
 export const GOAL_CATEGORIES = [
   { id: "income",  label: "Дохід",    color: "#f59e0b", icon: "💰" },
   { id: "skills",  label: "Навички",  color: "#00ff88", icon: "🧠" },
