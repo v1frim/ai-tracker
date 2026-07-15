@@ -1027,10 +1027,13 @@ export default function AITracker() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    const state = { skillData, totalXP, levelUpAt, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, longGoalEpoch, plan, githubSync, progressLog, metricLog, todayXP, skillTasksData, learnTime, inbox, radioStations };
+    // ...saved спочатку: поля, яких ЦЯ збірка не знає (новіші/старіші версії),
+    // переживають перезапис. Саме так 11.07 відкат на стару збірку стер inbox.
+    const state = { ...(saved ?? {}), skillData, totalXP, levelUpAt, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, longGoalEpoch, plan, githubSync, progressLog, metricLog, todayXP, skillTasksData, learnTime, inbox, radioStations };
+    for (const k of ["aiMessages", "aiModel", "aiApiKeys"]) delete state[k]; // свідомо видалені фічі не тягнемо
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     setSaveTick(t => t + 1);
-  }, [skillData, totalXP, levelUpAt, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, longGoalEpoch, plan, githubSync, progressLog, metricLog, todayXP, skillTasksData, learnTime, inbox, radioStations]);
+  }, [skillData, totalXP, levelUpAt, activityXP, xpLog, incomeEntries, expenseEntries, incomeCats, expenseCats, uahRate, uahRateUpdatedAt, subscriptions, subCheckedMonth, projects, unlockedAchievements, achievementDates, sessions, activeDays, goals, longGoals, longGoalEpoch, plan, githubSync, progressLog, metricLog, todayXP, skillTasksData, learnTime, inbox, radioStations]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     localStorage.setItem("ai_tracker_today_act", JSON.stringify({ date: todayStr(), data: todayActivity }));
