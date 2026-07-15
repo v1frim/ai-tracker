@@ -1,0 +1,495 @@
+<title>XP-планер — 5 років до 100 рівня</title>
+<style>
+  :root{
+    --bg:#080a12; --panel:#0d1120; --panel2:#111730; --line:#1d2440;
+    --ink:#e7ecf5; --ink2:#9aa3ba; --ink3:#5c6684;
+    --acc:#00ff88; --amber:#fbbf24; --purple:#a855f7; --cyan:#06b6d4; --rose:#f43f5e; --sky:#38bdf8;
+    --mono:ui-monospace,"Space Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:"Exo 2",system-ui,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{background:var(--bg)}
+  body{
+    margin:0; padding:28px 20px 60px; color:var(--ink); font-family:var(--sans);
+    background:
+      radial-gradient(1100px 500px at 80% -10%, rgba(168,85,247,.08), transparent 60%),
+      radial-gradient(900px 420px at 10% 0%, rgba(0,255,136,.06), transparent 55%),
+      linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.022) 1px, transparent 1px),
+      var(--bg);
+    background-size:auto,auto,44px 44px,44px 44px,auto;
+  }
+  .wrap{max-width:1020px;margin:0 auto}
+  h1{font-size:22px;letter-spacing:2.5px;text-transform:uppercase;margin:0 0 4px;font-weight:800}
+  h1 .n{color:var(--acc)}
+  .sub{color:var(--ink2);font-size:13.5px;margin:0 0 22px;max-width:64ch;line-height:1.5}
+
+  .goalbar{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:14px}
+  .goal{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 14px}
+  .goal label{display:block;font-size:10.5px;letter-spacing:1.6px;text-transform:uppercase;color:var(--ink3);margin-bottom:5px}
+  .goal input{width:110px}
+
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:16px}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px 14px}
+  .kpi .l{font-size:10.5px;letter-spacing:1.6px;text-transform:uppercase;color:var(--ink3)}
+  .kpi .v{font-family:var(--mono);font-size:23px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums}
+  .kpi .s{font-size:11.5px;color:var(--ink2);margin-top:2px}
+  .ok{color:var(--acc)} .warn{color:var(--amber)} .bad{color:var(--rose)}
+
+  .meter{display:flex;gap:2px;height:26px;border-radius:4px;overflow:hidden;background:var(--panel2);border:1px solid var(--line);margin-bottom:8px}
+  .meter div{min-width:3px;transition:width .25s}
+  @media (prefers-reduced-motion:reduce){.meter div{transition:none}}
+  .legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--ink2);margin-bottom:26px}
+  .legend b{color:var(--ink);font-family:var(--mono);font-weight:600;font-variant-numeric:tabular-nums}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;vertical-align:0}
+
+  section{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px 18px;margin-bottom:18px}
+  section>h2{font-size:13px;letter-spacing:2px;text-transform:uppercase;margin:0 0 3px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  section .note{font-size:12px;color:var(--ink2);margin:0 0 12px;line-height:1.5;max-width:78ch}
+  .tag{font-size:9.5px;letter-spacing:1.2px;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.45);color:var(--amber);border-radius:3px;padding:2px 7px;font-weight:700}
+
+  .tblwrap{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th{font-size:10px;letter-spacing:1.4px;text-transform:uppercase;color:var(--ink3);text-align:right;padding:4px 10px;border-bottom:1px solid var(--line);font-weight:600}
+  th:first-child,td:first-child{text-align:left;padding-left:2px}
+  td{padding:5px 10px;border-bottom:1px solid rgba(29,36,64,.55);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  tr:last-child td{border-bottom:0}
+  td.name{color:var(--ink)}
+  td .hint{color:var(--ink3);font-size:11px;margin-left:6px}
+  td.total{font-family:var(--mono);font-weight:700;color:var(--ink)}
+  input[type=number]{
+    background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:4px;
+    padding:5px 8px;font-family:var(--mono);font-size:13px;width:92px;text-align:right;
+  }
+  input[type=number]:focus, select:focus{outline:2px solid var(--acc);outline-offset:1px;border-color:transparent}
+  select{
+    background:var(--panel2);border:1px solid var(--line);color:var(--ink2);border-radius:4px;
+    padding:5px 6px;font-family:var(--sans);font-size:12px;margin-left:4px;
+  }
+  .foot{display:flex;flex-wrap:wrap;gap:10px 22px;align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);font-size:13px}
+  .foot .sum{font-family:var(--mono);font-weight:700;font-size:16px;font-variant-numeric:tabular-nums}
+  .foot label{color:var(--ink3);font-size:10.5px;letter-spacing:1.4px;text-transform:uppercase;margin-right:7px}
+  .cut{color:var(--rose);font-size:12px}
+  .pct{color:var(--ink2);font-size:12px}
+  .autoline{color:var(--ink2);font-size:12.5px}
+  .autoline b{font-family:var(--mono);color:var(--acc);font-weight:600}
+
+  .btn{background:none;border:1px solid var(--line);color:var(--ink2);border-radius:5px;padding:8px 16px;cursor:pointer;font-family:var(--sans);font-size:12.5px;letter-spacing:.5px}
+  .btn:hover{border-color:var(--rose);color:var(--rose)}
+  .btn:focus{outline:2px solid var(--acc);outline-offset:1px}
+  .savenote{color:var(--ink3);font-size:11.5px;margin-left:12px}
+</style>
+
+<div class="wrap">
+  <h1>🧮 XP-планер · <span class="n">5 років → 100 рівень</span></h1>
+  <p class="sub">Модель «як дійти до 1 000 000 XP». Кожен рядок можна задавати темпом («N на день/тиждень/місяць») або сумарною кількістю за строк — вони синхронізовані в обидва боки. Зміни зберігаються у браузері. Планер не під'єднаний до даних трекера.</p>
+
+  <div class="goalbar">
+    <div class="goal"><label for="g-target">Ціль, XP</label><input id="g-target" type="number" step="10000" min="1"></div>
+    <div class="goal"><label for="g-years">Строк, років</label><input id="g-years" type="number" step="0.5" min="0.5"></div>
+    <div class="goal"><label for="g-hours">Год/день (довідково)</label><input id="g-hours" type="number" step="0.5" min="0"></div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="l">План разом</div><div class="v" id="k-total">—</div><div class="s" id="k-delta"></div></div>
+    <div class="kpi"><div class="l">Покриття цілі</div><div class="v" id="k-pct">—</div><div class="s" id="k-days"></div></div>
+    <div class="kpi"><div class="l">Потрібно XP/день</div><div class="v" id="k-need">—</div><div class="s">щоб дійти за строк</div></div>
+    <div class="kpi"><div class="l">План дає XP/день</div><div class="v" id="k-plan">—</div><div class="s" id="k-planh"></div></div>
+  </div>
+
+  <div class="meter" id="meter" role="img" aria-label="Внесок джерел у ціль"></div>
+  <div class="legend" id="legend"></div>
+
+  <div id="sections"></div>
+
+  <button class="btn" id="reset">↺ Скинути до рекомендованого плану</button>
+  <span class="savenote">Зміни зберігаються автоматично (localStorage браузера).</span>
+</div>
+
+<script>
+"use strict";
+const fmt = n => Math.round(n).toLocaleString("uk-UA");
+const COLORS = { act:"#00ff88", quest:"#a855f7", inc:"#fbbf24", skill:"#06b6d4", ach:"#f43f5e", sess:"#38bdf8" };
+const UNITS = { day:{ d:1, label:"/день" }, week:{ d:7, label:"/тиждень" }, month:{ d:365/12, label:"/місяць" } };
+
+const DEFAULTS = {
+  target: 1000000, years: 5, hours: 3,
+  actCap: 260000, questCap: 245000,
+  activities: [
+    { e:"📚", n:"Навчання (30-хв блоки)", per:2,   unit:"day",   rate:5   },
+    { e:"💼", n:"Бізнес (30-хв блоки)",   per:1,   unit:"day",   rate:5   },
+    { e:"📺", n:"Навч. відео",            per:1,   unit:"day",   rate:3   },
+    { e:"🎨", n:"Зображення",             per:20,  unit:"day",   rate:1   },
+    { e:"🎞", n:"Кліпи",                  per:3,   unit:"day",   rate:10  },
+    { e:"🎧", n:"Аудіо",                  per:1,   unit:"day",   rate:6   },
+    { e:"📝", n:"Пости",                  per:1,   unit:"day",   rate:15  },
+    { e:"🎵", n:"Музика (готова)",        per:1,   unit:"week",  rate:30  },
+    { e:"🎬", n:"Відео (готове)",         per:2,   unit:"week",  rate:40  },
+    { e:"🌐", n:"Сайти",                  per:1,   unit:"month", rate:500 },
+    { e:"🤝", n:"Клієнти",                per:1.7, unit:"month", rate:100 },
+    { e:"🤖", n:"Автоматизації",          per:1,   unit:"month", rate:300 },
+  ],
+  quests: [
+    { e:"✅", n:"Задачі",  per:2,   unit:"day",   rate:10   },
+    { e:"📋", n:"Плани",   per:2,   unit:"week",  rate:50   },
+    { e:"🚀", n:"Проєкти", per:2,   unit:"month", rate:200  },
+    { e:"🎯", n:"Цілі",    per:0.5, unit:"month", rate:4000 },
+  ],
+  dlPct: 15,
+  income: { expected:140000, cap:200000, tiers:[
+    { upto:10000,  rate:3 },
+    { upto:50000,  rate:2 },
+    { upto:190000, rate:1 },
+  ]},
+  skills: { pool:207300, pct:70 },
+  ach:    { planka:150000, pct:85 },
+  sess:   { pctDays:90, base:10, step:2, streakLen:150 },
+  start: 300,
+};
+
+const KEY = "xp_planner_v2";
+let S;
+try { S = JSON.parse(localStorage.getItem(KEY)) || null; } catch(e){ S = null; }
+if (!S || !S.activities || S.activities.length !== DEFAULTS.activities.length ||
+    !S.quests || S.quests.length !== DEFAULTS.quests.length || S.dlPct == null ||
+    !S.income || !S.income.tiers || !S.skills || !S.ach || !S.sess || S.sess.streakLen == null) {
+  S = structuredClone(DEFAULTS);
+}
+
+const days = () => Math.max(1, Math.round(S.years * 365));
+const rowQty  = r => r.per * days() / UNITS[r.unit].d;          // точна кількість за строк
+const rowXP   = r => Math.round(rowQty(r)) * r.rate;
+const sumRows = rows => rows.reduce((s,r) => s + rowXP(r), 0);
+const capped  = (sum, cap) => cap > 0 ? Math.min(sum, cap) : sum;
+const trim2   = x => Math.round(x * 100) / 100;
+
+function incomeXPraw() {
+  let prev = 0, xp = 0;
+  for (const tier of S.income.tiers) { xp += Math.max(0, Math.min(S.income.expected, tier.upto) - prev) * tier.rate; prev = tier.upto; }
+  return xp;
+}
+const incomeXP = () => Math.min(incomeXPraw(), S.income.cap || Infinity);
+
+// Сесії за правилом: день N безперервного стріку дає base + step × floor(N/10).
+// Середній бонус за типовий стрік довжиною L: step × (Σ floor(n/10), n=1..L) / L.
+function sessAvgPerDay() {
+  const L = Math.max(1, Math.round(S.sess.streakLen));
+  let sum = 0;
+  for (let n = 1; n <= L; n++) sum += Math.floor(n / 10);
+  return S.sess.base + S.sess.step * sum / L;
+}
+
+function totals() {
+  const questBase = sumRows(S.quests);
+  const act   = capped(sumRows(S.activities), S.actCap);
+  const quest = capped(Math.round(questBase * (1 + S.dlPct / 100)), S.questCap);
+  const inc   = incomeXP();
+  const skill = Math.round(S.skills.pool * S.skills.pct / 100);
+  const ach   = Math.round(S.ach.planka * S.ach.pct / 100);
+  const sess  = Math.round(Math.round(days() * S.sess.pctDays / 100) * sessAvgPerDay());
+  return { act, quest, inc, skill, ach, sess, questBase, grand: act+quest+inc+skill+ach+sess+S.start };
+}
+
+function numInput(val, step, oninput, w) {
+  const i = document.createElement("input");
+  i.type = "number"; i.value = val; i.min = 0; if (step) i.step = step;
+  if (w) i.style.width = w;
+  i.addEventListener("input", () => { oninput(parseFloat(i.value) || 0); save(); refresh(); });
+  return i;
+}
+
+/* Таблиця рядків із двостороннім зв'язком темп ↔ кількість за строк */
+function rowsTable(rows) {
+  const wrap = document.createElement("div"); wrap.className = "tblwrap";
+  const tb = document.createElement("table");
+  tb.innerHTML = "<thead><tr><th>Що</th><th>Темп</th><th>За строк</th><th>Ставка XP</th><th>Разом XP</th></tr></thead>";
+  const body = document.createElement("tbody");
+  rows.forEach(r => {
+    const tr = document.createElement("tr");
+    const name = document.createElement("td"); name.className = "name";
+    name.innerHTML = `${r.e} ${r.n}`;
+
+    // темп: число + одиниця
+    const perTd = document.createElement("td");
+    const perIn = document.createElement("input");
+    perIn.type = "number"; perIn.min = 0; perIn.step = 0.1; perIn.style.width = "72px"; perIn.value = trim2(r.per);
+    const unitSel = document.createElement("select");
+    for (const [k, u] of Object.entries(UNITS)) {
+      const o = document.createElement("option"); o.value = k; o.textContent = u.label;
+      if (k === r.unit) o.selected = true; unitSel.appendChild(o);
+    }
+    perIn.addEventListener("input", () => { r.per = parseFloat(perIn.value) || 0; save(); refresh(); });
+    unitSel.addEventListener("change", () => {
+      // зберігаємо сумарну кількість, перераховуємо темп у нових одиницях
+      const qty = rowQty(r);
+      r.unit = unitSel.value;
+      r.per = trim2(qty * UNITS[r.unit].d / days());
+      perIn.value = r.per;
+      save(); refresh();
+    });
+    perTd.append(perIn, unitSel);
+
+    // сумарно за строк
+    const qtyTd = document.createElement("td");
+    const qtyIn = document.createElement("input");
+    qtyIn.type = "number"; qtyIn.min = 0; qtyIn.step = 1; qtyIn.style.width = "92px";
+    qtyIn.addEventListener("input", () => {
+      const q = parseFloat(qtyIn.value) || 0;
+      r.per = trim2(q * UNITS[r.unit].d / days());
+      perIn.value = r.per;
+      save(); refresh();
+    });
+    qtyTd.appendChild(qtyIn);
+
+    const rateTd = document.createElement("td"); rateTd.appendChild(numInput(r.rate, 1, v => r.rate = v, "76px"));
+    const tot = document.createElement("td"); tot.className = "total";
+    tr.append(name, perTd, qtyTd, rateTd, tot); body.appendChild(tr);
+    r._qtyIn = qtyIn; r._perIn = perIn; r._cell = tot;
+  });
+  tb.appendChild(body); wrap.appendChild(tb);
+  return wrap;
+}
+
+function sectionEl(id, color, title, note, bodyEl, footEl, tagText) {
+  const s = document.createElement("section"); s.id = "sec-" + id;
+  const h = document.createElement("h2");
+  h.innerHTML = `<span class="dot" style="background:${color}"></span>${title}`;
+  if (tagText) { const t = document.createElement("span"); t.className = "tag"; t.textContent = tagText; h.appendChild(t); }
+  const p = document.createElement("p"); p.className = "note"; p.innerHTML = note;
+  s.append(h, p, bodyEl);
+  if (footEl) s.appendChild(footEl);
+  return s;
+}
+
+function footWithCap(getCap, setCap) {
+  const f = document.createElement("div"); f.className = "foot";
+  const sum = document.createElement("span"); sum.className = "sum";
+  const share = document.createElement("span"); share.className = "pct";
+  const capWrap = document.createElement("span");
+  const capLbl = document.createElement("label"); capLbl.textContent = "Потолок XP";
+  const capIn = numInput(getCap(), 5000, setCap, "104px");
+  capWrap.append(capLbl, capIn);
+  const cut = document.createElement("span"); cut.className = "cut";
+  f.append(sum, share, capWrap, cut);
+  f._sum = sum; f._share = share; f._cut = cut;
+  return f;
+}
+
+/* ── build DOM ── */
+const secWrap = document.getElementById("sections");
+
+const actTable = rowsTable(S.activities);
+const actFoot = footWithCap(() => S.actCap, v => S.actCap = v);
+secWrap.appendChild(sectionEl("act", COLORS.act, "⚡ Активності (щоденна практика)",
+  "Безлімітні лічильники з Головної. Задавай темп («N на день/тиждень/місяць») або суму за строк — інше поле підлаштується. Ставки навчання/бізнесу підняті 4→5, кліпів 8→10 (реконсиляція в застосунку перерахує минуле автоматично).",
+  actTable, actFoot));
+
+const questTable = rowsTable(S.quests);
+const questFoot = footWithCap(() => S.questCap, v => S.questCap = v);
+{
+  const dlLine = document.createElement("div"); dlLine.className = "foot"; dlLine.style.borderTop = "0"; dlLine.style.paddingTop = "0";
+  const dlLbl = document.createElement("label"); dlLbl.textContent = "Вчасно (×2), %";
+  const dlIn = numInput(S.dlPct, 5, v => S.dlPct = Math.min(100, v), "68px");
+  const dlAuto = document.createElement("span"); dlAuto.className = "autoline";
+  dlLine.append(dlLbl, dlIn, dlAuto);
+  questTable.appendChild(dlLine);
+  questFoot._dlAuto = dlAuto;
+}
+secWrap.appendChild(sectionEl("quest", COLORS.quest, "✅ Квести (цілі / проєкти / плани / задачі)",
+  "Номінали за замовчуванням: задача 10 · план 50 · проєкт 200 (у застосунку редагуються per-item); цілям рекомендую 3&nbsp;000–5&nbsp;000. Дедлайн-бонус рахується автоматично: якщо N% квестів виконано вчасно (×2), загальний XP квестів множиться на 1&nbsp;+&nbsp;N/100 — при 15% це <b>×1,15</b> (+15%, не +30%: подвоюється лише вчасна частка, тож надбавка = її розмір).",
+  questTable, questFoot));
+
+// income section
+const incBody = document.createElement("div"); incBody.className = "tblwrap";
+const incTable = document.createElement("table");
+incTable.innerHTML = "<thead><tr><th>Ярус доходу</th><th>Верхня межа, $</th><th>XP за $1</th><th>Разом XP</th></tr></thead>";
+const incTbody = document.createElement("tbody");
+S.income.tiers.forEach((t, i) => {
+  const tr = document.createElement("tr");
+  const name = document.createElement("td"); name.className = "name";
+  name.textContent = i === 0 ? "Перші долари" : `Ярус ${i+1}`;
+  const b = document.createElement("td"); b.appendChild(numInput(t.upto, 1000, v => t.upto = v, "104px"));
+  const r = document.createElement("td"); r.appendChild(numInput(t.rate, 0.5, v => t.rate = v, "76px"));
+  const tot = document.createElement("td"); tot.className = "total"; t._cell = tot;
+  tr.append(name, b, r, tot); incTbody.appendChild(tr);
+});
+incTable.appendChild(incTbody); incBody.appendChild(incTable);
+const incExp = document.createElement("div"); incExp.className = "foot";
+const incExpLbl = document.createElement("label"); incExpLbl.textContent = "Очікуваний дохід за строк, $";
+const incExpIn = numInput(S.income.expected, 5000, v => S.income.expected = v, "120px");
+incExp.append(incExpLbl, incExpIn);
+incBody.appendChild(incExp);
+const incRules = document.createElement("div"); incRules.className = "foot"; incRules.style.borderTop = "0"; incRules.style.paddingTop = "0";
+const incRulesTxt = document.createElement("span"); incRulesTxt.className = "autoline";
+incRules.appendChild(incRulesTxt);
+incBody.appendChild(incRules);
+const incFoot = footWithCap(() => S.income.cap, v => S.income.cap = v);
+secWrap.appendChild(sectionEl("inc", COLORS.inc, "💰 Дохід (спадна шкала замість 3 XP/$ назавжди)",
+  "Що більший заробіток — то дешевший долар у XP. Два обмежувачі: долари понад межу останнього ярусу дають 0 XP, а потолок — жорсткий кап на всю групу (з потолком 200&nbsp;000 XP перестає рости вже на ~$140k). Пресети потолка: 150&nbsp;000 (жорсткий) · 200&nbsp;000 (рекомендую) · 250&nbsp;000 (м'який).",
+  incBody, incFoot, "потрібна зміна коду"));
+
+// skills
+const skBody = document.createElement("div"); skBody.className = "foot"; skBody.style.borderTop = "0"; skBody.style.paddingTop = "0";
+const skLbl = document.createElement("label"); skLbl.textContent = "Виконано пулу, %";
+const skIn = numInput(S.skills.pct, 5, v => S.skills.pct = Math.min(100, v), "76px");
+const skPool = document.createElement("span"); skPool.className = "pct"; skPool.textContent = `пул: ${fmt(S.skills.pool)} XP (99 майлстоунів + 43 задачі + 69 інструментів)`;
+skBody.append(skLbl, skIn, skPool);
+const skFoot = document.createElement("div"); skFoot.className = "foot";
+const skSum = document.createElement("span"); skSum.className = "sum"; const skShare = document.createElement("span"); skShare.className = "pct";
+skFoot.append(skSum, skShare);
+secWrap.appendChild(sectionEl("skill", COLORS.skill, "💪 Навички (майлстоуни, разові задачі, інструменти)",
+  "Скінченний пул — сам себе обмежує, потолок не потрібен. 70% ≈ всі ранні майлстоуни + частина пізніх.",
+  skBody, skFoot));
+
+// achievements
+const achBody = document.createElement("div"); achBody.className = "foot"; achBody.style.borderTop = "0"; achBody.style.paddingTop = "0";
+const aLbl1 = document.createElement("label"); aLbl1.textContent = "Планка XP";
+const aIn1 = numInput(S.ach.planka, 10000, v => S.ach.planka = v, "104px");
+const aLbl2 = document.createElement("label"); aLbl2.textContent = "Виконано, %";
+const aIn2 = numInput(S.ach.pct, 5, v => S.ach.pct = Math.min(100, v), "76px");
+const aPool = document.createElement("span"); aPool.className = "pct"; aPool.textContent = "повний пул усіх 55 ачівок: 248 650 XP";
+achBody.append(aLbl1, aIn1, aLbl2, aIn2, aPool);
+const achFoot = document.createElement("div"); achFoot.className = "foot";
+const achSum = document.createElement("span"); achSum.className = "sum"; const achShare = document.createElement("span"); achShare.className = "pct";
+achFoot.append(achSum, achShare);
+secWrap.appendChild(sectionEl("ach", COLORS.ach, "🏆 Досягнення",
+  "Твоє правило: планка 150 000 × 85% — і ще лишається куди рости (пізні ачівки на кшталт «1000 клієнтів» свідомо за горизонтом).",
+  achBody, achFoot));
+
+// sessions
+const seBody = document.createElement("div"); seBody.className = "foot"; seBody.style.borderTop = "0"; seBody.style.paddingTop = "0";
+const seL1 = document.createElement("label"); seL1.textContent = "Активних днів, %";
+const seI1 = numInput(S.sess.pctDays, 5, v => S.sess.pctDays = Math.min(100, v), "68px");
+const seL2 = document.createElement("label"); seL2.textContent = "База XP/день";
+const seI2 = numInput(S.sess.base, 1, v => S.sess.base = v, "64px");
+const seL3 = document.createElement("label"); seL3.textContent = "+XP за 10 днів стріку";
+const seI3 = numInput(S.sess.step, 1, v => S.sess.step = v, "64px");
+const seL4 = document.createElement("label"); seL4.textContent = "Типовий стрік, днів";
+const seI4 = numInput(S.sess.streakLen, 10, v => S.sess.streakLen = Math.max(1, v), "76px");
+seBody.append(seL1, seI1, seL2, seI2, seL3, seI3, seL4, seI4);
+const seRules = document.createElement("div"); seRules.className = "foot"; seRules.style.borderTop = "0"; seRules.style.paddingTop = "0";
+const seRulesTxt = document.createElement("span"); seRulesTxt.className = "autoline";
+seRules.appendChild(seRulesTxt);
+const seWrap = document.createElement("div"); seWrap.append(seBody, seRules);
+const seFoot = document.createElement("div"); seFoot.className = "foot";
+const seSum = document.createElement("span"); seSum.className = "sum"; const seShare = document.createElement("span"); seShare.className = "pct";
+const seAvg = document.createElement("span"); seAvg.className = "autoline";
+const seNote = document.createElement("span"); seNote.className = "pct"; seNote.textContent = "+ стартовий бонус 300 XP у підсумку";
+seFoot.append(seSum, seShare, seAvg, seNote);
+secWrap.appendChild(sectionEl("sess", COLORS.sess, "🔥 Сесії та стріки",
+  "«Типовий стрік» — скільки днів у середньому тримаєш серію до зриву: що довші стріки, то дорожчий середній день.",
+  seWrap, seFoot, "потрібна зміна коду"));
+
+/* ── refresh ── */
+const SEC_META = [
+  ["act",   "⚡ Активності"],
+  ["quest", "✅ Квести"],
+  ["inc",   "💰 Дохід"],
+  ["skill", "💪 Навички"],
+  ["ach",   "🏆 Досягнення"],
+  ["sess",  "🔥 Сесії"],
+];
+
+function refresh() {
+  const d = days(), t = totals();
+
+  for (const rows of [S.activities, S.quests]) rows.forEach(r => {
+    r._cell.textContent = fmt(rowXP(r));
+    if (document.activeElement !== r._qtyIn) r._qtyIn.value = Math.round(rowQty(r));
+    if (document.activeElement !== r._perIn) r._perIn.value = trim2(r.per);
+  });
+  { let prev = 0; S.income.tiers.forEach(tier => {
+      const band = Math.max(0, Math.min(S.income.expected, tier.upto) - prev);
+      tier._cell.textContent = fmt(band * tier.rate); prev = tier.upto;
+  }); }
+
+  const rawAct = sumRows(S.activities);
+  const rawQ = Math.round(t.questBase * (1 + S.dlPct / 100));
+  const setFoot = (foot, raw, val, cap) => {
+    foot._sum.textContent = fmt(val) + " XP";
+    foot._share.textContent = (100 * val / Math.max(1, t.grand)).toFixed(1) + "% плану";
+    foot._cut.textContent = (cap > 0 && raw > cap) ? `обрізано потолком: −${fmt(raw - cap)}` : "";
+  };
+  setFoot(actFoot, rawAct, t.act, S.actCap);
+  setFoot(questFoot, rawQ, t.quest, S.questCap);
+  setFoot(incFoot, incomeXPraw(), t.inc, S.income.cap);
+  questFoot._dlAuto.innerHTML = `автоматично: ${fmt(t.questBase)} × ${(1 + S.dlPct/100).toFixed(2).replace(".", ",")} → бонус <b>+${fmt(t.questBase * S.dlPct / 100)} XP</b>`;
+
+  // Живі «Правила» доходу: яруси + де вичерпується потолок
+  {
+    const parts = []; let prev = 0, cum = 0, capAt = null;
+    for (const tier of S.income.tiers) {
+      parts.push(`${prev ? "$" + fmt(prev) + "–" : "перші $"}${fmt(tier.upto)} → <b>${tier.rate} XP/$</b>`);
+      if (S.income.cap > 0 && capAt === null && cum + (tier.upto - prev) * tier.rate >= S.income.cap && tier.rate > 0)
+        capAt = prev + (S.income.cap - cum) / tier.rate;
+      cum += (tier.upto - prev) * tier.rate; prev = tier.upto;
+    }
+    const last = S.income.tiers[S.income.tiers.length - 1];
+    let txt = `Правила: ${parts.join(" · ")} · понад $${fmt(last.upto)} → <b>0 XP</b>.`;
+    if (S.income.cap > 0) txt += capAt !== null
+      ? ` Потолок ${fmt(S.income.cap)} XP вичерпується на <b>~$${fmt(capAt)}</b> — далі 0 XP.`
+      : ` Потолок ${fmt(S.income.cap)} XP (при цих ярусах недосяжний — максимум ${fmt(cum)} XP).`;
+    incRulesTxt.innerHTML = txt;
+  }
+  // Живі «Правила» сесій: перші десятки + формула
+  {
+    const b = S.sess.base, st = S.sess.step;
+    seRulesTxt.innerHTML = `Правила: день стріку 1–9 → <b>${b} XP</b> · 10–19 → <b>${b + st}</b> · 20–29 → <b>${b + 2*st}</b> · 30–39 → <b>${b + 3*st}</b> · далі <b>+${st}</b> за кожен повний десяток, без капу (день N дає ${b} + ${st}×⌊N/10⌋). Зрив стріку скидає бонус до бази.`;
+  }
+
+  skSum.textContent = fmt(t.skill) + " XP"; skShare.textContent = (100*t.skill/t.grand).toFixed(1) + "% плану";
+  achSum.textContent = fmt(t.ach) + " XP";  achShare.textContent = (100*t.ach/t.grand).toFixed(1) + "% плану";
+  seSum.textContent = fmt(t.sess) + " XP";  seShare.textContent = (100*t.sess/t.grand).toFixed(1) + "% плану";
+  seAvg.innerHTML = `середній день ≈ <b>${sessAvgPerDay().toFixed(1)} XP</b>`;
+
+  document.getElementById("k-total").textContent = fmt(t.grand);
+  const delta = t.grand - S.target, kd = document.getElementById("k-delta");
+  kd.textContent = delta >= 0 ? `+${fmt(delta)} понад ціль` : `не вистачає ${fmt(-delta)}`;
+  kd.className = "s " + (delta >= 0 ? "ok" : (delta > -S.target*0.05 ? "warn" : "bad"));
+  const pct = 100 * t.grand / Math.max(1, S.target);
+  const kp = document.getElementById("k-pct");
+  kp.textContent = pct.toFixed(1) + "%";
+  kp.className = "v " + (pct >= 100 ? "ok" : (pct >= 95 ? "warn" : "bad"));
+  document.getElementById("k-days").textContent = `${fmt(d)} днів`;
+  document.getElementById("k-need").textContent = fmt(S.target / d);
+  document.getElementById("k-plan").textContent = fmt(t.grand / d);
+  document.getElementById("k-planh").textContent = S.hours > 0 ? `≈ ${fmt(t.grand / d / S.hours)} XP/год практики` : "";
+
+  const meter = document.getElementById("meter"), legend = document.getElementById("legend");
+  meter.innerHTML = ""; legend.innerHTML = "";
+  SEC_META.forEach(([id, label]) => {
+    const v = t[id]; if (v <= 0) return;
+    const seg = document.createElement("div");
+    seg.style.width = (100 * v / Math.max(t.grand, S.target)) + "%";
+    seg.style.background = COLORS[id];
+    seg.title = `${label}: ${fmt(v)} XP`;
+    meter.appendChild(seg);
+    const li = document.createElement("span");
+    li.innerHTML = `<span class="dot" style="background:${COLORS[id]}"></span>${label} <b>${fmt(v)}</b>`;
+    legend.appendChild(li);
+  });
+  if (t.grand < S.target) {
+    const li = document.createElement("span");
+    li.innerHTML = `<span class="dot" style="background:var(--panel2);outline:1px solid var(--line)"></span>до цілі <b>${fmt(S.target - t.grand)}</b>`;
+    legend.appendChild(li);
+  }
+}
+
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S, (k,v) => k.startsWith("_") ? undefined : v)); } catch(e){} }
+
+const bindGoal = (id, get, set, step) => {
+  const el = document.getElementById(id); el.value = get(); el.step = step;
+  el.addEventListener("input", () => { set(parseFloat(el.value) || 0); save(); refresh(); });
+};
+bindGoal("g-target", () => S.target, v => S.target = Math.max(1, v), 10000);
+bindGoal("g-years",  () => S.years,  v => S.years  = Math.max(0.5, v), 0.5);
+bindGoal("g-hours",  () => S.hours,  v => S.hours  = v, 0.5);
+
+document.getElementById("reset").addEventListener("click", () => {
+  if (!confirm("Скинути всі зміни до рекомендованого плану?")) return;
+  try { localStorage.removeItem(KEY); } catch(e){}
+  location.reload();
+});
+
+refresh();
+</script>
