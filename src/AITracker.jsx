@@ -5258,7 +5258,7 @@ export default function AITracker() {
               <div>
                 <div className="wf-sec" style={{ marginBottom: 6 }}>📅 Помісячна зведена</div>
                 <div style={{ fontSize: 11, color: "#6a5f40", fontFamily: "'Space Mono',monospace", marginBottom: 14 }}>
-                  Уся активність, чистий дохід і години навчання — по місяцях в одній таблиці. Рядок «До» — усе до 1 червня + нерозподілені загальні лічильники; далі по місяцях. Дохід — за всіма датованими записами.
+                  Уся активність, завершені проєкти (🚀), чистий дохід і години навчання — по місяцях в одній таблиці. Рядок «До» — усе до 1 червня + нерозподілені загальні лічильники; далі по місяцях. Проєкти рахуються за місяцем закриття; без дати — у «До».
                 </div>
                 {(() => {
                   const agg = {};
@@ -5282,7 +5282,12 @@ export default function AITracker() {
                   ACTIVITY_DEFS.forEach(d => { before[d.key] = Math.max(0, metricTotal(d.key) - inMonths(d.key)); });
                   const beforeInc = net - inMonths("_inc");
                   const beforeHours = hoursOf(before);
-                  const hasBefore = ACTIVITY_DEFS.some(d => before[d.key]) || Math.abs(beforeInc) > 0.005;
+                  // Проєкти по місяцях завершення (completedAt). Без дати / до червня → у «До».
+                  const projByMonth = {};
+                  projects.forEach(p => { if (p.done && !p.deletedAt && p.completedAt) projByMonth[p.completedAt.slice(0, 7)] = (projByMonth[p.completedAt.slice(0, 7)] ?? 0) + 1; });
+                  const totalProj = projects.filter(p => p.done && !p.deletedAt).length;
+                  const beforeProj = Math.max(0, totalProj - months.reduce((s, mk) => s + (projByMonth[mk] ?? 0), 0));
+                  const hasBefore = ACTIVITY_DEFS.some(d => before[d.key]) || Math.abs(beforeInc) > 0.005 || beforeProj > 0;
 
                   const th = { padding: "7px 6px", fontSize: 14, fontWeight: 700, textAlign: "center", whiteSpace: "nowrap", borderBottom: "1px solid rgba(201,168,76,0.22)", lineHeight: 1 };
                   const thTxt = { ...th, fontSize: 10 };
@@ -5290,8 +5295,9 @@ export default function AITracker() {
                   const num = (v, c) => v ? <span style={{ color: c, fontWeight: 700 }}>{v.toLocaleString()}</span> : <span style={{ color: "#3a3528" }}>·</span>;
                   const money = (v) => v ? <span style={{ color: v >= 0 ? "#10b981" : "#f43f5e", fontWeight: 700 }}>{v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(2)}</span> : <span style={{ color: "#3a3528" }}>·</span>;
                   const hr = (h) => h ? <span style={{ color: "#00ff88", fontWeight: 700 }}>{h % 1 === 0 ? h : h.toFixed(1)}</span> : <span style={{ color: "#3a3528" }}>·</span>;
-                  const dataCells = (vals, hours, inc) => <>
+                  const dataCells = (vals, hours, inc, proj) => <>
                     {ACTIVITY_DEFS.map(d => <td key={d.key} style={td}>{num(vals[d.key], d.color)}</td>)}
+                    <td style={td}>{num(proj, "#fbbf24")}</td>
                     <td style={td}>{hr(hours)}</td>
                     <td style={td}>{money(inc)}</td>
                   </>;
@@ -5303,6 +5309,7 @@ export default function AITracker() {
                           <tr style={{ background: "rgba(201,168,76,0.06)" }}>
                             <th style={{ ...thTxt, color: "#6a5f40" }}>№</th>
                             {ACTIVITY_DEFS.map(d => <th key={d.key} title={d.label} style={{ ...th, color: d.color }}>{d.emoji}</th>)}
+                            <th title="Проєктів завершено (за місяцем закриття)" style={{ ...th, color: "#fbbf24" }}>🚀</th>
                             <th title="Час на вивчення (навчання + бізнес), год" style={{ ...th, color: "#00ff88" }}>⏱</th>
                             <th title="Чистий дохід (дохід − витрати)" style={{ ...th, color: "#10b981" }}>💰</th>
                             <th style={{ ...thTxt, color: "#9a8a60", textAlign: "left" }}>Місяць</th>
@@ -5313,7 +5320,7 @@ export default function AITracker() {
                           {hasBefore && (
                             <tr title="Усе до 1 червня + нерозподілені загальні лічильники" style={{ background: "rgba(120,90,30,0.10)", borderTop: "1px solid rgba(201,168,76,0.06)" }}>
                               <td style={{ ...td, color: "#6a5f40" }}>—</td>
-                              {dataCells(before, beforeHours, beforeInc)}
+                              {dataCells(before, beforeHours, beforeInc, beforeProj)}
                               <td style={{ ...td, textAlign: "left", color: "#a89060", fontStyle: "italic" }}>До</td>
                               <td style={{ ...td, color: "#5a5040" }}>раніше</td>
                             </tr>
@@ -5326,7 +5333,7 @@ export default function AITracker() {
                             return (
                               <tr key={mk} style={{ background: isCur ? "rgba(0,255,136,0.06)" : (i % 2 ? "rgba(255,255,255,0.015)" : "transparent"), borderTop: "1px solid rgba(201,168,76,0.06)" }}>
                                 <td style={{ ...td, color: "#6a5f40" }}>{i + 1}</td>
-                                {dataCells(m, hoursOf(m), m._inc ?? 0)}
+                                {dataCells(m, hoursOf(m), m._inc ?? 0, projByMonth[mk] ?? 0)}
                                 <td style={{ ...td, textAlign: "left", color: isCur ? "#00ff88" : "#c9b890", fontWeight: isCur ? 700 : 400 }}>{MONTH_NAMES_UA[+mo - 1]}</td>
                                 <td style={{ ...td, color: "#8a7850", fontWeight: showY ? 700 : 400 }}>{showY ? y : ""}</td>
                               </tr>
@@ -5335,6 +5342,7 @@ export default function AITracker() {
                           <tr style={{ borderTop: "2px solid rgba(201,168,76,0.3)", background: "rgba(201,168,76,0.05)" }}>
                             <td style={{ ...td, color: "#c9a84c", fontWeight: 700 }}>Σ</td>
                             {ACTIVITY_DEFS.map(d => <td key={d.key} style={td}>{num(metricTotal(d.key), d.color)}</td>)}
+                            <td style={td}>{num(totalProj, "#fbbf24")}</td>
                             <td style={td}>{hr(hoursOf({ education: metricTotal("education"), business: metricTotal("business") }))}</td>
                             <td style={td}>{money(net)}</td>
                             <td colSpan={2} style={{ ...td, textAlign: "left", color: "#c9a84c", fontWeight: 700 }}>Разом</td>
