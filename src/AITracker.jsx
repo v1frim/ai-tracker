@@ -1056,7 +1056,9 @@ export default function AITracker() {
   }, [expandGP]);
 
   // Авто-сесія: будь-яка змістовна дія (XP, фінанси, задачі, цілі, план, проєкти,
-  // навички, активність) автоматично зараховує сьогоднішній день у стрік.
+  // навички, активність, ідеї в інбоксі, нотатки) автоматично зараховує
+  // сьогоднішній день у стрік. ⚠️ Додаючи новий вид даних — не забудь про список
+  // залежностей нижче, інакше дія не зарахує день.
   // Стартовий гард пропускає нормалізацію даних при завантаженні застосунку.
   const sessionAutoRef = useRef(Date.now());
   useEffect(() => {
@@ -1067,7 +1069,7 @@ export default function AITracker() {
     // XP за зарахований день: день N стріку дає BASE + STEP × ⌊N/10⌋ (зрив скидає до бази).
     const n = calcStreak([...sessions.dates, today]);
     gainXP(SESSION_XP_BASE + SESSION_XP_STEP * Math.floor(n / 10), `(день ${n} стріку)`, "session");
-  }, [incomeEntries, expenseEntries, subscriptions, projects, goals, longGoals, plan, skillData, skillTasksData, learnTime, todayActivity]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [incomeEntries, expenseEntries, subscriptions, projects, goals, longGoals, plan, skillData, skillTasksData, learnTime, todayActivity, inbox, progressLog]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Зміна доби, поки вкладка відкрита: скидаємо сьогоднішні лічильники,
   // щоб опівночі бейджі "+N сьогодні" обнулялися без перезавантаження.
