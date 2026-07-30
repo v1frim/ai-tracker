@@ -965,6 +965,7 @@ export default function AITracker() {
   const [gpAddType, setGpAddType] = useState("goal");
   const [gpAddText, setGpAddText] = useState("");
   const [gpAddXP, setGpAddXP] = useState(1000);
+  const [gpAddPinned, setGpAddPinned] = useState(false); // 📌 створити квест одразу закріпленим
   const [gpInlineAdd, setGpInlineAdd] = useState(null);
   const [gpInlineText, setGpInlineText] = useState("");
   const [gpInlineXP, setGpInlineXP] = useState(75);
@@ -3229,14 +3230,15 @@ export default function AITracker() {
 
           const doAddItem = () => {
             if (!gpAddText.trim()) return;
+            const pinned = gpAddPinned; // 📌 одразу у «Фокус» на Головній
             if (gpAddType === "goal") {
-              setLongGoals(prev => [...prev, { id: `lg${Date.now()}`, text: gpAddText.trim(), period: "month_cur", customXP: gpAddXP, done: false, createdAt: new Date().toISOString() }]);
+              setLongGoals(prev => [...prev, { id: `lg${Date.now()}`, text: gpAddText.trim(), period: "month_cur", customXP: gpAddXP, done: false, pinned, createdAt: new Date().toISOString() }]);
             } else if (gpAddType === "project") {
-              setProjects(prev => [...prev, { id: `pr${Date.now()}`, text: gpAddText.trim(), category: projectCategory, status: "active", customXP: gpAddXP, done: false, createdAt: new Date().toISOString() }]);
+              setProjects(prev => [...prev, { id: `pr${Date.now()}`, text: gpAddText.trim(), category: projectCategory, status: "active", customXP: gpAddXP, done: false, pinned, createdAt: new Date().toISOString() }]);
             } else if (gpAddType === "plan") {
-              setPlan(prev => [...prev, { id: `p${Date.now()}`, text: gpAddText.trim(), type: "other", urgency: "now", xp: gpAddXP, done: false, createdAt: new Date().toISOString() }]);
+              setPlan(prev => [...prev, { id: `p${Date.now()}`, text: gpAddText.trim(), type: "other", urgency: "now", xp: gpAddXP, done: false, pinned, createdAt: new Date().toISOString() }]);
             } else {
-              setGoals(prev => [...prev, { id: `g${Date.now()}`, text: gpAddText.trim(), priority: "important", xp: gpAddXP, done: false, createdAt: new Date().toISOString() }]);
+              setGoals(prev => [...prev, { id: `g${Date.now()}`, text: gpAddText.trim(), priority: "important", xp: gpAddXP, done: false, pinned, createdAt: new Date().toISOString() }]);
             }
             setGpAddText("");
           };
@@ -4102,6 +4104,8 @@ export default function AITracker() {
                   <input type="number" min="0" max="99999" value={gpAddXP} onChange={e => setGpAddXP(Math.max(0, parseInt(e.target.value) || 0))}
                     style={{ width: 50, background: "transparent", border: "none", color: "#00ff88", fontSize: 12, fontFamily: "'Space Mono',monospace", textAlign: "center", padding: "8px 0" }} />
                 </div>
+                <button onClick={() => setGpAddPinned(v => !v)} title={gpAddPinned ? "Створиться закріпленим — буде у «Фокусі» на Головній" : "Закріпити одразу при створенні"}
+                  style={{ background: gpAddPinned ? "rgba(201,168,76,0.14)" : "rgba(8,5,2,0.68)", border: `1px solid ${gpAddPinned ? "rgba(201,168,76,0.55)" : "rgba(201,168,76,0.15)"}`, borderRadius: 4, color: "#c9a84c", opacity: gpAddPinned ? 1 : 0.35, filter: gpAddPinned ? "drop-shadow(0 0 4px rgba(201,168,76,0.7))" : "none", cursor: "pointer", fontSize: 13, padding: "7px 10px", transition: "opacity 0.2s, filter 0.2s, background 0.2s" }}>📌</button>
                 <button onClick={doAddItem}
                   style={{ background: gpAddType === "goal" ? "#a855f7" : gpAddType === "project" ? "#f59e0b" : gpAddType === "plan" ? "#22d3ee" : "#00ff88", color: gpAddType === "goal" ? "#fff" : "#000", border: "none", padding: "8px 16px", borderRadius: 4, fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'Exo 2',sans-serif" }}>
                   + Додати
