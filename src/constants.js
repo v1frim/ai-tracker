@@ -19,6 +19,7 @@ export const SKILLS = [
       { name: "Syntx",      url: "https://syntx.ai/",                                                                   active: true },
       { name: "Higgsfield", url: "https://higgsfield.ai/",                                                              active: true },
       { name: "Runway",     url: "https://app.runwayml.com/video-tools/teams/vovabestintheworld4/ai-tools/generate?mode=apps", active: true },
+      { name: "Pletor",     url: "https://app.pletor.ai/?tab=continue",                                                 active: true },
     ],
   },
   { id: "image", name: "Генерація зображень", emoji: "🎨", color: "#ff6b35",
