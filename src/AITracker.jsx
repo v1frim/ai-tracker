@@ -422,13 +422,17 @@ async function resolveChannelId(handle) {
 
 // Останнє відео каналу через RSS-стрічку YouTube.
 async function fetchLatestVideo(channelId) {
-  const res = await ytFetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
+  // `&_=` — щоб проксі не віддавав свою закешовану копію стрічки (YouTube зайвий параметр ігнорує).
+  const res = await ytFetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}&_=${Date.now()}`);
   const xml = await res.text();
   const doc = new DOMParser().parseFromString(xml, "text/xml");
   // Проксі часто віддає HTML-сторінку помилки зі статусом 200 — не вважаємо це успіхом.
   if (doc.querySelector("parsererror")) throw new Error("проксі повернув не XML");
-  const entry = doc.querySelector("entry");
-  if (!entry) throw new Error("немає відео");
+  const entries = [...doc.querySelectorAll("entry")];
+  if (!entries.length) throw new Error("немає відео");
+  // Найновіше — за датою, а не перше в списку: YouTube не завжди кладе його першим.
+  const pubOf = (e) => Date.parse(e.querySelector("published")?.textContent ?? "") || 0;
+  const entry = entries.reduce((best, e) => pubOf(e) > pubOf(best) ? e : best, entries[0]);
   return {
     title: entry.querySelector("title")?.textContent ?? "",
     link: entry.querySelector("link")?.getAttribute("href") ?? "",
