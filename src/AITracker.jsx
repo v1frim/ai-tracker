@@ -375,17 +375,29 @@ const YT_IDS_KEY = "ai_tracker_yt_ids";
 const YT_VIDEOS_KEY = "ai_tracker_yt_videos";
 const YT_TTL_MS = 30 * 60 * 1000;
 
+// ⚠️ corsproxy.io вимагає саме `?url=` — старий формат `?<url>` мовчки не працює
+// (через це стрічка каналів колись «замерзла» на місяць).
+const YT_PROXY_KEY = "ai_tracker_yt_proxy";
 const YT_PROXIES = [
-  (u) => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+  (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
   (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+  (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
 ];
 
+// Починаємо з проксі, який спрацював минулого разу, і далі по колу —
+// інакше кожен запит марно чекає таймаут на мертвому проксі.
 async function ytFetch(url) {
-  let lastErr;
-  for (const proxy of YT_PROXIES) {
+  let lastErr, start = 0;
+  try { start = Math.min(YT_PROXIES.length - 1, Math.max(0, +localStorage.getItem(YT_PROXY_KEY) || 0)); } catch {}
+  for (let i = 0; i < YT_PROXIES.length; i++) {
+    const idx = (start + i) % YT_PROXIES.length;
     try {
-      const res = await fetch(proxy(url), { signal: AbortSignal.timeout(10000) });
-      if (res.ok) return res;
+      const res = await fetch(YT_PROXIES[idx](url), { signal: AbortSignal.timeout(9000) });
+      if (res.ok) {
+        try { localStorage.setItem(YT_PROXY_KEY, String(idx)); } catch {}
+        return res;
+      }
+      lastErr = new Error(`проксі повернув HTTP ${res.status}`);
     } catch (e) { lastErr = e; }
   }
   throw lastErr ?? new Error("Усі проксі недоступні");
@@ -413,6 +425,8 @@ async function fetchLatestVideo(channelId) {
   const res = await ytFetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
   const xml = await res.text();
   const doc = new DOMParser().parseFromString(xml, "text/xml");
+  // Проксі часто віддає HTML-сторінку помилки зі статусом 200 — не вважаємо це успіхом.
+  if (doc.querySelector("parsererror")) throw new Error("проксі повернув не XML");
   const entry = doc.querySelector("entry");
   if (!entry) throw new Error("немає відео");
   return {
@@ -1297,6 +1311,13 @@ export default function AITracker() {
     try { return JSON.parse(localStorage.getItem(YT_VIDEOS_KEY) ?? "{}"); } catch { return {}; }
   });
   const [ytLoading, setYtLoading] = useState(false);
+
+  // Коли востаннє реально вдалося оновити стрічку. Якщо давно — проксі впали,
+  // і список відео застарілий. Без цього індикатора збій лишається непомітним.
+  const ytFetchedAt = useMemo(() => {
+    const ts = YT_CHANNELS.map(c => ytData[c.handle]?.fetchedAt).filter(Boolean);
+    return ts.length ? Math.max(...ts) : null;
+  }, [ytData]);
 
   const refreshYouTube = useCallback(async (force = false) => {
     setYtLoading(true);
@@ -2667,7 +2688,23 @@ export default function AITracker() {
             {/* AI-канали на YouTube */}
             <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, gap: 10, flexWrap: "wrap" }}>
-                <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2 }}>📺 AI Канали</div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+                  <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2 }}>📺 AI Канали</div>
+                  {(() => {
+                    if (ytLoading) return null;
+                    if (!ytFetchedAt) return null;
+                    const mins = Math.floor((Date.now() - ytFetchedAt) / 60000);
+                    const stale = mins > 180; // TTL 30 хв, тож 3 год без успіху = проксі не працюють
+                    const txt = mins < 1 ? "щойно" : mins < 60 ? `${mins} хв тому`
+                      : mins < 1440 ? `${Math.floor(mins / 60)} год тому` : `${Math.floor(mins / 1440)} дн тому`;
+                    return (
+                      <span title={stale ? "Не вдається оновити стрічку — CORS-проксі недоступні. Натисни «↻ Оновити»." : "Час останнього успішного оновлення"}
+                        style={{ fontSize: 10, fontFamily: "'Space Mono',monospace", color: stale ? "#ff4444" : "#6a5f40" }}>
+                        {stale ? "⚠ не оновлюється · " : "оновлено "}{txt}
+                      </span>
+                    );
+                  })()}
+                </div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <button className="act-btn" onClick={() => refreshYouTube(true)} disabled={ytLoading}
                     style={{ background: "rgba(138,120,80,0.08)", border: "1px solid rgba(138,120,80,0.4)", color: "#9a8a60", padding: "6px 12px", borderRadius: 4, cursor: ytLoading ? "default" : "pointer", fontSize: 11, fontFamily: "'Space Mono',monospace", fontWeight: 700, opacity: ytLoading ? 0.5 : 1 }}>
