@@ -853,6 +853,7 @@ export default function AITracker() {
   const [subscriptions, setSubscriptions] = useState(saved?.subscriptions ?? []);
   const [subCheckedMonth, setSubCheckedMonth] = useState(saved?.subCheckedMonth ?? null);
   const [subPrompt, setSubPrompt] = useState(null); // { items: [{...sub, checked: bool}] }
+  const [subEdit, setSubEdit] = useState(null);     // { id, amount, currency, billingDay } — інлайн-редагування підписки
   const [subForm, setSubForm] = useState({ name: "", catId: "exp_other", amount: "", currency: "USD", startDate: todayStr() });
   const [showSubForm, setShowSubForm] = useState(false);
   const [journalOpen, setJournalOpen] = useState(false);
@@ -1596,6 +1597,26 @@ export default function AITracker() {
       if (refund > 0) loseXP(refund, "achievement", "↩ виправлення проєктних ачівок");
     }
     try { localStorage.setItem("ai_tracker_projAchFix_v2", "1"); } catch { /* ignore */ }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Одноразова міграція: 02.10.2026 ChatGPT списав $24 (а не $23) і на день раніше.
+  // Фіксуємо запис витрати, оновлюємо суму й день списання підписки на 2-ге число.
+  const chatgptFixRef = useRef(false);
+  useEffect(() => {
+    if (chatgptFixRef.current) return;
+    chatgptFixRef.current = true;
+    try { if (localStorage.getItem("ai_tracker_chatgptOct26_v1")) return; } catch { return; }
+    const sub = subscriptions.find(s => s.name === "ChatGPT" && s.active !== false && s.amount === 23);
+    if (!sub) return;
+    const DATE = "2026-10-02";
+    setSubscriptions(prev => prev.map(s => s.id === sub.id ? { ...s, amount: 24, billingDay: 2, lastBilledYM: "2026-10" } : s));
+    setExpenseEntries(prev => {
+      // Якщо жовтневе списання вже встигло додатись через підказку — правимо його, а не дублюємо.
+      const idx = prev.findIndex(e => e.subId === sub.id && e.date.startsWith("2026-10"));
+      if (idx >= 0) return prev.map((e, i) => i === idx ? { ...e, amount: 24, date: DATE } : e);
+      return [...prev, { id: `exp_${Date.now()}_${sub.id}`, catId: sub.catId, amount: 24, currency: "USD", date: DATE, note: sub.name, recurring: true, subId: sub.id }];
+    });
+    try { localStorage.setItem("ai_tracker_chatgptOct26_v1", "1"); } catch { /* ignore */ }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Одноразова міграція: частину активностей Вова залогував у червні, але робив їх
@@ -4817,13 +4838,42 @@ export default function AITracker() {
                             )}
                           </div>
                         </div>
-                        <span style={{ color: "#f43f5e", fontFamily: "'Space Mono',monospace", fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>
-                          {sub.currency === "UAH" ? `${sub.amount} грн` : `$${sub.amount}`}
-                          {sub.currency === "UAH" && <span style={{ color: "#5a4a30", fontSize: 10, marginLeft: 4 }}>(~${amtUSD.toFixed(1)})</span>}
-                        </span>
+                        {subEdit?.id === sub.id ? (
+                          <span style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
+                            <input type="number" min="0" step="0.01" value={subEdit.amount} onChange={e => setSubEdit(x => ({ ...x, amount: e.target.value }))}
+                              onKeyDown={e => { if (e.key === "Escape") setSubEdit(null); }} autoFocus
+                              style={{ width: 70, background: "rgba(8,5,2,0.8)", border: "1px solid rgba(244,63,94,0.4)", borderRadius: 3, padding: "4px 6px", color: "#f43f5e", fontSize: 12, fontFamily: "'Space Mono',monospace", textAlign: "right" }} />
+                            <select value={subEdit.currency} onChange={e => setSubEdit(x => ({ ...x, currency: e.target.value }))}
+                              style={{ background: "rgba(8,5,2,0.8)", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 3, padding: "4px 4px", color: "#c9a84c", fontSize: 11 }}>
+                              <option value="USD" style={{ background: "#0c0903" }}>USD</option>
+                              <option value="UAH" style={{ background: "#0c0903" }}>UAH</option>
+                            </select>
+                            <span style={{ fontSize: 10, color: "#6a5840", fontFamily: "'Space Mono',monospace" }}>🗓</span>
+                            <input type="number" min="1" max="31" value={subEdit.billingDay} onChange={e => setSubEdit(x => ({ ...x, billingDay: e.target.value }))} title="Число місяця, коли списується"
+                              style={{ width: 44, background: "rgba(8,5,2,0.8)", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 3, padding: "4px 6px", color: "#c9a84c", fontSize: 12, fontFamily: "'Space Mono',monospace", textAlign: "center" }} />
+                            <span style={{ fontSize: 10, color: "#6a5840", fontFamily: "'Space Mono',monospace" }}>-го</span>
+                            <button onClick={() => {
+                              const amount = parseFloat(subEdit.amount);
+                              const billingDay = Math.min(31, Math.max(1, parseInt(subEdit.billingDay) || 1));
+                              if (!amount || amount <= 0) return;
+                              setSubscriptions(prev => prev.map(s => s.id === sub.id ? { ...s, amount, currency: subEdit.currency, billingDay } : s));
+                              setSubEdit(null);
+                            }} style={{ background: "#c9a84c", color: "#000", border: "none", padding: "5px 10px", borderRadius: 3, cursor: "pointer", fontSize: 11, fontWeight: 800 }}>✓</button>
+                            <button onClick={() => setSubEdit(null)} style={{ background: "none", border: "1px solid rgba(201,168,76,0.3)", color: "#9a8a60", padding: "5px 8px", borderRadius: 3, cursor: "pointer", fontSize: 11 }}>✕</button>
+                          </span>
+                        ) : (
+                          <span style={{ color: "#f43f5e", fontFamily: "'Space Mono',monospace", fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>
+                            {sub.currency === "UAH" ? `${sub.amount} грн` : `$${sub.amount}`}
+                            {sub.currency === "UAH" && <span style={{ color: "#5a4a30", fontSize: 10, marginLeft: 4 }}>(~${amtUSD.toFixed(1)})</span>}
+                          </span>
+                        )}
                         <span style={{ fontSize: 10, color: isActive ? "#10b981" : "#f59e0b", background: isActive ? "rgba(16,185,129,0.12)" : "rgba(245,158,11,0.12)", border: `1px solid ${isActive ? "rgba(16,185,129,0.3)" : "rgba(245,158,11,0.3)"}`, borderRadius: 10, padding: "2px 8px", fontFamily: "'Space Mono',monospace", whiteSpace: "nowrap" }}>
                           {isActive ? "🟢 активна" : "⏸ пауза"}
                         </span>
+                        {subEdit?.id !== sub.id && (
+                          <button onClick={() => setSubEdit({ id: sub.id, amount: sub.amount, currency: sub.currency ?? "USD", billingDay: sub.billingDay ?? (sub.startDate ? new Date(sub.startDate + "T00:00:00").getDate() : 1) })} title="Редагувати суму / день списання"
+                            style={{ background: "none", border: "1px solid rgba(201,168,76,0.25)", color: "#c9a84c", padding: "5px 8px", borderRadius: 3, cursor: "pointer", fontSize: 11, lineHeight: 1 }}>✏️</button>
+                        )}
                         <button onClick={() => setSubscriptions(prev => prev.map(s => s.id === sub.id ? { ...s, active: !isActive } : s))} style={{ background: isActive ? "rgba(245,158,11,0.1)" : "rgba(16,185,129,0.1)", border: `1px solid ${isActive ? "rgba(245,158,11,0.35)" : "rgba(16,185,129,0.35)"}`, color: isActive ? "#f59e0b" : "#10b981", padding: "5px 10px", borderRadius: 3, cursor: "pointer", fontSize: 11, fontWeight: 700 }}>
                           {isActive ? "⏸" : "▶"}
                         </button>
