@@ -4483,9 +4483,9 @@ export default function AITracker() {
                                 </div>
                                 <div style={{ textAlign: "right" }}>
                                   <div style={{ color: "#f43f5e", fontFamily: "'Space Mono',monospace", fontWeight: 700, fontSize: 16 }}>
-                                    −{sub.currency === "UAH" ? `${sub.amount} грн` : `$${sub.amount}`}
+                                    −${sub.currency === "UAH" ? amtUSD.toFixed(2) : sub.amount}
                                   </div>
-                                  {sub.currency === "UAH" && <div style={{ display: "inline-block", marginTop: 3, fontSize: 11, fontWeight: 700, color: "#d8c89a", background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.28)", borderRadius: 4, padding: "1px 6px", fontFamily: "'Space Mono',monospace" }}>≈ ${amtUSD.toFixed(2)}</div>}
+                                  {sub.currency === "UAH" && <div style={{ marginTop: 2, fontSize: 10, color: "#5a4a30", fontFamily: "'Space Mono',monospace" }}>{sub.amount} грн</div>}
                                 </div>
                               </div>
                             );
@@ -4533,10 +4533,10 @@ export default function AITracker() {
                                   </div>
                                   <div style={{ textAlign: "right", flexShrink: 0 }}>
                                     <div style={{ color: isInc ? "#10b981" : "#f43f5e", fontFamily: "'Space Mono',monospace", fontWeight: 700, fontSize: 16 }}>
-                                      {isInc ? "+" : "−"}{tx.currency === "UAH" ? `${tx.amount} грн` : `$${tx.amount}`}
+                                      {isInc ? "+" : "−"}${tx.currency === "UAH" ? amtUSD.toFixed(2) : tx.amount}
                                     </div>
                                     {tx.currency === "UAH" && (
-                                      <div style={{ display: "inline-block", marginTop: 3, fontSize: 11, fontWeight: 700, color: "#d8c89a", background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.28)", borderRadius: 4, padding: "1px 6px", fontFamily: "'Space Mono',monospace" }}>≈ ${amtUSD.toFixed(2)}</div>
+                                      <div style={{ marginTop: 2, fontSize: 10, color: "#5a4a30", fontFamily: "'Space Mono',monospace" }}>{tx.amount} грн</div>
                                     )}
                                   </div>
                                   <button onClick={() => isInc ? refundIncomeEntry(tx.id) : startDelete(tx.id, "expense")} style={{ background: "none", border: "none", color: "#5a3a30", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "4px 6px", flexShrink: 0, transition: "color 0.15s" }} onMouseEnter={e => e.target.style.color="#f43f5e"} onMouseLeave={e => e.target.style.color="#5a3a30"}>×</button>
@@ -4595,8 +4595,8 @@ export default function AITracker() {
                               </td>
                               <td colSpan={months.length} />
                               <td style={{ textAlign: "right", padding: "6px 8px", color: "#10b981", fontSize: 11 }}>
-                                {entry.currency === "UAH" ? `${entry.amount} грн` : `$${entry.amount}`}
-                                {entry.currency === "UAH" && <span style={{ color: "#5a4a30", marginLeft: 4 }}>(${toUSD(entry.amount, entry.currency).toFixed(2)})</span>}
+                                ${toUSD(entry.amount, entry.currency).toFixed(2)}
+                                {entry.currency === "UAH" && <span style={{ color: "#5a4a30", marginLeft: 4, fontSize: 10 }}>{entry.amount} грн</span>}
                               </td>
                               <td style={{ textAlign: "right", padding: "4px", whiteSpace: "nowrap" }}>
                                 <button onClick={() => refundIncomeEntry(entry.id)} title="Повернути кошти (знімає XP)" style={{ background: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.3)", color: "#f43f5e", cursor: "pointer", fontSize: 10, padding: "3px 6px", borderRadius: 3, marginRight: 4 }}>📤 Повернути</button>
@@ -4684,8 +4684,8 @@ export default function AITracker() {
                               </td>
                               <td colSpan={months.length} />
                               <td style={{ textAlign: "right", padding: "6px 8px", color: "#f43f5e", fontSize: 11 }}>
-                                {entry.currency === "UAH" ? `${entry.amount} грн` : `$${entry.amount}`}
-                                {entry.currency === "UAH" && <span style={{ color: "#5a4a30", marginLeft: 4 }}>(${toUSD(entry.amount, entry.currency).toFixed(2)})</span>}
+                                ${toUSD(entry.amount, entry.currency).toFixed(2)}
+                                {entry.currency === "UAH" && <span style={{ color: "#5a4a30", marginLeft: 4, fontSize: 10 }}>{entry.amount} грн</span>}
                               </td>
                               <td style={{ textAlign: "right", padding: "4px" }}>
                                 <button onClick={() => startDelete(entry.id, "expense")} title="Видалити запис" style={{ background: "none", border: "1px solid rgba(201,168,76,0.2)", color: "#5a4a30", cursor: "pointer", fontSize: 10, padding: "3px 6px", borderRadius: 3 }}>🗑</button>
@@ -4893,8 +4893,8 @@ export default function AITracker() {
                           </span>
                         ) : (
                           <span style={{ color: "#f43f5e", fontFamily: "'Space Mono',monospace", fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>
-                            {sub.currency === "UAH" ? `${sub.amount} грн` : `$${sub.amount}`}
-                            {sub.currency === "UAH" && <span style={{ color: "#5a4a30", fontSize: 10, marginLeft: 4 }}>(~${amtUSD.toFixed(1)})</span>}
+                            ${sub.currency === "UAH" ? amtUSD.toFixed(1) : sub.amount}
+                            {sub.currency === "UAH" && <span style={{ color: "#5a4a30", fontSize: 10, fontWeight: 400, marginLeft: 4 }}>{sub.amount} грн</span>}
                           </span>
                         )}
                         <span style={{ fontSize: 10, color: isActive ? "#10b981" : "#f59e0b", background: isActive ? "rgba(16,185,129,0.12)" : "rgba(245,158,11,0.12)", border: `1px solid ${isActive ? "rgba(16,185,129,0.3)" : "rgba(245,158,11,0.3)"}`, borderRadius: 10, padding: "2px 8px", fontFamily: "'Space Mono',monospace", whiteSpace: "nowrap" }}>
@@ -5079,7 +5079,8 @@ export default function AITracker() {
                                   <span style={{ color: "#5a4a30" }}>{r.d.slice(8)}</span> {r.t}
                                 </span>
                                 <span style={{ fontSize: 10, fontWeight: 700, color: r.inc ? "#10b981" : "#f43f5e", whiteSpace: "nowrap" }}>
-                                  {r.inc ? "+" : "−"}{r.raw ?? `$${r.usd.toFixed(r.usd % 1 ? 2 : 0)}`}
+                                  {r.inc ? "+" : "−"}${r.usd.toFixed(r.usd % 1 ? 2 : 0)}
+                                  {r.raw && <span style={{ color: "#5a4a30", fontWeight: 400, fontSize: 8.5, marginLeft: 4 }}>{r.raw}</span>}
                                 </span>
                               </div>
                             ))}
