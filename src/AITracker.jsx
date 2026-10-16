@@ -5030,6 +5030,13 @@ export default function AITracker() {
                   const leftPct = px(i) / W * 100;
                   const flipLeft = i >= 9;
                   const fmtAmt = (v) => `$${Math.round(Math.abs(v))}`;
+                  // Розбивка місяця: кожен запис доходу/витрати з назвою — щоб бачити, за що саме.
+                  const ym = `${chartYear}-${String(i + 1).padStart(2, "0")}`;
+                  const label = (e, cats) => e.note || cats.find(c => c.id === e.catId)?.name || "—";
+                  const rows = [
+                    ...incomeEntries.filter(e => e.date.startsWith(ym)).map(e => ({ d: e.date, t: label(e, incomeCats), usd: toUSD(e.amount, e.currency), raw: e.currency === "UAH" ? `${e.amount} грн` : null, inc: true })),
+                    ...expenseEntries.filter(e => e.date.startsWith(ym)).map(e => ({ d: e.date, t: label(e, expenseCats), usd: toUSD(e.amount, e.currency), raw: e.currency === "UAH" ? `${e.amount} грн` : null, inc: false })),
+                  ].sort((a, b) => a.d.localeCompare(b.d));
                   return (
                     <div style={{
                       position: "absolute", top: 6,
@@ -5064,6 +5071,20 @@ export default function AITracker() {
                             {net >= 0 ? "+" : "-"}{fmtAmt(net)}
                           </span>
                         </div>
+                        {rows.length > 0 && (
+                          <div style={{ borderTop: "1px solid rgba(201,168,76,0.18)", marginTop: 3, paddingTop: 5, display: "flex", flexDirection: "column", gap: 2, maxHeight: 190, overflowY: "auto" }}>
+                            {rows.map((r, k) => (
+                              <div key={k} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
+                                <span style={{ fontSize: 9, color: "#8a7a50", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 150 }}>
+                                  <span style={{ color: "#5a4a30" }}>{r.d.slice(8)}</span> {r.t}
+                                </span>
+                                <span style={{ fontSize: 10, fontWeight: 700, color: r.inc ? "#10b981" : "#f43f5e", whiteSpace: "nowrap" }}>
+                                  {r.inc ? "+" : "−"}{r.raw ?? `$${r.usd.toFixed(r.usd % 1 ? 2 : 0)}`}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
