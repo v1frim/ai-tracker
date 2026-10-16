@@ -1619,6 +1619,21 @@ export default function AITracker() {
     try { localStorage.setItem("ai_tracker_chatgptOct26_v1", "1"); } catch { /* ignore */ }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Одноразова міграція: Syntx (910 грн) не списався 4-го жовтня; Вова переніс день на 16-те
+  // і списання відбулося 16.10.2026 — фіксуємо витрату, якщо жовтневої ще немає.
+  const syntxFixRef = useRef(false);
+  useEffect(() => {
+    if (syntxFixRef.current) return;
+    syntxFixRef.current = true;
+    try { if (localStorage.getItem("ai_tracker_syntxOct26_v1")) return; } catch { return; }
+    const sub = subscriptions.find(s => s.name === "Syntx" && s.active !== false && s.currency === "UAH");
+    if (!sub) return;
+    setSubscriptions(prev => prev.map(s => s.id === sub.id ? { ...s, billingDay: 16, lastBilledYM: "2026-10" } : s));
+    setExpenseEntries(prev => prev.some(e => e.subId === sub.id && e.date.startsWith("2026-10")) ? prev
+      : [...prev, { id: `exp_${Date.now()}_${sub.id}`, catId: sub.catId, amount: sub.amount, currency: "UAH", date: "2026-10-16", note: sub.name, recurring: true, subId: sub.id }]);
+    try { localStorage.setItem("ai_tracker_syntxOct26_v1", "1"); } catch { /* ignore */ }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Одноразова міграція: частину активностей Вова залогував у червні, але робив їх
   // раніше. Переносимо в «До» (раніше): зменшуємо датований metricLog на ці кількості,
   // НЕ чіпаючи загальні лічильники → різниця (total − журнал) сама йде в «До» всюди.
@@ -4790,7 +4805,12 @@ export default function AITracker() {
                 <div style={{ fontSize: 12, color: "#5a4a30", textAlign: "center", padding: "14px 0" }}>Немає активних підписок</div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {[...subscriptions].sort((a, b) => (b.startDate ?? "").localeCompare(a.startDate ?? "")).slice(0, showAllSubs ? undefined : 7).map(sub => {
+                  {[...subscriptions].sort((a, b) => {
+                    // Активні зверху, паузні внизу («архів»); всередині — новіші першими.
+                    const aa = a.active !== false ? 0 : 1, ba = b.active !== false ? 0 : 1;
+                    if (aa !== ba) return aa - ba;
+                    return (b.startDate ?? "").localeCompare(a.startDate ?? "");
+                  }).slice(0, showAllSubs ? undefined : 7).map(sub => {
                     const amtUSD = sub.currency === "UAH" ? sub.amount / uahRate : sub.amount;
                     const isActive = sub.active !== false;
                     const cat = expenseCats.find(c => c.id === sub.catId);
@@ -4856,8 +4876,18 @@ export default function AITracker() {
                               const amount = parseFloat(subEdit.amount);
                               const billingDay = Math.min(31, Math.max(1, parseInt(subEdit.billingDay) || 1));
                               if (!amount || amount <= 0) return;
-                              setSubscriptions(prev => prev.map(s => s.id === sub.id ? { ...s, amount, currency: subEdit.currency, billingDay } : s));
+                              const updated = { ...sub, amount, currency: subEdit.currency, billingDay };
+                              setSubscriptions(prev => prev.map(s => s.id === sub.id ? updated : s));
                               setSubEdit(null);
+                              // «Цей день настав»: якщо новий день списання вже минув/сьогодні, а цього
+                              // місяця списання ще не було — одразу пропонуємо списати (навіть якщо
+                              // підказку раніше пропустили: lastBilledYM тут не блокує).
+                              const now = new Date(), ym = now.toISOString().slice(0, 7);
+                              const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+                              const billedThisMonth = expenseEntries.some(e => e.subId === sub.id && e.date.startsWith(ym));
+                              if (updated.active !== false && !billedThisMonth && now.getDate() >= Math.min(billingDay, dim)) {
+                                setSubPrompt({ items: [{ ...updated, checked: true }] });
+                              }
                             }} style={{ background: "#c9a84c", color: "#000", border: "none", padding: "5px 10px", borderRadius: 3, cursor: "pointer", fontSize: 11, fontWeight: 800 }}>✓</button>
                             <button onClick={() => setSubEdit(null)} style={{ background: "none", border: "1px solid rgba(201,168,76,0.3)", color: "#9a8a60", padding: "5px 8px", borderRadius: 3, cursor: "pointer", fontSize: 11 }}>✕</button>
                           </span>
