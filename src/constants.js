@@ -234,7 +234,6 @@ export const YT_CHANNELS = [
   { handle: "AIGeniy",          name: "Штучний Геній",  channelId: "UCNptVg1AvxwdXZJ6bVP2Z6Q" },
   { handle: "Web3nity",         name: "Web3nity",       channelId: "UCuaYG7fdQ-4myL_CVtvwNHQ" },
   { handle: "s_belyak",         name: "Сергій Беляк" },
-  { handle: "traffic_system",   name: "Гришин Трафік",  channelId: "UC2YAEMGLlJphyeh5qNUAL_w" },
   { handle: "mikhail.timochko", name: "Михаил Тимочко", channelId: "UCudUZhJR8BUTiJ_njlAqr_w" },
   { handle: "RusanovSasha",     name: "AlexRusanov AI" },
   { handle: "aishny",           name: "ИИШНЫЙ",         channelId: "UCRArIk56Yl7ui2WUAKS3NGA" },
