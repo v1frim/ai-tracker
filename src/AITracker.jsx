@@ -1583,7 +1583,10 @@ export default function AITracker() {
   useEffect(() => {
     if (projAchFixRef.current) return;
     projAchFixRef.current = true;
-    try { if (localStorage.getItem("ai_tracker_projAchFix_v2")) return; } catch { /* ignore */ }
+    // v3: 30.10.2026 стару збірку знову задеплоїли з відсталого main — вона повторно видала
+    // ті самі ачівки (+1300 XP). Прапорець v2 уже спожитий, тож потрібен новий прохід.
+    // Та сама логіка підходить для будь-якого майбутнього відкату: при ньому — v4.
+    try { if (localStorage.getItem("ai_tracker_projAchFix_v3")) return; } catch { /* ignore */ }
     const completed = projects.filter(pr => pr.done && !pr.deletedAt).length;
     const wrong = ACHIEVEMENTS.filter(a => a.group === "projects" && unlockedAchievements.includes(a.id) && !a.check(0, 0, completed, {}, 0, 0, 0, 0));
     // XP ачівок старої шкали, яких немає в ACHIEVEMENTS — повертаємо за старим номіналом
@@ -1593,10 +1596,13 @@ export default function AITracker() {
       const ids = new Set([...wrong.map(a => a.id), ...legacy]);
       setUnlockedAchievements(prev => prev.filter(id => !ids.has(id)));
       setAchievementDates(prev => { const n = { ...prev }; ids.forEach(id => delete n[id]); return n; });
-      const refund = wrong.reduce((s, a) => s + a.xp, 0) + legacy.reduce((s, id) => s + LEGACY_XP[id], 0);
+      // Хибну ачівку могла видати лише стара збірка — повертаємо її номінал, а не поточний
+      // (ten_projects там коштувала 2000, а зараз 900).
+      const OLD_BUILD_XP = { ten_projects: 2000 };
+      const refund = wrong.reduce((s, a) => s + (OLD_BUILD_XP[a.id] ?? a.xp), 0) + legacy.reduce((s, id) => s + LEGACY_XP[id], 0);
       if (refund > 0) loseXP(refund, "achievement", "↩ виправлення проєктних ачівок");
     }
-    try { localStorage.setItem("ai_tracker_projAchFix_v2", "1"); } catch { /* ignore */ }
+    try { localStorage.setItem("ai_tracker_projAchFix_v3", "1"); } catch { /* ignore */ }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Одноразова міграція: 02.10.2026 ChatGPT списав $24 (а не $23) і на день раніше.
