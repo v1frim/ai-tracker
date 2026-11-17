@@ -2608,7 +2608,7 @@ export default function AITracker() {
               </div>
 
               {/* RIGHT: Activity */}
-              <div style={{ flex: 1, minWidth: 300 }}>
+              <div style={{ flex: "1 1 300px", minWidth: 0 }}>
                 {(() => {
                   const ACTIVITY_TRACKERS = ACTIVITY_DEFS;
                   const todayRows = ACTIVITY_TRACKERS
@@ -2618,7 +2618,7 @@ export default function AITracker() {
                   return (
                     <div style={{ background: "rgba(5,3,1,0.76)", border: "1px solid rgba(201,168,76,0.20)", borderRadius: 4, padding: 18 }}>
                       <div style={{ fontFamily: "'Exo 2',sans-serif", fontSize: 12, fontWeight: 700, color: "#c9a84c", textTransform: "uppercase", letterSpacing: 2, marginBottom: 14 }}>⚡ Активність</div>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(155px, 1fr))", gap: 12 }}>
                         {ACTIVITY_TRACKERS.map(tr => {
                           const count = tr.kind === "learn"
                             ? (learnTime[tr.key] ?? 0)
