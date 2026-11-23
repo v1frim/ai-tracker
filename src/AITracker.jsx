@@ -324,33 +324,64 @@ async function verifyPermission(handle, write) {
   return false;
 }
 
-// Зробити копію: перший раз — діалог вибору файлу, далі — тихий перезапис того ж файлу.
-// Повертає "saved" | "downloaded".
-async function backupToDisk() {
-  const json = collectBackupData();
-  if (window.showSaveFilePicker) {
-    let handle = await idbGet("backup").catch(() => null);
-    if (!handle) {
-      handle = await window.showSaveFilePicker({
-        suggestedName: BACKUP_FILENAME,
-        types: [{ description: "JSON", accept: { "application/json": [".json"] } }],
-      });
-      await idbSet("backup", handle).catch(() => {});
-    }
-    if (!(await verifyPermission(handle, true))) throw new Error("Немає доступу до файлу");
-    const writable = await handle.createWritable();
-    await writable.write(json);
-    await writable.close();
-    return "saved";
-  }
-  // Fallback (Safari/Firefox): звичайне завантаження.
+// ⚠️ (23.11.2026, «перестало зберігати») Chrome скидає дозвіл на файл після перезапуску/оновлення,
+// а requestPermission / createWritable інколи ЗАВИСАЮТЬ (файл у синхронізованій папці, OneDrive тощо) —
+// кнопка тоді назавжди лишалась disabled і нічого не казала. Тепер кожен крок має тайм-аут,
+// будь-який збій → копія СКАЧУЄТЬСЯ звичайним файлом, а прив'язку забуваємо (наступний клік — вибір файлу).
+function backupStep(label, promise, ms = 8000) {
+  return Promise.race([promise, new Promise((_, rej) => setTimeout(() => {
+    const e = new Error(`крок «${label}» не відповів за ${Math.round(ms / 1000)} с`); e.name = "Timeout"; rej(e);
+  }, ms))]);
+}
+
+function downloadBackup(json) {
   const blob = new Blob([json], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url; a.download = BACKUP_FILENAME;
   document.body.appendChild(a); a.click(); a.remove();
-  URL.revokeObjectURL(url);
-  return "downloaded";
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+// Зробити копію: перший раз — діалог вибору файлу, далі — тихий перезапис того ж файлу.
+// pickNew = true (Shift+клік) — одразу вибір нового файлу.
+// Повертає "saved" | "downloaded" | { fallback: причина } (скачано файлом через збій).
+async function backupToDisk(pickNew = false, onStep = () => {}) {
+  const json = collectBackupData();
+  if (!window.showSaveFilePicker) { downloadBackup(json); return "downloaded"; }
+  const fail = async (e) => {
+    await idbSet("backup", undefined).catch(() => {});
+    downloadBackup(json);
+    return { fallback: `${e?.name || "Error"}: ${e?.message || e}` };
+  };
+  let handle = null;
+  if (!pickNew) {
+    onStep("файл копії");
+    handle = await backupStep("файл копії", idbGet("backup"), 4000).catch(() => null);
+  }
+  if (!handle) {
+    onStep("вибір файлу");
+    handle = await window.showSaveFilePicker({   // AbortError (закрив діалог) летить нагору — це не збій
+      suggestedName: BACKUP_FILENAME,
+      types: [{ description: "JSON", accept: { "application/json": [".json"] } }],
+    });
+    await idbSet("backup", handle).catch(() => {});
+  } else {
+    try {
+      onStep("дозвіл");
+      if (!(await backupStep("дозвіл", verifyPermission(handle, true), 15000)))
+        return fail(new Error("браузер не дав дозволу на запис у файл"));
+    } catch (e) { return fail(e); }
+  }
+  try {
+    onStep("запис");
+    await backupStep("запис", (async () => {
+      const writable = await handle.createWritable();
+      await writable.write(json);
+      await writable.close();
+    })());
+    return "saved";
+  } catch (e) { return fail(e); }
 }
 
 // Тихий авто-запис у вже прив'язаний файл. Нічого не питає у користувача:
@@ -447,7 +478,8 @@ async function autoBackupActive() {
   if (!window.showSaveFilePicker) return false;
   const handle = await idbGet("backup").catch(() => null);
   if (!handle) return false;
-  return (await handle.queryPermission({ mode: "readwrite" })) === "granted";
+  const st = await handle.queryPermission({ mode: "readwrite" });
+  return st === "granted" ? true : "needs"; // "needs" — файл прив'язаний, але браузер скинув дозвіл
 }
 
 // Скинути прив'язаний файл (щоб наступна копія знову спитала, куди зберігати).
@@ -1261,18 +1293,26 @@ export default function AITracker() {
   // На старті перевіряємо, чи авто-копія активна (файл прив'язаний + дозвіл наданий).
   useEffect(() => { autoBackupActive().then(setAutoBackupOn).catch(() => {}); }, []);
 
-  const handleBackup = useCallback(async () => {
+  const [backupStepLabel, setBackupStepLabel] = useState(null);
+  const handleBackup = useCallback(async (ev) => {
     setBackupBusy(true);
     try {
-      const res = await backupToDisk();
+      const res = await backupToDisk(!!ev?.shiftKey, setBackupStepLabel);
       const now = new Date().toISOString();
       localStorage.setItem(BACKUP_AT_KEY, now);
       setBackupAt(now);
-      if (res === "saved") setAutoBackupOn(true);
-      showNotif(res === "saved" ? "💾 Копію збережено — далі оновлюється авто" : "💾 Копію завантажено", "xp");
+      if (res === "saved") {
+        setAutoBackupOn(true);
+        showNotif("💾 Копію збережено — далі оновлюється авто", "xp");
+      } else if (res?.fallback) {
+        setAutoBackupOn(false);
+        alert("Не вдалось записати у файл копії: " + res.fallback + ".\n\nКопію СКАЧАНО звичайним файлом (папка «Завантаження»).\n" +
+          "Наступного разу натисни «Зробити копію» ще раз — відкриється вибір файлу, куди писати копію автоматично.");
+      } else showNotif("💾 Копію завантажено", "xp");
     } catch (e) {
       if (e?.name !== "AbortError") showNotif("⚠️ " + (e?.message || "Не вдалося зберегти"), "warn");
     } finally {
+      setBackupStepLabel(null);
       setBackupBusy(false);
     }
   }, [showNotif]);
@@ -1286,13 +1326,16 @@ export default function AITracker() {
   // Авто-копія: коли дані змінились і файл прив'язаний — тихо перезаписуємо
   // його з невеликою затримкою (debounce), щоб не смикати диск щосекунди.
   useEffect(() => {
-    if (!autoBackupOn) return;
+    if (autoBackupOn !== true) return;
     const id = setTimeout(async () => {
       const ok = await silentBackupToDisk().catch(() => false);
       if (ok) {
         const now = new Date().toISOString();
         localStorage.setItem(BACKUP_AT_KEY, now);
         setBackupAt(now);
+      } else {
+        // Дозвіл злетів посеред сесії / файл зник — показуємо підказку замість мовчання.
+        autoBackupActive().then(setAutoBackupOn).catch(() => setAutoBackupOn(false));
       }
     }, 3000);
     return () => clearTimeout(id);
@@ -2820,7 +2863,7 @@ export default function AITracker() {
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 <button className="act-btn" onClick={handleBackup} disabled={backupBusy}
                   style={{ background: "rgba(0,255,136,0.1)", border: "1px solid #00ff88", color: "#00ff88", padding: "10px 16px", borderRadius: 4, cursor: backupBusy ? "default" : "pointer", fontSize: 12, fontFamily: "'Space Mono',monospace", fontWeight: 700, opacity: backupBusy ? 0.5 : 1 }}>
-                  💾 Зробити копію
+                  {backupStepLabel ? `⏳ ${backupStepLabel}…` : "💾 Зробити копію"}
                 </button>
                 <button className="act-btn" onClick={handleRestore} disabled={backupBusy}
                   style={{ background: "rgba(245,158,11,0.1)", border: "1px solid #f59e0b", color: "#f59e0b", padding: "10px 16px", borderRadius: 4, cursor: backupBusy ? "default" : "pointer", fontSize: 12, fontFamily: "'Space Mono',monospace", fontWeight: 700, opacity: backupBusy ? 0.5 : 1 }}>
@@ -2838,9 +2881,15 @@ export default function AITracker() {
                   ? `Остання копія: ${new Date(backupAt).toLocaleString("uk-UA", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })} ✓`
                   : "Копій ще не було — зроби першу 👆"}
               </div>
-              {autoBackupOn && (
+              {autoBackupOn === true && (
                 <div style={{ marginTop: 6, fontSize: 11, color: "#00ff88", fontFamily: "'Space Mono',monospace" }}>
                   🟢 Авто-оновлення увімкнено
+                </div>
+              )}
+              {autoBackupOn === "needs" && (
+                <div style={{ marginTop: 6, fontSize: 11, color: "#f59e0b", fontFamily: "'Space Mono',monospace", lineHeight: 1.5 }}>
+                  ⚠️ Авто-оновлення на паузі: браузер скинув дозвіл на файл (після перезапуску чи оновлення Chrome).
+                  Натисни «Зробити копію» і в запиті обери «Дозволяти під час кожного відвідування». Shift+клік — вибрати інший файл.
                 </div>
               )}
             </div>
